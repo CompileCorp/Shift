@@ -1,0 +1,14 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="Shift.Cli/Shift.Cli.csproj" />
+    <Project Path="Shift/Shift.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/Shift.Tests/Shift.Tests.csproj" />
+  </Folder>
+</Solution>
