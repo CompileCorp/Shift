@@ -1,0 +1,31 @@
+model SalesInvoiceItem with Auditable {
+  model SalesDocket
+  model SalesInvoice
+  model SaleUnit? as SalesUnitID
+  string(50)? AdjustmentType
+  float CentreDiameter
+  int? Class
+  string(30)? ClassDescription
+  float CompBaseRoyal
+  float CompMin
+  string(50) CuttersCode
+  float DamageLevel
+  string(50) DocketNumber
+  int FinalClassification
+  int InitialClassification
+  float Length
+  int LogNumber
+  float Mass
+  datetime? MeasureDate
+  float OptBaseRoyal
+  float OptMin
+  string(30)? ProductCode
+  float Quantity
+  int RefNumber
+  string(30)? SaleUnitCode
+  string(50) SpeciesCode
+  float TotalValue
+  string(30)? Unit
+  float ValuePerUnit
+  float Volume
+}

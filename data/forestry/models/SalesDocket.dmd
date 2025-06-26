@@ -1,0 +1,34 @@
+model SalesDocket with Auditable {
+  model ForestrySystemType?
+  model SalesDocketBatchHeader?
+  model SalesDocketStatusType
+  model SalesInvoice?
+  model SalesPermit
+  string(50)? CrownHammer
+  string(50)? Cutter
+  bool DeleteDetails
+  string(255)? DeleteReason
+  string(50) DocketNumber
+  int DocketTypeID
+  string(50)? FinalClassifier
+  string(50)? FinalInspection
+  string(50)? FinalReviewer
+  string(50)? InitialInspection
+  string(50)? InspectorFinal
+  string(50)? InspectorInitial
+  bool IsCurrent
+  datetime MeasureDate
+  string(50)? Measurer
+  datetime ReceiveDate
+  int TotalCentreDiameter
+  int TotalCutter
+  int? TotalDline
+  int TotalFinalClassification
+  int? TotalLines
+  int TotalLogLength
+  int TotalLogNumber
+  int? TotalSED_CD
+  int Version
+  key (DocketNumber)
+  key (DocketNumber, Version)
+}

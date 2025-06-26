@@ -1,0 +1,6 @@
+model ZoneCommunicationAuthority with Auditable {
+  model Authority
+  model Communication
+  model ZoneCommunication
+  datetime EffectiveDateTime
+}

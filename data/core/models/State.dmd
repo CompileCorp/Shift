@@ -1,0 +1,4 @@
+model State with Auditable {
+  bool Active
+  string(25) StateDescription
+}

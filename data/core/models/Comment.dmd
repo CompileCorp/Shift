@@ -1,0 +1,4 @@
+model Comment with Auditable {
+  model CommentThread
+  string Body
+}

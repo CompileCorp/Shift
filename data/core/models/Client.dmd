@@ -1,0 +1,23 @@
+model Client with Auditable {
+  model Address? as Postal
+  model Address? as Residential
+  model ClientStatus
+  model ClientType
+  model CommentThread?
+  model EthnicityType?
+  string(20)? AfterHoursPhone
+  string(20)? BusinessPhone
+  string(4)? Code
+  string(20)? CompanyACN
+  int? DlsApplicantID
+  datetime? DOB
+  astring(100)? Email
+  string(20)? Fax
+  string(512) Fullname
+  bool IsAssignedPassword
+  string(100)? Mobile
+  string(10)? SAPClientID
+  astring(100)? SecondaryEmail
+  bool SmsOptOut
+  index (Email, ClientStatus)
+}

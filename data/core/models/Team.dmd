@@ -1,0 +1,5 @@
+model Team with Auditable {
+  string(256)? BusinessUnit
+  string(128) Name
+  key (Name)
+}

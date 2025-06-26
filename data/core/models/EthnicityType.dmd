@@ -1,0 +1,4 @@
+model EthnicityType with Auditable {
+  bool Active
+  string(100) EthnicityTypeDescription
+}

@@ -1,0 +1,5 @@
+model ClientInvoiceAuthority with Auditable {
+  model Authority?
+  model ClientInvoice
+  string(1024)? BoatMarks
+}

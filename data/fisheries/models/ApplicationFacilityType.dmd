@@ -1,0 +1,4 @@
+model ApplicationFacilityType with Auditable {
+  model Application
+  model FacilityType
+}

@@ -1,0 +1,5 @@
+model Volume with Auditable {
+  int LengthClass
+  int StrengthRating
+  float Volume
+}

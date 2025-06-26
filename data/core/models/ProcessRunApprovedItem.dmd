@@ -1,0 +1,5 @@
+model ProcessRunApprovedItem with Auditable {
+  model ProcessRun
+  bool Completed
+  string(256) ItemID
+}

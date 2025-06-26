@@ -1,0 +1,11 @@
+model Association with Auditable {
+  model AssociationType
+  model Authority? as Source
+  model Client as Associated
+  model Client as Source
+  string(100)? AssociationSubType
+  bool Expired
+  bool Started
+  datetime? ValidFromDate
+  datetime? ValidToDate
+}

@@ -1,0 +1,4 @@
+model BoatMark with Auditable {
+  string(10) BoatMark
+  index (BoatMark)
+}

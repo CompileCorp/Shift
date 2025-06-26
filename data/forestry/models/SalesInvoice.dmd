@@ -1,0 +1,15 @@
+model SalesInvoice with Auditable {
+  model Client
+  model ForestrySystemType?
+  model SalesDocketType?
+  model SalesInvoice? as OriginalInvoiceID
+  model SalesPermit?
+  float CompVolume
+  datetime InvoiceDate
+  astring(50)? InvoiceNumber
+  int Items
+  float OptVolume
+  string(10) SalesInvoiceStatusType
+  float TotalValue
+  float TotalVolume
+}

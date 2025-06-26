@@ -1,0 +1,86 @@
+model Application with Auditable {
+  model Address? as ApplicantClient
+  model Address? as Client
+  model Application? as Parent
+  model ApplicationLGA?
+  model ApplicationLGALocality?
+  model ApplicationSARARegion?
+  model ApplicationStatus
+  model ApplicationType
+  model AssessmentLevel?
+  model AssessmentManagerType?
+  model AuthorityReasonType?
+  model Client? as Applicant
+  model Client?
+  model ClientType? as Applicant
+  model ClientType?
+  model CommentThread
+  model DisturbanceType?
+  model FishHabitatArea?
+  model MarinePlant?
+  model PaymentStatus?
+  model Team?
+  model TidalAquacultureType?
+  model User? as AssessingOfficer
+  model User? as Delegate
+  model User? as WithdrawnBy
+  string? AdviceRequested
+  string(100)? ApplicantClientEmail
+  string(100)? ApplicantClientMobileNumber
+  string(512)? ApplicantClientName
+  string(100)? ApplicantClientPhoneNumber
+  string(20)? ApplicationReferenceID
+  string(20)? ApprovedPlanReferenceID
+  string(200)? AquacultureOccuranceDescription
+  string(256)? AreaOfWorks
+  int? AuthorityQuotaSuspendedUnits
+  string(100)? ClientEmail
+  string(100)? ClientMobileNumber
+  string(512)? ClientName
+  string(100)? ClientPhoneNumber
+  string(100)? DAReferenceID
+  datetime? DateOfApplication
+  datetime? DateWorkCommenced
+  datetime? DateWorkCompleted
+  string? Details
+  int? DlsApplicationID
+  datetime? DueDate
+  string(4000)? EDocsLocation
+  string(11)? EDocsReferenceID
+  datetime? ExpectedCompletionDate
+  datetime? ExpiryDate
+  string(20)? FeeInvoice
+  string(20)? FeeReceipt
+  decimal(12,2)? Fees
+  string(max)? IntendedOutcomeReason
+  bool? IsSingleClient
+  datetime? IssueDate
+  decimal(8,2)? MarineBondAmount
+  datetime? MarineBondReceived
+  string(50)? MarineBondReferenceNumber
+  bool? MarineBondRequired
+  datetime? MarineBondReturned
+  datetime? MarineExpiryDate
+  string(128)? MarinePlantOther
+  datetime? MarineReviewedDate
+  datetime? MeetingDate
+  bool? MeetingRequested
+  string(20)? MyDas
+  bool? OwnerConsentProvided
+  bool? OwnerSameAsClient
+  string(100)? OwnersName
+  datetime? PaymentDate
+  decimal(4,2)? PondSurfaceArea
+  string(100)? ProposedDevelopment
+  decimal(18,5)? ProposedImpactArea
+  datetime? ReceivedDate
+  datetime? ResponseDeadlineDate
+  string(200)? SecurityProvider
+  int? TankFloorArea
+  int? TimeFrame
+  datetime? WithdrawalDate
+  string(300)? WithdrawalReason
+  string(50)? WithdrawnBy
+  string(450)? WorkflowInstanceID
+  key (ApplicationReferenceID)
+}

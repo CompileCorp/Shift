@@ -1,0 +1,18 @@
+model Muid with Auditable {
+  model District
+  astring(3) AllocationZoneCode
+  astring(3)? CostCentreCode
+  datetime? DeletedDate
+  bool DfaFlag
+  astring DistrictInitial
+  int Easting
+  astring(9)? MuidCode
+  string(30)? MuidD
+  int Northing
+  string(30)? OtherTenureDetails
+  astring(6)? ParishCode
+  int? ReserveNumber
+  astring(4) TenureCode
+  int Zone
+  key (MuidCode)
+}

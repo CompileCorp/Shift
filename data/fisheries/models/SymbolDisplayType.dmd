@@ -1,0 +1,4 @@
+model SymbolDisplayType with Auditable {
+  bool Active
+  string(20) SymbolDisplayTypeDescription
+}

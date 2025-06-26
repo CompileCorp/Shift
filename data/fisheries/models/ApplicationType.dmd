@@ -1,0 +1,8 @@
+model ApplicationType with Auditable {
+  model ApplicationType? as Parent
+  bool Active
+  int? DlsApplicationTypeID
+  bool ManualTrigger
+  string(128) Name
+  string(6) ReferenceIdentifier
+}

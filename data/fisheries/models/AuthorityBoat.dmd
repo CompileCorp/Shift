@@ -1,0 +1,4 @@
+model AuthorityBoat with Auditable {
+  model Authority
+  model Boat
+}

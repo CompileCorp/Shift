@@ -1,0 +1,7 @@
+model ProcessRunItem with Auditable {
+  model ProcessRun
+  string(50)? ContainerKey
+  string(50)? EntityKey
+  string(50)? Link
+  string(255) ProcessRunItemDescription
+}

@@ -1,0 +1,4 @@
+model SequencedNumber {
+  int NextNumber
+  string(50) SequencedNumberDescription
+}

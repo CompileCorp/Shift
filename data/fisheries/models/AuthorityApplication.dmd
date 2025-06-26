@@ -1,0 +1,5 @@
+model AuthorityApplication with Auditable {
+  model Application
+  model Authority
+  int? AuthorityQuotaSuspendedUnits
+}

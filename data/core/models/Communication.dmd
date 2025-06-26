@@ -1,0 +1,8 @@
+model Communication with Auditable {
+  model CommunicationDeliveryType
+  model CommunicationSourceType
+  model CommunicationType
+  string(max) Contents
+  string(256)? Source
+  string(max)? Subject
+}

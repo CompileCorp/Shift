@@ -1,0 +1,3 @@
+model CommunicationSourceType with Auditable {
+  string(256) CommunicationSourceTypeDescription
+}

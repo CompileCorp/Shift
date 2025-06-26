@@ -1,0 +1,4 @@
+model ApplicationLGALocality with Auditable {
+  model ApplicationLGA
+  string(128) Name
+}

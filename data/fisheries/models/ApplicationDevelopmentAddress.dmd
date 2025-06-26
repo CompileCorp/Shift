@@ -1,0 +1,9 @@
+model ApplicationDevelopmentAddress with Auditable {
+  model Application
+  model Country?
+  string(200)? AddressLine1
+  string(200)? AddressLine2
+  string(6)? Postcode
+  string(3)? State
+  string(100)? Suburb
+}

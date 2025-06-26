@@ -1,0 +1,8 @@
+model TaskDecisionItem with Auditable {
+  model Task
+  model User? as DecidedBy
+  datetime? DecidedDateTime
+  string(256) Description
+  string(100) Name
+  string(100) WorkflowStatus
+}

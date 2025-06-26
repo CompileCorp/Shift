@@ -1,0 +1,10 @@
+model SchedulePrice with Auditable {
+  model ProductClass
+  datetime EffectiveDate
+  int? LengthClass
+  datetime? MaxEffectiveDate
+  float Price
+  astring(50) PriceNumber
+  int? SmallEndDiameterClass
+  int? StrengthRating
+}

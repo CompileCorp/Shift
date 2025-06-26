@@ -1,0 +1,31 @@
+model ApplicationClient with Auditable {
+  model Application
+  model ApplicationClientType?
+  model Client?
+  model ClientType?
+  model Country?
+  model Country? as Residential
+  string(200)? AddrLine1
+  string(200)? AddrLine2
+  string(20)? AfterHoursPhone
+  string(20)? BusinessPhone
+  string(20)? CompanyACN
+  datetime? DOB
+  string(100)? Email
+  string(20)? Fax
+  string(512)? Fullname
+  string(100)? MobileNumber
+  string(100)? PhoneNumber
+  string(14)? Postcode
+  string(200)? ResidentialAddrLine1
+  string(200)? ResidentialAddrLine2
+  string(14)? ResidentialPostcode
+  bool? ResidentialSameAsPostal
+  string(3)? ResidentialState
+  string(100)? ResidentialSuburb
+  string(10)? SAPClientID
+  string(100)? SecondaryEmail
+  bool? SmsOptOut
+  string(3)? State
+  string(100)? Suburb
+}

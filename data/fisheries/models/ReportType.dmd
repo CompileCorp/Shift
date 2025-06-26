@@ -1,0 +1,9 @@
+model ReportType with Auditable {
+  bool Active
+  string(50) form
+  string(500) pdf
+  bool printEnabled
+  string(500) printStr
+  string(50) ReportServer
+  string(50) ReportTypeDescription
+}

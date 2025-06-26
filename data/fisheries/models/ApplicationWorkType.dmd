@@ -1,0 +1,6 @@
+model ApplicationWorkType with Auditable {
+  model Application
+  model WorkTimeFrameType?
+  model WorkTimeFrameWaterwayColourType?
+  model WorkType
+}

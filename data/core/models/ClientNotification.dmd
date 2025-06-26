@@ -1,0 +1,9 @@
+model ClientNotification with Auditable {
+  model Client
+  string(max) Content
+  string(50) DeliveryMethod
+  string(200) Description
+  string(100) SentTo
+  string(100) Source
+  string(100)? Subject
+}

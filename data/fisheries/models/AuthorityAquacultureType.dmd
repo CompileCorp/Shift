@@ -1,0 +1,4 @@
+model AuthorityAquacultureType with Auditable {
+  model AquacultureType
+  model Authority
+}

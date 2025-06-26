@@ -1,0 +1,5 @@
+model AuthorityTypeFeature with Auditable {
+  model AuthorityFeatureType
+  model AuthorityType
+  bool Active
+}

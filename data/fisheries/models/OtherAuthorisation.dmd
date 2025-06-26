@@ -1,0 +1,4 @@
+model OtherAuthorisation with Auditable {
+  model Boat
+  model State
+}

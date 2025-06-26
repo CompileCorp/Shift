@@ -1,0 +1,4 @@
+model ApplicationDevelopmentalTrigger with Auditable {
+  model Application
+  model ApplicationDevelopmentalTriggerType
+}

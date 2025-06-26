@@ -1,0 +1,6 @@
+model ProcessRunType with Auditable {
+  model ProcessRunTypeGroup?
+  bool IsUnique
+  bool ManualTrigger
+  string(255) ProcessRunTypeDescription
+}

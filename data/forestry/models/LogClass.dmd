@@ -1,0 +1,9 @@
+model LogClass with Auditable {
+  bool CenDiamFlag
+  bool CutterFlag
+  string(50) Description
+  bool HmFlag
+  bool LogLengthFlag
+  bool LogNoFlag
+  key (Description)
+}

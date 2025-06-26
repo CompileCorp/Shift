@@ -1,0 +1,5 @@
+model PriceGroup with Auditable {
+  string(100) Description
+  int FromCentreDiameter
+  int ToCentreDiameter
+}

@@ -1,0 +1,5 @@
+model AuthorityCommunicationPreferenceType with Auditable {
+  string(256) Description
+  bool Enabled
+  string(2048) Explanation
+}

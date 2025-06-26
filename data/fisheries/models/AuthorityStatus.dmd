@@ -1,0 +1,5 @@
+model AuthorityStatus with Auditable {
+  bool Active
+  string(50) AuthorityStatusDescription
+  astring(100) CssClass
+}

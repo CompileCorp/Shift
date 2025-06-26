@@ -1,0 +1,10 @@
+model ClientInvoiceAuthorityItem with Auditable {
+  model ClientInvoiceAuthority
+  string(100) ClientInvoiceAuthorityItemDescription
+  string(10) CostCentre
+  decimal(20,5) Fee12
+  decimal(20,5)? Fee6
+  string(32) Symbols
+  decimal(20,5) UnitFee
+  int Units
+}

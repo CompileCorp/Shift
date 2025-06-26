@@ -1,0 +1,4 @@
+model Community with Auditable {
+  bool Active
+  string(500) CommunityDescription
+}

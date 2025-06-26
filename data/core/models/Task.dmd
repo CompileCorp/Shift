@@ -1,0 +1,17 @@
+model Task with Auditable {
+  model CommentThread
+  model ProcessRun?
+  model TaskStatus
+  model TaskType
+  model TeamRole? as Assigned
+  model User? as Assigned
+  string? Description
+  datetime? DueDate
+  string(2048)? Instructions
+  datetime? ResolvedDateTime
+  int? TaskContextTypeID
+  int? TaskContextTypeReferenceID
+  string(255) Title
+  string(450)? WorkflowActivityID
+  string(450)? WorkflowInstanceID
+}

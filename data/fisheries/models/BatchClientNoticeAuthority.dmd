@@ -1,0 +1,5 @@
+model BatchClientNoticeAuthority with Auditable {
+  model Authority
+  model BatchClientNotice
+  int WarningCount
+}

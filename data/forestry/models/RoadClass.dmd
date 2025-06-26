@@ -1,0 +1,5 @@
+model RoadClass with Auditable {
+  astring(50) Code
+  float TravelTimeParameter
+  key (Code)
+}

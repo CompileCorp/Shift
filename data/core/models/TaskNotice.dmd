@@ -1,0 +1,4 @@
+model TaskNotice with Auditable {
+  model Notice
+  model Task
+}

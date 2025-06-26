@@ -1,0 +1,6 @@
+model Link with Auditable {
+  bool Active
+  string(2048) Description
+  string(256) Name
+  string(2048) Url
+}

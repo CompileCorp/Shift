@@ -1,0 +1,5 @@
+model AuthorityFeatureType with Auditable {
+  bool Active
+  string(200) AuthorityFeatureTypeDescription
+  string(100) PropertyName
+}

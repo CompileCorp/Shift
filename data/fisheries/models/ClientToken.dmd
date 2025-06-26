@@ -1,0 +1,7 @@
+model ClientToken with Auditable {
+  model Client
+  bool Active
+  string(256)? Comment
+  string(8)? LicenceNumber
+  string Token
+}

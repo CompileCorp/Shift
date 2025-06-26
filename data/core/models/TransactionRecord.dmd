@@ -1,0 +1,5 @@
+model TransactionRecord with Auditable {
+  model RecordType
+  datetime? DeletedDateTime
+  int RecordID
+}

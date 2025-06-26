@@ -1,0 +1,9 @@
+model ProcessRun with Auditable {
+  model ProcessRunStatus?
+  model ProcessRunType?
+  string(max)? JobJsonData
+  string(255) ProcessRunDescription
+  datetime StartDateTime
+  string(20) Status
+  string(450)? WorkflowInstanceID
+}

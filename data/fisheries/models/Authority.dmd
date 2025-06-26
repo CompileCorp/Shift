@@ -1,0 +1,25 @@
+model Authority with Auditable {
+  model AuthorityStatus
+  model AuthorityType
+  model Client as Owner
+  model CommentThread?
+  model EligibilityType?
+  model TidalAquacultureType?
+  datetime? CardExpiryDate
+  datetime? CardFromDate
+  string(2500)? Development
+  string(10)? DlsAuthorityID
+  datetime? IssueDate
+  string(15)? LicenceNumber
+  int? LicenceYears
+  int? NumberOfCards
+  datetime? PreviousCardExpiryDate
+  datetime? PreviousCardFromDate
+  string(255)? Product
+  string(255)? ProductState
+  bool RenewalNoticeSent
+  int ReplacementsPrinted
+  datetime? ValidToDate
+  key (LicenceNumber)
+  index (Client, AuthorityType, IssueDate, AuthorityStatus)
+}

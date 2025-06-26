@@ -1,0 +1,4 @@
+model FishHabitatArea with Auditable {
+  string(300)? Description
+  string(300)? URL
+}

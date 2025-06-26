@@ -1,0 +1,6 @@
+model ConditionLibrary with Auditable {
+  string(100) Description
+  int? DlsConditionGroupID
+  string(100)? ExternalName
+  key (ConditionLibraryID, Description)
+}

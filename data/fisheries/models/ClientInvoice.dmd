@@ -1,0 +1,25 @@
+model ClientInvoice with Auditable {
+  model Client
+  model ClientInvoiceBatch?
+  model Jurisdiction
+  model Notice?
+  string(35)? Barcode12
+  string(34)? Barcode6
+  string(20)? BPayReferenceNumber
+  string(50) ClientInvoiceDescription
+  datetime ExportDate
+  datetime? FromDate
+  decimal(20,5) OpeningBalance
+  datetime PostDate
+  string(20) ReferenceNumber
+  string(19)? SecurePayReferenceNumber
+  datetime? StatusChangedFromDate
+  datetime? StatusChangedToDate
+  string(32) TaxInvoiceNumber
+  datetime? ToDate
+  decimal(20,5)? Total12
+  decimal(20,5)? Total6
+  index (Client, ClientInvoiceDescription, Total12, Total6, ClientInvoiceBatch)
+  index (ClientInvoiceBatch, Total12)
+  index (ClientInvoiceBatch, Total6)
+}

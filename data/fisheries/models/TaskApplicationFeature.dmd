@@ -1,0 +1,4 @@
+model TaskApplicationFeature with Auditable {
+  model Task?
+  string(100) Feature
+}

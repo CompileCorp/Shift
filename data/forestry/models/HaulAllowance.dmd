@@ -1,0 +1,6 @@
+model HaulAllowance with Auditable {
+  datetime EffectiveDate
+  float HaulFlatRate
+  int MinKm
+  float RatePerKm
+}

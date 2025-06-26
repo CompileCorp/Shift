@@ -1,0 +1,13 @@
+model SaleUnit with Auditable {
+  model Muid?
+  model SalesPermit
+  astring Code
+  datetime? CompletionDate
+  astring CostCollector
+  float? EstimatedSaleQuantity
+  string(60)? PitName
+  datetime? ReviewDate
+  float? SaleQuantity
+  datetime? StartDate
+  key (Code, SalesPermit)
+}

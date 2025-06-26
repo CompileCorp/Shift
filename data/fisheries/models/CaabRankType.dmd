@@ -1,0 +1,3 @@
+model CaabRankType with Auditable {
+  string(50) Name
+}

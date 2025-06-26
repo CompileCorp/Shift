@@ -1,0 +1,19 @@
+model Transaction {
+  model TransactionType
+  !model User? as CreatedBy
+  !model User? as LastModifiedBy
+  int? ApplicationID
+  int? AuthorityID
+  int? ClientID
+  int? TaskID
+  string(255) TransactionDescription
+  string(50) CreatedBy
+  datetime CreatedDateTime
+  string(50) LastModifiedBy
+  datetime LastModifiedDateTime
+  int LockNumber
+  index (CreatedDateTime)
+  index (AuthorityID)
+  index (ClientID)
+  index (TaskID)
+}

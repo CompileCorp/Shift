@@ -1,0 +1,8 @@
+model AuthorityConditionElement with Auditable {
+  model Authority
+  model ConditionElement?
+  string(max)? ConditionElementDescription
+  int? DisplayOrder
+  int? DlsActivityConditionID
+  int? DlsConditionID
+}

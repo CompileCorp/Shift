@@ -1,0 +1,10 @@
+model AuthorityContact with Auditable {
+  model Authority
+  model Authority? as Contact
+  model AuthorityContactType
+  model Client
+  string(256) Contact
+  string(1024) ContactName
+  datetime? DateFrom
+  datetime? DateTo
+}

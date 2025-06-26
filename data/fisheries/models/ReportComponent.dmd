@@ -1,0 +1,5 @@
+model ReportComponent with Auditable {
+  bool Active
+  string(1000) Explanation
+  string(200) ReportComponentName
+}

@@ -1,0 +1,3 @@
+model AquacultureType with Auditable {
+  string(128) Name
+}

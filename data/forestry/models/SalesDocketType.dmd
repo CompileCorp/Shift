@@ -1,0 +1,6 @@
+model SalesDocketType with Auditable {
+  astring(2) Code
+  datetime? DeletedDateTime
+  string(50) Description
+  key (Code)
+}

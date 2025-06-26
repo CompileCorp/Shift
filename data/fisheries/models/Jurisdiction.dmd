@@ -1,0 +1,5 @@
+model Jurisdiction with Auditable {
+  bool Active
+  string(200) FullName
+  string(50) JurisdictionDescription
+}

@@ -1,0 +1,8 @@
+model AuthorityClientVMSDeviceLastPosition {
+  model AuthorityClientVMSDevice
+  int ETLPositionID
+  decimal(10,7) Latitude
+  decimal(10,7) Longitude
+  datetime ReportDate
+  int? Tender
+}

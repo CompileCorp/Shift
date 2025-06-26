@@ -1,0 +1,4 @@
+model ClientType with Auditable {
+  bool Active
+  string(20) ClientTypeDescription
+}

@@ -1,0 +1,5 @@
+model ClientStatus with Auditable {
+  bool Active
+  string(50) ClientStatusDescription
+  astring(100) CssClass
+}

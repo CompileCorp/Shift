@@ -1,0 +1,5 @@
+model AuthorityRegistrationSticker with Auditable {
+  model Authority
+  string(50) DistinguishingNumber
+  string(50) RegistrationSticker
+}

@@ -1,0 +1,10 @@
+model Address with Auditable {
+  model Country?
+  string(200) AddrLine1
+  string(200)? AddrLine2
+  int? DlsApplicantID
+  bool? DlsPostal
+  string(14) Postcode
+  string(3)? State
+  string(100)? Suburb
+}

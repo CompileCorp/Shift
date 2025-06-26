@@ -1,0 +1,9 @@
+model RoadClassDistance with Auditable {
+  datetime EffectiveDate
+  float HaulDistance
+  datetime? MaxEffectiveDate
+  astring(50) RoadClassCode
+  float RoadDistance
+  astring(50) SalePermitNumber
+  astring(50) SaleUnitCode
+}

@@ -1,0 +1,17 @@
+model Fishery with Auditable {
+  model FisheryQuantityType
+  model SymbolDisplayType
+  bool Active
+  string(20) Classification
+  bool EmergencyActivityNoticeEnabled
+  string(max)? ExternalInstructions
+  string(50) FisheryDescription
+  string(3) FisherySymbol
+  bool IsPrimary
+  bool IsSecondary
+  bool PreTripActivityNoticeEnabled
+  bool PriorActivityNoticeEnabled
+  bool RetainActivityNoticeEnabled
+  bool TranshipmentActivityNoticeEnabled
+  bool WeightActivityNoticeEnabled
+}

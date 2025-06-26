@@ -1,0 +1,4 @@
+model ProductCode with Auditable {
+  string(4) Code
+  string(30) Description
+}

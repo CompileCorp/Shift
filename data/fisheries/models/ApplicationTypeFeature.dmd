@@ -1,0 +1,6 @@
+model ApplicationTypeFeature with Auditable {
+  model ApplicationFeatureType
+  model ApplicationType
+  int DisplayOrder
+  bool Required
+}

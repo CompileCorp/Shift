@@ -1,0 +1,14 @@
+model BatchClientNotice with Auditable {
+  model ClientNotice?
+  model NoticeType
+  string(50) BatchClientNoticeDescription
+  int ClientID
+  datetime ExpiryFromDate
+  datetime ExpiryToDate
+  datetime ExportDate
+  int JurisdictionID
+  index (NoticeType, JurisdictionID, ExportDate)
+  index (ClientID)
+  index (ExportDate)
+  key (ClientID, NoticeType, JurisdictionID, ExportDate)
+}

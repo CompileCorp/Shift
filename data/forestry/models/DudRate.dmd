@@ -1,0 +1,6 @@
+model DudRate with Auditable {
+  datetime ApplicationDate
+  float FromDiameter
+  float Rate
+  float ToDiameter
+}

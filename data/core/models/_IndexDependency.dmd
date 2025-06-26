@@ -1,0 +1,6 @@
+model _IndexDependency {
+  model _IndexDefinition
+  long? LastAuditLogID
+  string(100) ObjectName
+  string(10) System
+}

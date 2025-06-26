@@ -1,0 +1,6 @@
+model NoticeAttachmentEvent with Auditable {
+  model NoticeAttachment
+  string(1024) Message
+  string(32) Service
+  string(32) Status
+}

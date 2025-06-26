@@ -1,0 +1,4 @@
+model ClientWarningType with Auditable {
+  bool Active
+  string(50) ClientWarningTypeDescription
+}

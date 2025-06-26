@@ -1,0 +1,6 @@
+model TaskChecklistItem with Auditable {
+  model Task
+  model User? as CompletedBy
+  datetime? CompletedDateTime
+  string(256) Description
+}

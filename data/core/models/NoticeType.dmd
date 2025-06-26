@@ -1,0 +1,16 @@
+model NoticeType with Auditable {
+  bool Active
+  bool AppliesToSingleLicence
+  int? FishNetArchiveAge
+  bool FishNetEmailEnabled
+  string(4000)? FishNetEmailTemplate
+  bool FishNetEnabled
+  int? FishNetMaxAge
+  bool FishNetSmsEnabled
+  string(153)? FishNetSmsTemplate
+  bool FishNetTemporaryTransferEnabled
+  bool IsManual
+  string(50) NoticeTypeDescription
+  bool RequiresJurisdictionAndDateRange
+  string(50)? RuleName
+}

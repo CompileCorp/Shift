@@ -1,0 +1,11 @@
+model AuditLog {
+  model Transaction?
+  string(3) AuditAction
+  string(50) CreatedBy
+  datetime CreatedDateTime
+  string(255)? Description
+  int Identifier
+  string(50) ObjectName
+  index (CreatedDateTime)
+  index (ObjectName)
+}

@@ -1,0 +1,8 @@
+model AuthorityStatusHistory with Auditable {
+  model Authority
+  model AuthorityReasonType
+  model AuthorityStatus as AuthorityStatusTypeID
+  string(4000) AuthorityStatusHistoryDescription
+  datetime? EndDateTime
+  datetime StartDateTime
+}

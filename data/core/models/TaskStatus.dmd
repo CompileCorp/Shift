@@ -1,0 +1,3 @@
+model TaskStatus with Auditable {
+  string(50) Name
+}

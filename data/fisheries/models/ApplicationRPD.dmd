@@ -1,0 +1,5 @@
+model ApplicationRPD with Auditable {
+  model Application
+  bool IsAdjacentToPrimary
+  string(50) Lot
+}

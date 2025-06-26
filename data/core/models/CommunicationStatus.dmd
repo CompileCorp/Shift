@@ -1,0 +1,3 @@
+model CommunicationStatus with Auditable {
+  string(256) CommunicationStatusDescription
+}

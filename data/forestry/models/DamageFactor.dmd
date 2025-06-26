@@ -1,0 +1,5 @@
+model DamageFactor with Auditable {
+  astring(50) Code
+  float DamageRate
+  key (Code)
+}

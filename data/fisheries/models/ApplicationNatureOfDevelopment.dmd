@@ -1,0 +1,4 @@
+model ApplicationNatureOfDevelopment with Auditable {
+  model Application
+  model ApplicationNatureOfDevelopmentType
+}

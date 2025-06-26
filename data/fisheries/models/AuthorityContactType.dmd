@@ -1,0 +1,4 @@
+model AuthorityContactType with Auditable {
+  bool Active
+  string(20) AuthorityContactTypeDescription
+}

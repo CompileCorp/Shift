@@ -1,0 +1,4 @@
+model AuthorityTypeAuthorityStatus with Auditable {
+  model AuthorityStatus
+  model AuthorityType
+}

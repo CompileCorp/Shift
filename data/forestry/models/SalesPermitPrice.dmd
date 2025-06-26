@@ -1,0 +1,11 @@
+model SalesPermitPrice with Auditable {
+  model ProductClass
+  datetime EffectiveDate
+  int? LengthClass
+  datetime? MaxEffectiveDate
+  float Price
+  astring(50) SalePermitNumber
+  astring(50) SaleUnitCode
+  int? SmallEndDiameterClass
+  int? StrengthRating
+}

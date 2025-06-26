@@ -1,0 +1,3 @@
+model SpeciesLibrary with Auditable {
+  string(50) Description
+}

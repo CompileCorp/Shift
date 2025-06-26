@@ -1,0 +1,5 @@
+model RecordType with Auditable {
+  astring(50) Code
+  datetime? DeletedDateTime
+  key (Code)
+}

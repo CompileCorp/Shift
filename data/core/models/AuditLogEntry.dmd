@@ -1,0 +1,6 @@
+model AuditLogEntry {
+  model AuditLog
+  string(max)? NewValue
+  string(max)? OldValue
+  string(50)? PropertyName
+}

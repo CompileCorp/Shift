@@ -1,0 +1,7 @@
+model ConditionElement with Auditable {
+  model ConditionLibrary
+  bool Active
+  string(max) ConditionElementDescription
+  int? DlsConditionGroupingID
+  int? DlsConditionID
+}

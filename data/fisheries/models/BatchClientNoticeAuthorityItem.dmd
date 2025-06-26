@@ -1,0 +1,6 @@
+model BatchClientNoticeAuthorityItem with Auditable {
+  model BatchClientNoticeAuthority
+  string(100) BatchClientNoticeItemDescription
+  string(10)? CostCentre
+  decimal? Fee
+}

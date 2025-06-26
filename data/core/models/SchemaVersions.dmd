@@ -1,0 +1,5 @@
+model SchemaVersions {
+  datetime Applied
+  int Id
+  string(255) ScriptName
+}

@@ -1,0 +1,5 @@
+model AuthoritySpecies with Auditable {
+  model Authority
+  model Species
+  bool IsOverland
+}

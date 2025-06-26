@@ -1,0 +1,7 @@
+model AuthorityQuota with Auditable {
+  model Authority
+  model Quota
+  int? NotRenewedUnits
+  int? SuspendedUnits
+  int Units
+}

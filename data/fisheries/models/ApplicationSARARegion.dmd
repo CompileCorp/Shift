@@ -1,0 +1,3 @@
+model ApplicationSARARegion with Auditable {
+  string(128) Name
+}

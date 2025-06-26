@@ -1,0 +1,15 @@
+model ClientInvoiceBatch with Auditable {
+  model Jurisdiction?
+  string(4000)? AuthorityIDCsv
+  string(50)? ClientInvoiceDescription
+  bool? EndOfFinancialYearRun
+  datetime? ExportDate
+  datetime? PostDate
+  bool Posted
+  datetime? PostedDateTime
+  bool SAPExported
+  datetime? SAPExportedDateTime
+  bool SAPImported
+  datetime? SAPImportedDateTime
+  datetime? ToDate
+}

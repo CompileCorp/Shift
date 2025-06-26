@@ -1,0 +1,5 @@
+model TransactionType with Auditable {
+  model TransactionTypeCategory
+  bool Active
+  string(50) TransactionTypeDescription
+}

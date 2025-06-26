@@ -1,0 +1,9 @@
+model Quota with Auditable {
+  model Jurisdiction
+  bool Active
+  bool IncludeOverallUnitEntitlement
+  bool LicenceCondition
+  string(512) QuotaDescription
+  string(4) QuotaSymbol
+  string(20) UnitDescription
+}

@@ -1,0 +1,8 @@
+model PriceCoefficient with Auditable {
+  float Coefficient1
+  float Coefficient2
+  datetime EffectiveDate
+  int LengthClass
+  datetime? MaxEffectiveDate
+  int StrengthRating
+}

@@ -1,0 +1,14 @@
+model ClientInvoiceAdjustment with Auditable {
+  model Client
+  model ClientInvoice?
+  model ClientInvoiceAdjustment? as Target
+  model ClientInvoiceAdjustmentBatch?
+  model ClientInvoiceAdjustmentType
+  string(4000)? Comment
+  datetime? DocumentDate
+  astring(20)? PaymentReference
+  string(4000) Reason
+  string(128)? ReceiptNumber
+  decimal(20,5) Total
+  index (Total, Client)
+}

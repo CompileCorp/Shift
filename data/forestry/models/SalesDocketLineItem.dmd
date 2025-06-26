@@ -1,0 +1,25 @@
+model SalesDocketLineItem with Auditable {
+  model LogClass? as FinalClassificationID
+  model LogClass? as InitialClassificationID
+  model ProductClass?
+  model ProductCode?
+  model SalesDocket
+  model SaleUnit
+  float? CentreDiameter
+  string(50)? CutStat
+  int? Cutter
+  int? DiameterLineClass
+  int? Dline
+  float? GrossWeight
+  float? Length
+  int Line
+  int LogNumber
+  float? NetWeight
+  bool? NilDeclaration
+  string(50)? Product
+  float? Quantity
+  float? SmallEndDiameter
+  string(50)? SpeciesCode
+  int? StrengthRating
+  float? TruckTare
+}

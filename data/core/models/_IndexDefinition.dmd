@@ -1,0 +1,4 @@
+model _IndexDefinition {
+  string(100) Name
+  key (Name)
+}

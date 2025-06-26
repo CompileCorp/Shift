@@ -1,0 +1,5 @@
+model ApplicationLocation with Auditable {
+  model Application
+  decimal(8,5) Latitude
+  decimal(8,5) Longitude
+}

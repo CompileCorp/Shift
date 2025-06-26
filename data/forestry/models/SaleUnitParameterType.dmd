@@ -1,0 +1,4 @@
+model SaleUnitParameterType with Auditable {
+  string(100) SaleUnitParameterTypeDescription
+  key (SaleUnitParameterTypeDescription)
+}

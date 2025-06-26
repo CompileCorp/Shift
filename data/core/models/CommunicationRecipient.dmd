@@ -1,0 +1,7 @@
+model CommunicationRecipient with Auditable {
+  model Client?
+  model Communication
+  model CommunicationStatus
+  model User?
+  string(2048) Destination
+}

@@ -1,0 +1,6 @@
+model AuthorityCommunicationPreference with Auditable {
+  model Authority
+  model AuthorityCommunicationPreferenceType
+  model Client
+  bool Enabled
+}

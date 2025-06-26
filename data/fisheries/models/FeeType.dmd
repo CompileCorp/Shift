@@ -1,0 +1,4 @@
+model FeeType with Auditable {
+  bool Active
+  string(50) FeeTypeDescription
+}

@@ -1,0 +1,4 @@
+model AuthorityCommunication with Auditable {
+  model Authority
+  model Communication
+}

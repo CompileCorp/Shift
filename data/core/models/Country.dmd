@@ -1,0 +1,5 @@
+model Country with Auditable {
+  bool Active
+  string(2) CountryCode
+  string(50) CountryDescription
+}

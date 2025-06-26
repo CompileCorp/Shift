@@ -1,0 +1,4 @@
+model TeamPermission with Auditable {
+  model Permission
+  model Team
+}

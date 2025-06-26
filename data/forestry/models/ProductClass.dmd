@@ -1,0 +1,5 @@
+model ProductClass with Auditable {
+  model ProductCode
+  int Class
+  string(30) Description
+}

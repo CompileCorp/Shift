@@ -1,0 +1,4 @@
+model TeamRoleUser with Auditable {
+  model TeamRole
+  model User
+}

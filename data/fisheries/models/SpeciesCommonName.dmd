@@ -1,0 +1,6 @@
+model SpeciesCommonName with Auditable {
+  model Species
+  bool IsExternal
+  string(256) Name
+  key (Species, Name)
+}

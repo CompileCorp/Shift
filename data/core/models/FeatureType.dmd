@@ -1,0 +1,6 @@
+model FeatureType with Auditable {
+  astring(50) Code
+  datetime? DeletedDateTime
+  string(500) Description
+  key (Code)
+}

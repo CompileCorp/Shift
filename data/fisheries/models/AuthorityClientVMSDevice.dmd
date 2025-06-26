@@ -1,0 +1,9 @@
+model AuthorityClientVMSDevice with Auditable {
+  model Authority
+  model ClientVMSDevice
+  datetime? EndDateTime
+  datetime StartDateTime
+  int? Tender
+  key (ClientVMSDevice, EndDateTime)
+  key (ClientVMSDevice, StartDateTime)
+}

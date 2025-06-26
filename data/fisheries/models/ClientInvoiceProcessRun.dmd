@@ -1,0 +1,5 @@
+model ClientInvoiceProcessRun with Auditable {
+  model ClientInvoice
+  model Notice?
+  model ProcessRun
+}

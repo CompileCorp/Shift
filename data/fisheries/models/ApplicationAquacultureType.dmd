@@ -1,0 +1,4 @@
+model ApplicationAquacultureType with Auditable {
+  model Application
+  model AquacultureType
+}

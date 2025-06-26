@@ -1,0 +1,3 @@
+model ZoneCommunication with Auditable {
+  string(100) Name
+}

@@ -1,0 +1,6 @@
+model Permission with Auditable {
+  string(128) Code
+  string(256) Description
+  bool IsSystem
+  string(128) Name
+}

@@ -1,0 +1,4 @@
+model WorkType with Auditable {
+  model ApplicationType
+  string(300)? WorkTypeDescription
+}

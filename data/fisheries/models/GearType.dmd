@@ -1,0 +1,3 @@
+model GearType with Auditable {
+  string(256) GearTypeDescription
+}

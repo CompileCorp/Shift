@@ -1,0 +1,6 @@
+model HaulAllowanceCypress with Auditable {
+  datetime EffectiveDate
+  float HaulAllow1
+  float HaulAllow2
+  datetime? MaxEffectiveDate
+}

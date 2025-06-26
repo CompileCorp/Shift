@@ -1,0 +1,11 @@
+model User with Auditable {
+  bool Active
+  string(100)? Email
+  bool? HasSignatureImage
+  string(128) LastVersion
+  string(128) Name
+  string(20)? PhoneNumber
+  string(20)? Position
+  string(64) Username
+  key (Username)
+}

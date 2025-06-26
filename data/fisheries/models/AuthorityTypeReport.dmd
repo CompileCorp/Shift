@@ -1,0 +1,8 @@
+model AuthorityTypeReport with Auditable {
+  model AuthorityType
+  model ReportComponent
+  model ReportType
+  bool Active
+  int ComponentOrder
+  string(100)? ReportIdentifier
+}

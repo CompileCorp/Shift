@@ -1,0 +1,4 @@
+model SalesDocketStatusType with Auditable {
+  string(100) Description
+  key (Description)
+}

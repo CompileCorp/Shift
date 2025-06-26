@@ -1,0 +1,7 @@
+model AssociationType with Auditable {
+  model AssociationTypeCategory
+  bool Active
+  string(50) AssociationTypeDescription
+  bool Critical
+  bool IsUnique
+}

@@ -1,0 +1,4 @@
+model ApplicationTypeConditionLibrary with Auditable {
+  model ApplicationType
+  model ConditionLibrary
+}

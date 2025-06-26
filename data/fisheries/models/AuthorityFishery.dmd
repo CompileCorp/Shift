@@ -1,0 +1,5 @@
+model AuthorityFishery with Auditable {
+  model Authority
+  model Fishery
+  int Quantity
+}

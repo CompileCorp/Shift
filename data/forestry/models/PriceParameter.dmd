@@ -1,0 +1,9 @@
+model PriceParameter with Auditable {
+  model PriceGroup
+  datetime EffectiveDate
+  float Parameter1
+  float Parameter2
+  float Parameter3
+  float Parameter4
+  float Parameter5
+}

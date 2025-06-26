@@ -1,0 +1,9 @@
+model StrengthRating with Auditable {
+  model PoleType
+  model StrengthGroup
+  int DiameterLineClass
+  datetime EffectiveDate
+  int LengthClass
+  int SmallEndDiameterClass
+  int StrengthRating
+}

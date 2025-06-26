@@ -1,0 +1,9 @@
+model PricePercent with Auditable {
+  model PriceGroup
+  float CompBaseRoyal
+  float CompMinRoyal
+  datetime EffectiveDate
+  datetime MaxEffectiveDate
+  float OptBaseRoyal
+  float OptMinRoyal
+}

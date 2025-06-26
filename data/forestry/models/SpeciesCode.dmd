@@ -1,0 +1,5 @@
+model SpeciesCode with Auditable {
+  string(64) BotanicalName
+  string(3) Code
+  string(30) TradeName
+}

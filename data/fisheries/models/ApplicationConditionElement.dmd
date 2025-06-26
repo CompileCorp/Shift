@@ -1,0 +1,5 @@
+model ApplicationConditionElement with Auditable {
+  model Application
+  model ConditionElement
+  int? Order
+}

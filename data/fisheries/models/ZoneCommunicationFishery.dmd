@@ -1,0 +1,5 @@
+model ZoneCommunicationFishery with Auditable {
+  model AuthorityType
+  model Fishery
+  model ZoneCommunication
+}

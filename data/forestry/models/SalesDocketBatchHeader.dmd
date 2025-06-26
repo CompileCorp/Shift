@@ -1,0 +1,5 @@
+model SalesDocketBatchHeader with Auditable {
+  model ForestrySystemType
+  model SalesPermit
+  int Version
+}

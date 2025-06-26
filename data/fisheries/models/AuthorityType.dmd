@@ -1,0 +1,11 @@
+model AuthorityType with Auditable {
+  model AuthorityTypeCategory
+  model Jurisdiction
+  bool Active
+  string(100) AuthorityTypeDescription
+  bool DisplayInFishNetPublic
+  bool DisplayInFishNetSecure
+  int? DlsAuthorityTypeID
+  bool ProRataInvoice
+  bool RequiresUniqueBoatMarks
+}

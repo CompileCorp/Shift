@@ -1,0 +1,4 @@
+model AuthorityCommunity with Auditable {
+  model Authority
+  model Community
+}

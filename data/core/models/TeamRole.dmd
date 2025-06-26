@@ -1,0 +1,6 @@
+model TeamRole with Auditable {
+  model Team
+  bool IsSystem
+  string(128) Name
+  key (Team, Name)
+}

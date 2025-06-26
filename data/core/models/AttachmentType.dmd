@@ -1,0 +1,4 @@
+model AttachmentType with Auditable {
+  string(100) Description
+  key (Description)
+}

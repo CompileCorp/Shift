@@ -1,0 +1,16 @@
+model AuthorityTypeFee with Auditable {
+  model AuthorityType?
+  model FeeType
+  bool Active
+  decimal(6,2) BoatLengthMax
+  decimal(6,2) BoatLengthMin
+  string(10) CostCentre
+  decimal(20,5)? FisheryQuantityFee
+  decimal(20,5)? FlatFee
+  int LicenceTermYearsMax
+  int LicenceTermYearsMin
+  decimal(20,5)? QuotaUnitFee
+  decimal(20,5)? SymbolFee
+  string(1000)? SymbolsCsv
+  index (AuthorityType, FeeType, BoatLengthMin, BoatLengthMax, LicenceTermYearsMin, LicenceTermYearsMax)
+}

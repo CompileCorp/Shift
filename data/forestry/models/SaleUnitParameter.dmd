@@ -1,0 +1,8 @@
+model SaleUnitParameter with Auditable {
+  model SaleUnit
+  model SaleUnitParameterType
+  datetime ParameterEffectiveDate
+  datetime? ParameterExpiryDate
+  string(200) ParameterValue
+  int SalePermitID
+}

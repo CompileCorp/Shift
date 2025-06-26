@@ -1,0 +1,3 @@
+model ZoneCommunicationSpatial with Auditable {
+  model ZoneCommunication
+}

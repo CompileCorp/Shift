@@ -1,0 +1,10 @@
+model Attachment with Auditable {
+  model AttachmentType?
+  model ProcessRun?
+  model Task?
+  int? AttachmentTypeReferenceID
+  string(255) Filename
+  long FileSize
+  string(1024) RelativePath
+  index (AttachmentType, AttachmentTypeReferenceID)
+}

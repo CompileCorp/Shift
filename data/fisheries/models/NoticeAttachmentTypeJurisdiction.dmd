@@ -1,0 +1,15 @@
+model NoticeAttachmentTypeJurisdiction with Auditable {
+  model Jurisdiction?
+  model NoticeAttachmentType
+  bool AlwaysPrint
+  string(1024) DefaultPrinter
+  string(512)? DigitalDeliveryBcc
+  bool DigitalDeliveryEnabled
+  string(512)? DigitalDeliveryFrom
+  string(64) DigitalDocumentName
+  bool FishNetEnabled
+  bool PDFDirectPrint
+  bool PrintEnabled
+  string(1024) ReportPathUri
+  string(1024) ReportServerUri
+}

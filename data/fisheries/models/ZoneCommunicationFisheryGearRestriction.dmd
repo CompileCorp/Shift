@@ -1,0 +1,4 @@
+model ZoneCommunicationFisheryGearRestriction with Auditable {
+  model GearType
+  model ZoneCommunicationFishery
+}

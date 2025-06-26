@@ -1,0 +1,4 @@
+model ClientNoticeType with Auditable {
+  model ClientType
+  model NoticeType
+}

@@ -1,0 +1,8 @@
+model SalesPermit with Auditable {
+  model Client
+  model District?
+  model SalesPermitType
+  datetime? CompletionDate
+  datetime ExpireDate
+  datetime ReviewDate
+}

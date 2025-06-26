@@ -1,0 +1,8 @@
+model ClientVMSDevice with Auditable {
+  model Client
+  model Client as Holder
+  model VMSProvider
+  bool Active
+  string(64) SerialNumber
+  key (Client, VMSProvider, SerialNumber)
+}

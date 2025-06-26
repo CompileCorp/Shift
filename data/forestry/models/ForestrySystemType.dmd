@@ -1,0 +1,5 @@
+model ForestrySystemType with Auditable {
+  astring(2) Code
+  string(50) Description
+  key (Code)
+}

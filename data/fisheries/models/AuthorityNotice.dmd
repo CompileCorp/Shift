@@ -1,0 +1,4 @@
+model AuthorityNotice with Auditable {
+  model Authority
+  model Notice
+}

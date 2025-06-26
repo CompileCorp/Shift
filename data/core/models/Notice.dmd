@@ -1,0 +1,4 @@
+model Notice with Auditable {
+  model NoticeType
+  string(255) NoticeDescription
+}

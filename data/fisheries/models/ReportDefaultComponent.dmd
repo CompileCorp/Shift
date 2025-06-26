@@ -1,0 +1,7 @@
+model ReportDefaultComponent with Auditable {
+  model ReportComponent
+  model ReportType
+  bool Active
+  int ComponentOrder
+  string(100)? ReportIdentifier
+}

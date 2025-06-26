@@ -1,0 +1,3 @@
+model FacilityType with Auditable {
+  string(300)? FacilityTypeDescription
+}

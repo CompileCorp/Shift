@@ -1,0 +1,3 @@
+model TaskType with Auditable {
+  string(50) Description
+}

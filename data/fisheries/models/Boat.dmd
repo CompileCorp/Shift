@@ -1,0 +1,12 @@
+model Boat with Auditable {
+  decimal(6,2)? Beam
+  string(50)? BoatColour
+  string(50)? BoatName
+  decimal(6,2)? Depth
+  string(100)? EngineBrand
+  string(100)? HullMaterial
+  int? HullUnits
+  decimal(6,2)? Length
+  decimal(6,2)? MainEnginePower
+  string(100)? OtherBoatMarks
+}

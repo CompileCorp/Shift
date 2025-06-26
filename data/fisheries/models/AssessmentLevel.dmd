@@ -1,0 +1,3 @@
+model AssessmentLevel with Auditable {
+  int? Level
+}

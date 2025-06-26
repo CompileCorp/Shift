@@ -1,0 +1,5 @@
+model StrengthGroup with Auditable {
+  model SpeciesCode
+  datetime EffectiveDate
+  string(2) StrengthGroup
+}

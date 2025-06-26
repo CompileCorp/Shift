@@ -1,0 +1,6 @@
+model FisheryQuantityType with Auditable {
+  bool Active
+  string(50) FisheryQuantityTypeDescription
+  int? MaxValue
+  int? MinValue
+}

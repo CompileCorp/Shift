@@ -1,0 +1,6 @@
+model PriceZoneRoyaltyRate with Auditable {
+  float BaseRoyalty
+  datetime EffectiveDate
+  datetime? MaxEffectiveDate
+  astring(50) PriceZone
+}

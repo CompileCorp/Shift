@@ -1,0 +1,4 @@
+model AuthorityCondition with Auditable {
+  model Authority
+  string? AuthorityConditionDescription
+}

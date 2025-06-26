@@ -1,0 +1,5 @@
+model AuthorityNoticeType with Auditable {
+  model AuthorityType
+  model NoticeType
+  bool Active
+}

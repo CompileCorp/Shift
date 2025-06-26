@@ -1,0 +1,4 @@
+model AuthorityPremises with Auditable {
+  model Authority
+  string(500) Premises
+}

@@ -1,0 +1,5 @@
+model MinimumRoyaltyPercent with Auditable {
+  datetime EffectiveDate
+  datetime? MaxEffectiveDate
+  float MinRoyaltyPercent
+}

@@ -1,0 +1,12 @@
+model VendorMessage with Auditable {
+  datetime Date
+  astring ErrorMessage
+  string(8) Licence
+  astring RawRequest
+  astring RawResponse
+  string(64) RequestType
+  string(64) ResponseType
+  bool Success
+  string Token
+  string(50) Vendor
+}

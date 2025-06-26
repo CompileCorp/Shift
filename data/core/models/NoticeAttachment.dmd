@@ -1,0 +1,6 @@
+model NoticeAttachment with Auditable {
+  model Notice
+  string(37)? DeliveryJobID
+  string(255) Filename
+  string(1024) FullUNCPath
+}

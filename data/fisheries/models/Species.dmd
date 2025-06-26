@@ -1,0 +1,14 @@
+model Species with Auditable {
+  model CaabRankType?
+  string(256)? Authority
+  datetime? DateLastModified
+  string(256)? DisplayName
+  string(256)? Family
+  bool IsOverland
+  string(64)? ItisIdentifier
+  string(3)? NonCurrentFlag
+  int? ParentID
+  string(256) ScientificName
+  string(256)? ScinameInformal
+  string(256)? StandardName
+}

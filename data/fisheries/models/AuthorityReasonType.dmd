@@ -1,0 +1,4 @@
+model AuthorityReasonType with Auditable {
+  bool Active
+  string(255) AuthorityReasonTypeDescription
+}

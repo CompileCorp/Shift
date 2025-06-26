@@ -1,0 +1,7 @@
+model Warning with Auditable {
+  model WarningType
+  datetime? EndDate
+  string(50)? ReferTo
+  datetime StartDate
+  string(255) WarningDescription
+}

@@ -1,0 +1,4 @@
+model VMSProvider with Auditable {
+  bool Active
+  string(50) Name
+}

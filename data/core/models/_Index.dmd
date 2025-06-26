@@ -1,0 +1,10 @@
+model _Index {
+  model _IndexDefinition
+  datetime CreatedDate
+  string(100) IndexKey
+  datetime LastUpdatedDate
+  int ObjectID
+  string(100) ObjectType
+  string(500)? Value
+  index (ObjectType, IndexKey, Value)
+}

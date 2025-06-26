@@ -1,0 +1,4 @@
+model ApplicationStatus with Auditable {
+  astring(100) CssClass
+  string(128) Name
+}

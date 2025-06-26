@@ -1,0 +1,7 @@
+model NoticeAttachmentUsage {
+  model Client
+  model NoticeAttachment
+  model Transaction?
+  string(256) ClientAddress
+  datetime UsageTimestamp
+}

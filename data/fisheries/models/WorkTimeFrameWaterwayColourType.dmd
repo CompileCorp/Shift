@@ -1,0 +1,4 @@
+model WorkTimeFrameWaterwayColourType with Auditable {
+  model WorkTimeFrameType
+  string(300) WorkTimeFrameWaterwayColourDescription
+}

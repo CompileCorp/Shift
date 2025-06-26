@@ -1,0 +1,5 @@
+model TeamFeature with Auditable {
+  model FeatureType
+  model Team
+  bool Active
+}

@@ -1,0 +1,6 @@
+model SalesPermitType with Auditable {
+  model ForestrySystemType
+  astring(2)? Code
+  string(100) Name
+  key (Code)
+}

@@ -1,0 +1,11 @@
+model District with Auditable {
+  string(40)? ContactName
+  string(20)? ContactPhone
+  astring(2)? DistrictCode
+  string(15) DistrictName
+  astring DunningArea
+  string(20)? EnquiryPhone
+  astring(2)? FpaDistrictCode
+  string(120)? PaymentAddress
+  key (DistrictCode)
+}

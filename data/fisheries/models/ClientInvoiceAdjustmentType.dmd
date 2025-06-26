@@ -1,0 +1,6 @@
+model ClientInvoiceAdjustmentType with Auditable {
+  bool Active
+  string(50) ClientInvoiceAdjustmentTypeDescription
+  bool IsManual
+  bool IsMoveable
+}
