@@ -5,7 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Compile.Shift.Ef</RootNamespace>
-        <OutputType>Exe</OutputType>
+        <OutputType>Library</OutputType>
     </PropertyGroup>
 
     <ItemGroup>
