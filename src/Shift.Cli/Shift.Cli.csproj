@@ -14,6 +14,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Shift\Shift.csproj" />
+        <ProjectReference Include="..\Shift.Ef\Shift.Ef.csproj" />
     </ItemGroup>
 
 </Project>
