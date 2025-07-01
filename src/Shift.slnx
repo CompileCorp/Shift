@@ -7,6 +7,7 @@
   <Folder Name="/src/">
     <Project Path="Shift.Cli/Shift.Cli.csproj" />
     <Project Path="Shift/Shift.csproj" />
+    <Project Path="Shift.Ef/Shift.Ef.csproj" />
   </Folder>
   <Folder Name="/test/">
     <Project Path="test/Shift.Tests/Shift.Tests.csproj" />
