@@ -2,6 +2,8 @@
 
 Shift.Ef is a code generator that creates Entity Framework components from Shift DatabaseModel instances. It generates Entity classes, Entity Framework configuration maps, and DbContext classes with appropriate `.g.cs` file naming to indicate they are code-generated files.
 
+**Note**: Shift.Ef is now integrated into the Shift CLI. You can use it directly through the `shift ef` commands.
+
 ## Features
 
 - **Entity Generation**: Creates strongly-typed entity classes with appropriate data annotations
@@ -34,7 +36,25 @@ The generator creates the following types of files:
 
 ## Usage
 
-### Basic Usage
+### CLI Usage (Recommended)
+
+The easiest way to use Shift.Ef is through the Shift CLI:
+
+```bash
+# Generate EF code from SQL Server
+shift ef sql "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated
+
+# Generate EF code from model files
+shift ef files ./Models/User.yaml ./Models/Order.yaml ./Generated
+
+# Generate with custom options
+shift ef sql-custom "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated \
+  --namespace MyApp.Data --context MyDbContext --interface IMyDbContext --base-class MyBaseDbContext
+```
+
+### Programmatic Usage
+
+You can also use Shift.Ef programmatically:
 
 ```csharp
 using Compile.Shift;

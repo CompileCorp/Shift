@@ -1,13 +1,10 @@
 ﻿using Microsoft.Extensions.Logging;
-using Compile.Shift.Plugins;
+using Compile.Shift.Ef;
 
 namespace Compile.Shift.Cli;
 
 internal class Program
 {
-    private static PluginLoader? _pluginLoader;
-    private static Shift? _shiftInstance;
-
     static async Task Main(string[] args)
     {
         var loggerFactory = LoggerFactory.Create(builder =>
@@ -21,15 +18,6 @@ internal class Program
                 });
         });
 
-        var logger = loggerFactory.CreateLogger("Shift.Cli");
-
-        // Initialize Shift instance
-        _shiftInstance = new Shift() { Logger = logger };
-
-        // Initialize plugin loader and load plugins
-        _pluginLoader = new PluginLoader(logger);
-        LoadPlugins(logger);
-
         // change files to dmd and dmdx
         Console.WriteLine("🧠 Domain Migration Definition (DMD) System");
 
@@ -41,16 +29,6 @@ internal class Program
 
         var command = args[0].ToLowerInvariant();
 
-        // Try to handle command with plugins first
-        var plugin = _pluginLoader.FindPluginForCommand(command);
-        if (plugin != null)
-        {
-            var success = await plugin.ExecuteAsync(command, args[1..], _shiftInstance);
-            if (success)
-                return;
-        }
-
-        // Fall back to built-in commands
         switch (command)
         {
             //dryapply
@@ -61,8 +39,10 @@ internal class Program
             case "export":
                 await CommandExportAsync(args[1..], loggerFactory);
                 break;
-            case "plugins":
-                CommandShowPlugins();
+            case "generate-ef":
+            case "ef-generate":
+            case "ef":
+                await CommandGenerateEfAsync(args[1..], loggerFactory);
                 break;
             default:
                 CommandUsage();
@@ -70,79 +50,27 @@ internal class Program
         }
     }
 
-    private static void LoadPlugins(ILogger logger)
-    {
-        try
-        {
-            // Load plugins from the plugins directory next to the executable
-            var pluginDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins");
-            _pluginLoader?.LoadPluginsFromDirectory(pluginDirectory);
-
-            // Also try to load from the same directory as the executable
-            var currentDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            var potentialPlugins = Directory.GetFiles(currentDirectory, "Shift.*.dll", SearchOption.TopDirectoryOnly)
-                .Where(f => !Path.GetFileName(f).Equals("Shift.dll", StringComparison.OrdinalIgnoreCase))
-                .Where(f => !Path.GetFileName(f).Equals("Shift.Cli.dll", StringComparison.OrdinalIgnoreCase));
-
-            foreach (var pluginFile in potentialPlugins)
-            {
-                _pluginLoader?.LoadPluginFromAssembly(pluginFile);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to load plugins");
-        }
-    }
-
     private static void CommandUsage()
     {
         Console.WriteLine("Usage: shift <command> [arguments]");
         Console.WriteLine();
-        Console.WriteLine("Built-in commands:");
-        Console.WriteLine("  apply <connection-string> <paths...>  Apply migration files to database");
-        Console.WriteLine("  export <connection-string> <schema>   Export database schema (not implemented)");
-        Console.WriteLine("  plugins                               Show loaded plugins");
+        Console.WriteLine("Commands:");
+        Console.WriteLine("  apply <connection-string> <paths...>             Apply migration files to database");
+        Console.WriteLine("  export <connection-string> <schema>              Export database schema (not implemented)");
+        Console.WriteLine("  ef <sub-command> [options]                       Entity Framework code generation");
         Console.WriteLine();
-        
-        if (_pluginLoader != null)
-        {
-            var pluginUsage = _pluginLoader.GetAllPluginUsage();
-            if (!string.IsNullOrEmpty(pluginUsage) && !pluginUsage.Contains("No plugins"))
-            {
-                Console.WriteLine(pluginUsage);
-            }
-        }
-    }
-
-    private static void CommandShowPlugins()
-    {
-        Console.WriteLine("=== Loaded Plugins ===");
-        
-        if (_pluginLoader == null)
-        {
-            Console.WriteLine("Plugin loader not initialized.");
-            return;
-        }
-
-        var plugins = _pluginLoader.GetLoadedPlugins();
-        if (!plugins.Any())
-        {
-            Console.WriteLine("No plugins loaded.");
-            Console.WriteLine();
-            Console.WriteLine("To load plugins:");
-            Console.WriteLine("1. Place plugin DLLs in the 'plugins' subdirectory");
-            Console.WriteLine("2. Or place plugin DLLs in the same directory as shift.exe");
-            return;
-        }
-
-        foreach (var plugin in plugins)
-        {
-            Console.WriteLine($"📦 {plugin.Name} v{plugin.Version}");
-            Console.WriteLine($"   {plugin.Description}");
-            Console.WriteLine($"   Commands: {string.Join(", ", plugin.SupportedCommands)}");
-            Console.WriteLine();
-        }
+        Console.WriteLine("EF Commands:");
+        Console.WriteLine("  ef sql <connection-string> <output-path>         Generate EF code from SQL Server");
+        Console.WriteLine("  ef files <paths...> <output-path>                Generate EF code from model files");
+        Console.WriteLine("  ef sql-custom <connection-string> <output-path>  Generate with custom options");
+        Console.WriteLine("    [--namespace <name>] [--context <name>]");
+        Console.WriteLine("    [--interface <name>] [--base-class <name>]");
+        Console.WriteLine();
+        Console.WriteLine("Examples:");
+        Console.WriteLine("  shift ef sql \"Server=.;Database=MyDb;\" ./Generated");
+        Console.WriteLine("  shift ef files ./Models/User.yaml ./Models/Order.yaml ./Generated");
+        Console.WriteLine("  shift ef sql-custom \"Server=.;Database=MyDb;\" ./Generated \\");
+        Console.WriteLine("    --namespace MyApp.Data --context MyDbContext --interface IMyDbContext");
     }
 
     private static async Task CommandApplyAsync(string[] args, ILoggerFactory loggerFactory)
@@ -164,6 +92,148 @@ internal class Program
         var schema = args[1];
         var path = args[2];
         throw new NotImplementedException();
+    }
+
+    private static async Task CommandGenerateEfAsync(string[] args, ILoggerFactory loggerFactory)
+    {
+        var logger = loggerFactory.CreateLogger("Shift.Ef");
+
+        if (args.Length == 0)
+        {
+            Console.WriteLine("Error: EF subcommand required");
+            Console.WriteLine();
+            CommandUsage();
+            return;
+        }
+
+        var subCommand = args[0].ToLowerInvariant();
+
+        try
+        {
+            switch (subCommand)
+            {
+                case "sql":
+                    await CommandEfFromSqlAsync(args[1..], logger);
+                    break;
+                case "files":
+                    await CommandEfFromFilesAsync(args[1..], logger);
+                    break;
+                case "sql-custom":
+                    await CommandEfFromSqlCustomAsync(args[1..], logger);
+                    break;
+                default:
+                    Console.WriteLine($"Error: Unknown EF subcommand '{subCommand}'");
+                    Console.WriteLine();
+                    CommandUsage();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Entity Framework code generation failed");
+            Console.WriteLine($"❌ Error: {ex.Message}");
+        }
+    }
+
+    private static async Task CommandEfFromSqlAsync(string[] args, ILogger logger)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Error: ef sql requires <connection-string> <output-path>");
+            return;
+        }
+
+        var connectionString = args[0];
+        var outputPath = args[1];
+        var schema = args.Length > 2 ? args[2] : "dbo";
+
+        Console.WriteLine($"🏗️  Generating Entity Framework code from SQL Server...");
+        Console.WriteLine($"   Connection: {connectionString}");
+        Console.WriteLine($"   Schema: {schema}");
+        Console.WriteLine($"   Output: {outputPath}");
+
+        var shift = new Shift { Logger = logger };
+        await shift.GenerateEfCodeFromSqlAsync(connectionString, outputPath, logger);
+
+        Console.WriteLine("✅ Entity Framework code generation completed!");
+    }
+
+    private static async Task CommandEfFromFilesAsync(string[] args, ILogger logger)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Error: ef files requires <path1> [path2] [...] <output-path>");
+            Console.WriteLine("       Last argument is the output path, all others are input model files");
+            return;
+        }
+
+        var outputPath = args[^1]; // Last argument is output path
+        var inputPaths = args[..^1]; // All but last are input paths
+
+        Console.WriteLine($"🏗️  Generating Entity Framework code from model files...");
+        Console.WriteLine($"   Input files: {string.Join(", ", inputPaths)}");
+        Console.WriteLine($"   Output: {outputPath}");
+
+        var shift = new Shift { Logger = logger };
+        await shift.GenerateEfCodeFromPathAsync(inputPaths, outputPath, logger);
+
+        Console.WriteLine("✅ Entity Framework code generation completed!");
+    }
+
+    private static async Task CommandEfFromSqlCustomAsync(string[] args, ILogger logger)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Error: ef sql-custom requires <connection-string> <output-path> [options]");
+            return;
+        }
+
+        var connectionString = args[0];
+        var outputPath = args[1];
+        var remainingArgs = args[2..];
+
+        // Parse options
+        var options = new EfCodeGenerationOptions();
+        for (int i = 0; i < remainingArgs.Length; i += 2)
+        {
+            if (i + 1 >= remainingArgs.Length) break;
+
+            var option = remainingArgs[i].ToLowerInvariant();
+            var value = remainingArgs[i + 1];
+
+            switch (option)
+            {
+                case "--namespace":
+                    options.NamespaceName = value;
+                    break;
+                case "--context":
+                    options.ContextClassName = value;
+                    break;
+                case "--interface":
+                    options.InterfaceName = value;
+                    break;
+                case "--base-class":
+                    options.BaseClassName = value;
+                    break;
+                default:
+                    Console.WriteLine($"Warning: Unknown option '{option}'");
+                    break;
+            }
+        }
+
+        Console.WriteLine($"🏗️  Generating Entity Framework code from SQL Server with custom options...");
+        Console.WriteLine($"   Connection: {connectionString}");
+        Console.WriteLine($"   Output: {outputPath}");
+        Console.WriteLine($"   Namespace: {options.NamespaceName}");
+        Console.WriteLine($"   Context: {options.ContextClassName}");
+        Console.WriteLine($"   Interface: {options.InterfaceName}");
+        if (!string.IsNullOrEmpty(options.BaseClassName))
+            Console.WriteLine($"   Base Class: {options.BaseClassName}");
+
+        var shift = new Shift { Logger = logger };
+        await shift.GenerateEfCodeFromSqlAsync(connectionString, outputPath, logger, options);
+
+        Console.WriteLine("✅ Entity Framework code generation completed!");
     }
 
     /*
