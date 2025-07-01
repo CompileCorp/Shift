@@ -6,13 +6,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Demo.Generated;
 
-public partial class GeneratedDbContext : DbContext
+public partial class DemoDbContext : DbContext, IDemoDbContext
 {
-    public GeneratedDbContext()
+    public DemoDbContext()
     {
     }
 
-    public GeneratedDbContext(DbContextOptions<GeneratedDbContext> options)
+    public DemoDbContext(DbContextOptions<DemoDbContext> options)
         : base(options)
     {
     }

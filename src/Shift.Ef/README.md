@@ -7,9 +7,11 @@ Shift.Ef is a code generator that creates Entity Framework components from Shift
 - **Entity Generation**: Creates strongly-typed entity classes with appropriate data annotations
 - **Entity Map Generation**: Creates Entity Framework configuration classes using the Fluent API
 - **DbContext Generation**: Creates a complete DbContext with DbSet properties and entity configurations
+- **Interface Generation**: Creates interfaces for DbContext classes for better testability and dependency injection
 - **Type Mapping**: Automatic mapping from database types to appropriate C# types
+- **Customizable Options**: Support for custom context class names, interface names, and base classes
 - **Code Generation Headers**: All generated files include headers indicating they are auto-generated
-- **Integration**: Seamless integration with existing Shift data loading methods
+- **Integration**: Seamless integration with existing Shift data loading methods (SQL Server and file-based)
 
 ## Generated Files
 
@@ -43,27 +45,46 @@ using Microsoft.Extensions.Logging;
 var logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<Shift>();
 var shift = new Shift { Logger = logger };
 
-// Load model from SQL Server and generate EF code
+// Load model from SQL Server and generate EF code with default settings
 await shift.GenerateEfCodeFromSqlAsync(
     connectionString: "Server=localhost;Database=MyDb;Trusted_Connection=true;",
     outputPath: "./Generated",
+    logger: logger,
     namespaceName: "MyApp.Data.Generated"
 );
 ```
 
-### Advanced Usage
+### Advanced Usage with Custom Options
 
 ```csharp
-// Load from model files
-await shift.GenerateEfCodeFromPathAsync(
-    paths: new[] { "./Models" },
+// Configure custom options for more control
+var options = new EfCodeGenerationOptions
+{
+    NamespaceName = "MyApp.Data",
+    ContextClassName = "MyAppDbContext",        // Custom context class name
+    InterfaceName = "IMyAppDbContext",          // Custom interface name
+    BaseClassName = "MyCustomBaseDbContext"     // Optional: inherit from custom base class
+};
+
+// Generate from SQL Server with custom options
+await shift.GenerateEfCodeFromSqlAsync(
+    connectionString: "Server=localhost;Database=MyDb;Trusted_Connection=true;",
     outputPath: "./Generated",
-    namespaceName: "MyApp.Data.Generated"
+    logger: logger,
+    options: options
+);
+
+// Generate from file-based models (YAML/JSON)
+await shift.GenerateEfCodeFromPathAsync(
+    paths: new[] { "./Models/User.yaml", "./Models/Order.yaml" },
+    outputPath: "./Generated",
+    logger: logger,
+    options: options
 );
 
 // Or use an existing DatabaseModel
 var model = await shift.LoadFromSqlAsync(connectionString);
-await shift.GenerateEfCodeAsync(model, "./Generated", "MyApp.Data.Generated");
+await shift.GenerateEfCodeAsync(model, "./Generated", logger, options);
 ```
 
 ### Using Generated Code
@@ -72,18 +93,19 @@ After generation, you can use the generated classes in your application:
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using MyApp.Data.Generated;
+using MyApp.Data;
 
-// Configure in Startup.cs or Program.cs
-services.AddDbContext<GeneratedDbContext>(options =>
+// Configure in Startup.cs or Program.cs with interface for better testability
+services.AddDbContext<MyAppDbContext>(options =>
     options.UseSqlServer(connectionString));
+services.AddScoped<IMyAppDbContext>(provider => provider.GetRequiredService<MyAppDbContext>());
 
-// Use in your application
+// Use in your application with dependency injection
 public class MyService
 {
-    private readonly GeneratedDbContext _context;
+    private readonly IMyAppDbContext _context;
     
-    public MyService(GeneratedDbContext context)
+    public MyService(IMyAppDbContext context)
     {
         _context = context;
     }
@@ -91,6 +113,14 @@ public class MyService
     public async Task<ClientEntity> GetClientAsync(int id)
     {
         return await _context.Client.FindAsync(id);
+    }
+    
+    public async Task<List<OrderEntity>> GetOrdersForClientAsync(int clientId)
+    {
+        return await _context.Order
+            .Where(o => o.ClientId == clientId)
+            .Include(o => o.Client)
+            .ToListAsync();
     }
 }
 ```

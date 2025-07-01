@@ -16,28 +16,28 @@ public partial class ClientEntityMap : IEntityTypeConfiguration<ClientEntity>
         builder.Property(e => e.ClientId)
             .HasColumnName("ClientId")
             .HasColumnType("int")
-            .IsRequired()
+            .IsRequired();
         builder.HasKey(e => e.ClientId);
         builder.Property(e => e.ClientId).ValueGeneratedOnAdd();
 
         builder.Property(e => e.Name)
             .HasColumnName("Name")
             .HasColumnType("nvarchar(100)")
-            .IsRequired()
+            .IsRequired();
 
         builder.Property(e => e.Email)
             .HasColumnName("Email")
-            .HasColumnType("nvarchar(255)")
+            .HasColumnType("nvarchar(255)");
 
         builder.Property(e => e.CreatedDate)
             .HasColumnName("CreatedDate")
             .HasColumnType("datetime2")
-            .IsRequired()
+            .IsRequired();
 
         builder.Property(e => e.IsActive)
             .HasColumnName("IsActive")
             .HasColumnType("bit")
-            .IsRequired()
+            .IsRequired();
 
         builder.HasIndex(e => e.Email)
             .IsUnique()

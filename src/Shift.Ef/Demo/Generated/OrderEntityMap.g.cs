@@ -16,29 +16,29 @@ public partial class OrderEntityMap : IEntityTypeConfiguration<OrderEntity>
         builder.Property(e => e.OrderId)
             .HasColumnName("OrderId")
             .HasColumnType("int")
-            .IsRequired()
+            .IsRequired();
         builder.HasKey(e => e.OrderId);
         builder.Property(e => e.OrderId).ValueGeneratedOnAdd();
 
         builder.Property(e => e.ClientId)
             .HasColumnName("ClientId")
             .HasColumnType("int")
-            .IsRequired()
+            .IsRequired();
 
         builder.Property(e => e.OrderNumber)
             .HasColumnName("OrderNumber")
             .HasColumnType("nvarchar(50)")
-            .IsRequired()
+            .IsRequired();
 
         builder.Property(e => e.Total)
             .HasColumnName("Total")
             .HasColumnType("decimal(18,2)")
-            .IsRequired()
+            .IsRequired();
 
         builder.Property(e => e.OrderDate)
             .HasColumnName("OrderDate")
             .HasColumnType("datetime2")
-            .IsRequired()
+            .IsRequired();
 
         builder.HasOne(e => e.Client)
             .WithMany()

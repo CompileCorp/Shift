@@ -23,9 +23,8 @@ public partial class OrderEntity
     [Column("OrderNumber")]
     public string OrderNumber { get; set; }
 
-    [Column("Total")]
+    [Column("Total", TypeName = "decimal(18,2)")]
     [Required]
-    [Column(TypeName = "decimal(18,2)")]
     public decimal Total { get; set; }
 
     [Column("OrderDate")]
