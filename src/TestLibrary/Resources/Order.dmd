@@ -1,0 +1,7 @@
+model Order with BaseEntity {
+  model Customer
+  decimal(10,2) Amount
+  datetime OrderDate
+  string(50) Status
+  string(1000)? Notes
+}

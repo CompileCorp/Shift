@@ -1,0 +1,7 @@
+model Task with Auditable {
+  string(200) Title
+  string(1000)? Description
+  bool IsCompleted
+  datetime? DueDate
+  model User as AssignedUser
+}

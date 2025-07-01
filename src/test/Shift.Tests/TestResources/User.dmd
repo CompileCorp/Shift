@@ -1,0 +1,7 @@
+model User {
+  string(100) Username
+  string(256) Email
+  string(255) PasswordHash
+  bool IsActive
+  datetime? LastLoginDate
+}

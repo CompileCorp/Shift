@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 namespace Compile.Shift.Cli;
 
@@ -38,6 +39,9 @@ internal class Program
             case "export":
                 await CommandExportAsync(args[1..], loggerFactory);
                 break;
+            case "apply-assemblies":
+                await CommandApplyAssembliesAsync(args[1..], loggerFactory);
+                break;
             default:
                 CommandUsage();
                 break;
@@ -46,7 +50,10 @@ internal class Program
 
     private static void CommandUsage()
     {
-        Console.WriteLine("usage");
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  apply <connection_string> <path1> [path2] ... - Apply DMD/DMDX files from paths to database");
+        Console.WriteLine("  apply-assemblies <connection_string> <dll1> [dll2] ... - Apply DMD/DMDX files from assembly resources to database");
+        Console.WriteLine("  export <connection_string> <schema> <path> - Export database to DMD/DMDX files");
     }
 
     private static async Task CommandApplyAsync(string[] args, ILoggerFactory loggerFactory)
@@ -59,6 +66,49 @@ internal class Program
         var system = new Shift() { Logger = logger };
 
         var targetModel = await system.LoadFromPathAsync(paths);
+        await system.ApplyToSqlAsync(targetModel, connectionString);
+    }
+
+    private static async Task CommandApplyAssembliesAsync(string[] args, ILoggerFactory loggerFactory)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Error: apply-assemblies requires at least a connection string and one DLL path");
+            CommandUsage();
+            return;
+        }
+
+        var connectionString = args[0];
+        var dllPaths = args[1..];
+
+        var logger = loggerFactory.CreateLogger("Logger");
+        var system = new Shift() { Logger = logger };
+
+        var assemblies = new List<Assembly>();
+        
+        foreach (var dllPath in dllPaths)
+        {
+            try
+            {
+                var fullPath = Path.GetFullPath(dllPath);
+                if (!File.Exists(fullPath))
+                {
+                    logger.LogError("Assembly file does not exist: {DllPath}", fullPath);
+                    return;
+                }
+                
+                var assembly = Assembly.LoadFrom(fullPath);
+                assemblies.Add(assembly);
+                logger.LogInformation("Loaded assembly: {AssemblyName} from {DllPath}", assembly.GetName().Name, fullPath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to load assembly from {DllPath}", dllPath);
+                return;
+            }
+        }
+
+        var targetModel = await system.LoadFromAssembliesAsync(assemblies);
         await system.ApplyToSqlAsync(targetModel, connectionString);
     }
 
