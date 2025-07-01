@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Compile.Shift.Ef;
+using System.Reflection;
 
 namespace Compile.Shift.Cli;
 
@@ -43,6 +44,8 @@ internal class Program
             case "ef-generate":
             case "ef":
                 await CommandGenerateEfAsync(args[1..], loggerFactory);
+            case "apply-assemblies":
+                await CommandApplyAssembliesAsync(args[1..], loggerFactory);
                 break;
             default:
                 CommandUsage();
@@ -55,9 +58,11 @@ internal class Program
         Console.WriteLine("Usage: shift <command> [arguments]");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  apply <connection-string> <paths...>             Apply migration files to database");
-        Console.WriteLine("  export <connection-string> <schema>              Export database schema (not implemented)");
-        Console.WriteLine("  ef <sub-command> [options]                       Entity Framework code generation");
+        Console.WriteLine("  apply <connection_string> <path1> [path2] ... - Apply DMD/DMDX files from paths to database");
+        Console.WriteLine("  export <connection_string> <schema> <path> - Export database to DMD/DMDX files");
+        Console.WriteLine("  ef <sub-command> [options]                       Entity Framework code generation");        
+        Console.WriteLine("  apply-assemblies <connection_string> <dll1> [dll2] ... - Apply DMD/DMDX files from assembly resources to database");
+        
         Console.WriteLine();
         Console.WriteLine("EF Commands:");
         Console.WriteLine("  ef sql <connection-string> <output-path>         Generate EF code from SQL Server");
@@ -83,6 +88,49 @@ internal class Program
         var system = new Shift() { Logger = logger };
 
         var targetModel = await system.LoadFromPathAsync(paths);
+        await system.ApplyToSqlAsync(targetModel, connectionString);
+    }
+
+    private static async Task CommandApplyAssembliesAsync(string[] args, ILoggerFactory loggerFactory)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("Error: apply-assemblies requires at least a connection string and one DLL path");
+            CommandUsage();
+            return;
+        }
+
+        var connectionString = args[0];
+        var dllPaths = args[1..];
+
+        var logger = loggerFactory.CreateLogger("Logger");
+        var system = new Shift() { Logger = logger };
+
+        var assemblies = new List<Assembly>();
+        
+        foreach (var dllPath in dllPaths)
+        {
+            try
+            {
+                var fullPath = Path.GetFullPath(dllPath);
+                if (!File.Exists(fullPath))
+                {
+                    logger.LogError("Assembly file does not exist: {DllPath}", fullPath);
+                    return;
+                }
+                
+                var assembly = Assembly.LoadFrom(fullPath);
+                assemblies.Add(assembly);
+                logger.LogInformation("Loaded assembly: {AssemblyName} from {DllPath}", assembly.GetName().Name, fullPath);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to load assembly from {DllPath}", dllPath);
+                return;
+            }
+        }
+
+        var targetModel = await system.LoadFromAssembliesAsync(assemblies);
         await system.ApplyToSqlAsync(targetModel, connectionString);
     }
 

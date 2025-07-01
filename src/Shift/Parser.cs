@@ -49,7 +49,7 @@ public class Parser
         }
     }
 
-    private void ParseTable(DatabaseModel model, string content)
+    public void ParseTable(DatabaseModel model, string content)
     {
         var table = new TableModel();
         var withMixin = "";

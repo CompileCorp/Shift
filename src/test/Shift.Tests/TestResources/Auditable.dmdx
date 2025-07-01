@@ -1,0 +1,10 @@
+mixin Auditable {
+  !model User? as CreatedBy
+  !model User? as LastModifiedBy
+  string(50) CreatedBy
+  datetime CreatedDateTime
+  string(50) LastModifiedBy
+  datetime LastModifiedDateTime
+  !model Transaction?
+  int LockNumber
+}

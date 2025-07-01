@@ -1,0 +1,7 @@
+model Customer with BaseEntity {
+  string(100) Name
+  string(255) Email
+  string(20)? Phone
+  string(500)? Address
+  bool IsActive
+}

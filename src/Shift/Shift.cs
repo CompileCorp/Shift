@@ -13,11 +13,105 @@ public class Shift
 
     public required ILogger Logger { private get; init; }
 
-    public DatabaseModel LoadFromAssembly(Assembly assembly)
+    public async Task<DatabaseModel> LoadFromAssembly(Assembly assembly)
     {
-        //StreamLoader
+        return await LoadFromAssembliesAsync(new[] { assembly });
+    }
 
-        throw new NotImplementedException();
+    public async Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies)
+    {
+        var model = new DatabaseModel();
+
+        // Process assemblies in order to respect priority
+        foreach (var assembly in assemblies)
+        {
+            var resourceNames = assembly.GetManifestResourceNames();
+            
+            // Load mixin files first (.dmdx)
+            var mixinResources = resourceNames
+                .Where(name => name.EndsWith(MixinFileExtension, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var mixinResource in mixinResources)
+            {
+                try
+                {
+                    using var stream = assembly.GetManifestResourceStream(mixinResource);
+                    if (stream != null)
+                    {
+                        using var reader = new StreamReader(stream);
+                        var content = await reader.ReadToEndAsync();
+                        var mixin = _parser.ParseMixin(content);
+                        
+                        // Only add if not already present (first assembly wins)
+                        if (!model.Mixins.ContainsKey(mixin.Name))
+                        {
+                            model.Mixins.Add(mixin.Name, mixin);
+                            Logger.LogDebug("Loaded mixin {MixinName} from assembly {AssemblyName}", mixin.Name, assembly.GetName().Name);
+                        }
+                        else
+                        {
+                            Logger.LogDebug("Skipped mixin {MixinName} from assembly {AssemblyName} (already loaded)", mixin.Name, assembly.GetName().Name);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to load mixin resource {ResourceName} from assembly {AssemblyName}", mixinResource, assembly.GetName().Name);
+                }
+            }
+
+            // Load model files (.dmd)
+            var modelResources = resourceNames
+                .Where(name => name.EndsWith(ModelFileExtension, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var modelResource in modelResources)
+            {
+                try
+                {
+                    using var stream = assembly.GetManifestResourceStream(modelResource);
+                    if (stream != null)
+                    {
+                        using var reader = new StreamReader(stream);
+                        var content = await reader.ReadToEndAsync();
+                        
+                        // Create a temporary model with current mixins to properly apply them
+                        var tempModel = new DatabaseModel();
+                        // Copy existing mixins to temp model
+                        foreach (var mixin in model.Mixins)
+                        {
+                            tempModel.Mixins.Add(mixin.Key, mixin.Value);
+                        }
+                        
+                        _parser.ParseTable(tempModel, content);
+                        
+                        // Only add tables that don't already exist (first assembly wins)
+                        foreach (var table in tempModel.Tables)
+                        {
+                            if (!model.Tables.ContainsKey(table.Key))
+                            {
+                                model.Tables.Add(table.Key, table.Value);
+                                Logger.LogDebug("Loaded table {TableName} from resource {ResourceName} from assembly {AssemblyName}", table.Key, modelResource, assembly.GetName().Name);
+                            }
+                            else
+                            {
+                                Logger.LogDebug("Skipped table {TableName} from resource {ResourceName} from assembly {AssemblyName} (already loaded)", table.Key, modelResource, assembly.GetName().Name);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to load model resource {ResourceName} from assembly {AssemblyName}", modelResource, assembly.GetName().Name);
+                }
+            }
+        }
+
+        Logger.LogInformation("Loaded {MixinCount} mixins and {TableCount} tables from {AssemblyCount} assemblies", 
+            model.Mixins.Count, model.Tables.Count, assemblies.Count());
+
+        return model;
     }
 
     public async Task<DatabaseModel> LoadFromPathAsync(IEnumerable<string> paths)
