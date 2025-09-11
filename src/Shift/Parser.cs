@@ -175,6 +175,15 @@ public class Parser
         {
             ApplyMixin(table, mixin);
         }
+
+        // Check for @NoIdentity attribute and set IsIdentity = false on all primary key fields
+        if (table.Attributes.ContainsKey("NoIdentity"))
+        {
+            foreach (var field in table.Fields.Where(f => f.IsPrimaryKey))
+            {
+                field.IsIdentity = false;
+            }
+        }
     }
 
     private FieldModel? ParseField(string line, IModel targetModel)
@@ -362,4 +371,3 @@ public class Parser
         }
     }
 }
-
