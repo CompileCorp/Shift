@@ -44,6 +44,7 @@ internal class Program
             case "ef-generate":
             case "ef":
                 await CommandGenerateEfAsync(args[1..], loggerFactory);
+                break;
             case "apply-assemblies":
                 await CommandApplyAssembliesAsync(args[1..], loggerFactory);
                 break;
