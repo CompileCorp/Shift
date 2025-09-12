@@ -45,3 +45,9 @@ Thumbs.db
 
 # Exported data
 .vs/
+
+# Exclude sensitive data
+/data/*
+
+# Keep the data directory
+!/data/.gitkeep
