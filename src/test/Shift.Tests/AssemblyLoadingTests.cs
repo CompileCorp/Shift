@@ -41,7 +41,7 @@ public class AssemblyLoadingTests
         Assert.Equal("User", userTable.Name);
         Assert.Contains(userTable.Fields, f => f.Name == "Username");
         Assert.Contains(userTable.Fields, f => f.Name == "Email");
-        Assert.True(userTable.Fields.Where(x => x.IsPrimaryKey).All(x => x.Type == "guid"));
+        Assert.True(userTable.Fields.Where(x => x.IsPrimaryKey).All(x => x.Type == "uniqueidentifier"));
 
         // Should have loaded the Task model with Auditable mixin applied
         Assert.True(model.Tables.ContainsKey("Task"));

@@ -22,7 +22,7 @@ public class MigrationPlanner
                 Fields = table.Fields
             });
 
-            foreach (var foreignKey in table.ForeignKeys)
+            foreach (var foreignKey in table.ForeignKeys.Where(fk => targetModel.Tables.ContainsKey(fk.TargetTable)))
             {
                 plan.Steps.Add(new MigrationStep
                 {
@@ -80,6 +80,7 @@ public class MigrationPlanner
             if (actualTable != null)
             {
                 var missingForeignKeys = targetTable.ForeignKeys
+                    .Where(tfk => targetModel.Tables.ContainsKey(tfk.TargetTable))
                     .Where(tfk => !actualTable.ForeignKeys.Any(afk =>
                         afk.TargetTable.Equals(tfk.TargetTable, StringComparison.OrdinalIgnoreCase)))
                     .ToList();
