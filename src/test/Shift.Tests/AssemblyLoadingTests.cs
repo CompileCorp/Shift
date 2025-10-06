@@ -41,16 +41,18 @@ public class AssemblyLoadingTests
         Assert.Equal("User", userTable.Name);
         Assert.Contains(userTable.Fields, f => f.Name == "Username");
         Assert.Contains(userTable.Fields, f => f.Name == "Email");
-        
+        Assert.True(userTable.Fields.Where(x => x.IsPrimaryKey).All(x => x.Type == "guid"));
+
         // Should have loaded the Task model with Auditable mixin applied
         Assert.True(model.Tables.ContainsKey("Task"));
         var taskTable = model.Tables["Task"];
         Assert.Equal("Task", taskTable.Name);
         Assert.Contains(taskTable.Fields, f => f.Name == "Title");
         Assert.Contains(taskTable.Fields, f => f.Name == "Description");
-        
-        // Should have mixin fields applied
-        Assert.Contains(taskTable.Fields, f => f.Name == "CreatedDateTime");
+        Assert.True(taskTable.Fields.Where(x => x.IsPrimaryKey).All(x => x.Type == "int"));
+
+		// Should have mixin fields applied
+		Assert.Contains(taskTable.Fields, f => f.Name == "CreatedDateTime");
         Assert.Contains(taskTable.Fields, f => f.Name == "LastModifiedDateTime");
         Assert.Contains(taskTable.Mixins, m => m == "Auditable");
     }

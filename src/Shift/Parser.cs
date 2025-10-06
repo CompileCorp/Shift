@@ -61,27 +61,41 @@ public class Parser
 
             if (line.StartsWith("model ") && string.IsNullOrEmpty(table.Name))
             {
-                var tableName = line.Substring(6).Split('{')[0].Trim();
+                var parts = line.Substring(6)
+	                .Split(' ')
+	                .Where(x => x != "{")
+	                .ToArray();
+
+                table.Name = parts[0].Trim();
+
+                var containsWith = line.Contains(" with ");
+
+               // model name type with model 4
+               // model name type 2
 
                 // Check for mixin usage
-                if (line.Contains(" with "))
+                if (containsWith)
                 {
                     var withIndex = line.IndexOf(" with ", StringComparison.Ordinal);
                     withMixin = line.Substring(withIndex + 6).Split('{')[0].Trim();
-                    tableName = line.Substring(6, withIndex - 6).Trim();
+                    table.Name = line.Substring(6, withIndex - 6).Trim();
                 }
 
-                table.Name = tableName;
-
-                // add primary key
-                table.Fields.Add(new FieldModel
+                var fieldModel = new FieldModel
                 {
-                    Name = $"{tableName}ID",
-                    Type = "int",
-                    IsNullable = false,
-                    IsPrimaryKey = true,
-                    IsIdentity = true
-                });
+	                Name = $"{table.Name}ID",
+	                Type = "int",
+	                IsNullable = false,
+	                IsPrimaryKey = true,
+	                IsIdentity = true
+                };
+
+                if ((containsWith && parts.Length == 4) || (!containsWith && parts.Length == 2))
+                {
+	                fieldModel.Type = parts[1].Trim();
+                }
+
+				table.Fields.Add(fieldModel);
 
                 model.Tables.Add(table.Name, table);
             }
@@ -149,9 +163,10 @@ public class Parser
 
                     table.Fields.Add(fkField);
                 }
-                else if (line.StartsWith("key"))
+                else if (line.StartsWith("key "))
                 {
                 }
+
                 else if (line.StartsWith("index "))
                 {
                     var indexModel = ParseIndex(line);

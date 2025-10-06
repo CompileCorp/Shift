@@ -1,4 +1,4 @@
-model User {
+model User guid {
   string(100) Username
   string(256) Email
   string(255) PasswordHash
