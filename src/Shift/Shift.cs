@@ -108,7 +108,10 @@ public class Shift
             }
         }
 
-        Logger.LogInformation("Loaded {MixinCount} mixins and {TableCount} tables from {AssemblyCount} assemblies", 
+        // Normalize FK column types to match referenced PK types
+        NormalizeForeignKeyTypes(model);
+
+        Logger.LogInformation("Loaded {MixinCount} mixins and {TableCount} tables from {AssemblyCount} assemblies",
             model.Mixins.Count, model.Tables.Count, assemblies.Count());
 
         return model;
@@ -146,6 +149,9 @@ public class Shift
             .AsEnumerable();
 
         await _parser.ParseModelsAsync(model, modelFiles);
+
+        // Normalize FK column types to match referenced PK types
+        NormalizeForeignKeyTypes(model);
 
         return model;
     }
@@ -188,5 +194,42 @@ public class Shift
     public void SaveToPathAsync()
     {
         throw new NotImplementedException();
+    }
+
+    private static void NormalizeForeignKeyTypes(DatabaseModel model)
+    {
+        // Build PK type map per table
+        var primaryKeyTypeByTable = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var table in model.Tables.Values)
+        {
+            var primaryKeyField = table.Fields.FirstOrDefault(f => f.IsPrimaryKey)
+                ?? table.Fields.FirstOrDefault(f => f.Name.Equals($"{table.Name}ID", StringComparison.OrdinalIgnoreCase));
+
+            var pkType = primaryKeyField?.Type ?? "int";
+            primaryKeyTypeByTable[table.Name] = pkType;
+        }
+
+        // Align FK field types to target PK types
+        foreach (var table in model.Tables.Values)
+        {
+            foreach (var fk in table.ForeignKeys)
+            {
+                if (!primaryKeyTypeByTable.TryGetValue(fk.TargetTable, out var targetPkType))
+                {
+                    continue;
+                }
+
+                var fkField = table.Fields.FirstOrDefault(f => f.Name.Equals(fk.ColumnName, StringComparison.OrdinalIgnoreCase));
+                if (fkField == null)
+                {
+                    continue;
+                }
+
+                fkField.Type = targetPkType;
+                fkField.Precision = null;
+                fkField.Scale = null;
+            }
+        }
     }
 }

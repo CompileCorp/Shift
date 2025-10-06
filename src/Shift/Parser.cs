@@ -90,10 +90,17 @@ public class Parser
 	                IsIdentity = true
                 };
 
-                if ((containsWith && parts.Length == 4) || (!containsWith && parts.Length == 2))
-                {
-	                fieldModel.Type = parts[1].Trim();
-                }
+				if ((containsWith && parts.Length == 4) || (!containsWith && parts.Length == 2))
+				{
+					fieldModel.Type = parts[1].Trim();
+				}
+
+				// Normalize DSL type to SQL type for primary key and adjust identity if needed
+				ConvertType(fieldModel);
+				if (fieldModel.Type.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase))
+				{
+					fieldModel.IsIdentity = false;
+				}
 
 				table.Fields.Add(fieldModel);
 
@@ -330,6 +337,9 @@ public class Parser
             case "long":
                 field.Type = "bigint";
                 break;
+			case "guid":
+				field.Type = "uniqueidentifier";
+				break;
             case "decimal":
                 field.Type = "decimal";
                 break;
