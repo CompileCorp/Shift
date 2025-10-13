@@ -68,6 +68,50 @@ public class MigrationPlanner
                     //	});
                     //}
                 }
+
+                // Detect safe widen operations for string/binary types (e.g., nvarchar/varbinary/char/nchar)
+                foreach (var targetField in targetTable.Fields)
+                {
+                    var actualField = actualTable.Fields
+                        .FirstOrDefault(af => af.Name.Equals(targetField.Name, StringComparison.OrdinalIgnoreCase));
+
+                    if (actualField == null) continue;
+
+                    // Only consider same base type
+                    var targetType = targetField.Type.ToLowerInvariant();
+                    var actualType = actualField.Type.ToLowerInvariant();
+
+                    if (!string.Equals(targetType, actualType, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Candidates: varchar/nvarchar/char/nchar/binary/varbinary
+                    var isSizeType = targetType is "varchar" or "nvarchar" or "char" or "nchar" or "binary" or "varbinary";
+                    if (!isSizeType) continue;
+
+                    // max widening is allowed anytime; numeric precision increase allowed when target > actual
+                    int? targetPrecision = targetField.Precision;
+                    int? actualPrecision = actualField.Precision;
+
+                    bool widening = false;
+                    if (targetPrecision == -1 && actualPrecision != -1)
+                    {
+                        widening = true; // to MAX
+                    }
+                    else if (targetPrecision.HasValue && actualPrecision.HasValue && targetPrecision.Value > actualPrecision.Value)
+                    {
+                        widening = true;
+                    }
+
+                    if (widening)
+                    {
+                        plan.Steps.Add(new MigrationStep
+                        {
+                            Action = MigrationAction.AlterColumn,
+                            TableName = targetTable.Name,
+                            Fields = new List<FieldModel> { targetField }
+                        });
+                    }
+                }
             }
         }
 
