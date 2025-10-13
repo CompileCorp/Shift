@@ -97,6 +97,55 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         }
     }
+
+    [Fact]
+    public async Task Increasing_NVarChar_Width_Should_Apply_AlterColumn()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+
+            // 1) Apply initial schema with nvarchar(50)
+            var initialModel = TestModels.BuildComprehensiveModel();
+            var actualEmpty = await shift.LoadFromSqlAsync(connectionString);
+
+            var planner = new MigrationPlanner();
+            var plan1 = planner.GeneratePlan(initialModel, actualEmpty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            var failures1 = runner1.Run();
+            Assert.Empty(failures1);
+
+            var modelAfterFirstApply = await shift.LoadFromSqlAsync(connectionString);
+            var productAfterFirst = modelAfterFirstApply.Tables["Product"];            
+            var unicodeNameFirst = productAfterFirst.Fields.First(f => f.Name == "UnicodeName");
+            Assert.Equal(50, unicodeNameFirst.Precision);
+
+            // 2) Target change: widen nvarchar(50) -> nvarchar(200)
+            var updatedModel = TestModels.BuildComprehensiveModel();
+            var product = updatedModel.Tables["Product"];
+            var unicodeName = product.Fields.First(f => f.Name == "UnicodeName");
+            unicodeName.Precision = 200;
+
+            var plan2 = planner.GeneratePlan(updatedModel, modelAfterFirstApply);
+            var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
+            var failures2 = runner2.Run();
+            Assert.Empty(failures2);
+
+            // 3) Reload and EXPECT width is 200 (this will currently FAIL until alter column is implemented)
+            var reloaded = await shift.LoadFromSqlAsync(connectionString);
+            var productReloaded = reloaded.Tables["Product"];            
+            var unicodeNameReloaded = productReloaded.Fields.First(f => f.Name == "UnicodeName");
+            Assert.Equal(200, unicodeNameReloaded.Precision);
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
 }
 
 

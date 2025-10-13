@@ -43,6 +43,14 @@ public class SqlMigrationPlanRunner
                     Logger.LogInformation($"{step.Action} {step.TableName}");
                     sqls.AddRange(GenerateCreateTableSql(step.TableName, step.Fields));
                 }
+                else if (step.Action == MigrationAction.AlterColumn)
+                {
+                    foreach (var field in step.Fields)
+                    {
+                        Logger.LogInformation($"{step.Action} {step.TableName} {field}");
+                        sqls.AddRange(GenerateAlterColumnSql(step.TableName, field));
+                    }
+                }
                 else if (step is { Action: MigrationAction.AddForeignKey, ForeignKey: not null })
                 {
                     Logger.LogInformation($"{step.Action} {step.TableName} {step.ForeignKey.ColumnName}");
@@ -195,5 +203,28 @@ WHERE df.parent_object_id = OBJECT_ID('{tableName}') AND c.name = '{field.Name}'
 IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfname + ']');
 ";
         }
+    }
+
+    private IEnumerable<string> GenerateAlterColumnSql(string tableName, FieldModel field)
+    {
+        var typeSql = field.Type;
+        if (field.Precision.HasValue)
+        {
+            if (field.Precision == -1)
+            {
+                typeSql += "(max)";
+            }
+            else if (field.Scale.HasValue)
+            {
+                typeSql += $"({field.Precision.Value},{field.Scale.Value})";
+            }
+            else
+            {
+                typeSql += $"({field.Precision.Value})";
+            }
+        }
+
+        var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
+        yield return $"ALTER TABLE [dbo].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
     }
 }
