@@ -70,11 +70,11 @@ public class SqlMigrationPlanRunnerTests
     /// Tests that SqlMigrationPlanRunner can create tables with various field types.
     /// </summary>
     [Fact]
-    public async Task Run_WithCreateTableStep_ShouldCreateTableSuccessfully()
+    public async Task Run_WithCreateTable_ShouldCreateTableSuccessfully()
     {
         // Arrange
         var plan = MigrationPlanBuilder.Create()
-            .WithCreateTableStep("TestUser", table => table
+            .WithCreateTable("TestUser", table => table
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
                 .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false))
                 .WithField("Email", "nvarchar", f => f.Precision(256).Nullable(true))
@@ -138,8 +138,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Create migration plan to add column
             var plan = MigrationPlanBuilder.Create()
-                .WithAddColumnStep("TestUser", column => column
-                    .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
+                .WithAddColumn("TestUser", "Username", "nvarchar", f => f.Precision(100).Nullable(false))
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -170,7 +169,7 @@ public class SqlMigrationPlanRunnerTests
     /// Tests that SqlMigrationPlanRunner can add foreign key constraints.
     /// </summary>
     [Fact]
-    public async Task Run_WithAddForeignKeyStep_ShouldAddForeignKeySuccessfully()
+    public async Task Run_WithAddForeignKey_ShouldAddForeignKeySuccessfully()
     {
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
@@ -192,7 +191,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Create migration plan to add foreign key
             var plan = MigrationPlanBuilder.Create()
-                .WithAddForeignKeyStep("Order", "UserID", "User", "UserID", RelationshipType.OneToMany)
+                .WithAddForeignKey("Order", "UserID", "User", "UserID", RelationshipType.OneToMany)
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -240,15 +239,15 @@ public class SqlMigrationPlanRunnerTests
         {
             var plan = MigrationPlanBuilder.Create()
                 // Step 1: Create User table
-                .WithCreateTableStep("User", user => user
+                .WithCreateTable("User", user => user
                     .WithField("UserID", "int", f => f.PrimaryKey().Identity())
                     .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
                 // Step 2: Create Order table
-                .WithCreateTableStep("Order", order => order
+                .WithCreateTable("Order", order => order
                     .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
                     .WithField("UserID", "int", f => f.Nullable(false)))
                 // Step 3: Add foreign key
-                .WithAddForeignKeyStep("Order", "UserID", "User", "UserID", RelationshipType.OneToMany)
+                .WithAddForeignKey("Order", "UserID", "User", "UserID", RelationshipType.OneToMany)
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -308,16 +307,9 @@ public class SqlMigrationPlanRunnerTests
             await createTableCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to alter column (increase precision - safe)
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AlterColumn,
-                TableName = "TestUser",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "Username", Type = "nvarchar", Precision = 200, IsNullable = false }
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAlterColumn("TestUser", "Username", "nvarchar", f => f.Precision(200).Nullable(false))
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -366,18 +358,11 @@ public class SqlMigrationPlanRunnerTests
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestProduct (ProductID int IDENTITY(1,1) PRIMARY KEY, Price decimal(10,2) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
 
-            // Create migration plan to alter decimal column (increase precision - safe)
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AlterColumn,
-                TableName = "TestProduct",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "Price", Type = "decimal", Precision = 18, Scale = 4, IsNullable = false }
-                }
-            });
-
+            //Create migration plan to alter decimal column(increase precision -safe)
+            var plan = MigrationPlanBuilder.Create()
+                .WithAlterColumn("TestProduct", "Price", "decimal", f => f.Precision(18, 4).Nullable(false))
+                .Build();
+            
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
                 Logger = _logger
@@ -435,16 +420,9 @@ public class SqlMigrationPlanRunnerTests
             await insertCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to alter column (decrease precision - unsafe)
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AlterColumn,
-                TableName = "TestUser",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "Username", Type = "nvarchar", Precision = 50, IsNullable = false }
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAlterColumn("TestUser", "Username", "nvarchar", f => f.Precision(50).Nullable(false))
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -498,16 +476,9 @@ public class SqlMigrationPlanRunnerTests
             await insertCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to alter decimal column (decrease precision - unsafe)
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AlterColumn,
-                TableName = "TestProduct",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "Price", Type = "decimal", Precision = 10, Scale = 2, IsNullable = false }
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAlterColumn("TestProduct", "Price", "decimal", f => f.Precision(10, 2).Nullable(false))
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -562,16 +533,9 @@ public class SqlMigrationPlanRunnerTests
             await createTableCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to alter binary column (increase precision - safe)
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AlterColumn,
-                TableName = "TestData",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "BinaryData", Type = "varbinary", Precision = 200, IsNullable = false }
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAlterColumn("TestData", "BinaryData", "varbinary", f => f.Precision(200).Nullable(false))
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -621,16 +585,9 @@ public class SqlMigrationPlanRunnerTests
             await createTableCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to alter char column (increase precision - safe)
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AlterColumn,
-                TableName = "TestCode",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "StatusCode", Type = "char", Precision = 10, IsNullable = false }
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAlterColumn("TestCode", "StatusCode", "char", f => f.Precision(10).Nullable(false))
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -666,7 +623,7 @@ public class SqlMigrationPlanRunnerTests
     /// Verifies the SQL generation and execution for single-column indexes.
     /// </summary>
     [Fact]
-    public async Task Run_WithAddIndexStep_ShouldCreateIndex()
+    public async Task Run_WithAddIndex_ShouldCreateIndex()
     {
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
@@ -684,8 +641,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Create migration plan with AddIndex step
             var plan = MigrationPlanBuilder.Create()
-                .WithAddIndexStep("User", index => index
-                    .WithIndex("Email", isUnique: false))
+                .WithAddIndex("User", "Email", "Email", isUnique: false)
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -739,8 +695,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Create migration plan with AddIndex step
             var plan = MigrationPlanBuilder.Create()
-                .WithAddIndexStep("User", index => index
-                    .WithIndex("Email", isUnique: true))
+                .WithAddIndex("User", "Email", "Email", isUnique: true)
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -794,8 +749,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Create migration plan with AddIndex step
             var plan = MigrationPlanBuilder.Create()
-                .WithAddIndexStep("User", index => index
-                    .WithIndex(new[] { "Email", "Username" }, isUnique: false))
+                .WithAddIndex("User", "EmailUsername", new[] { "Email", "Username" }, isUnique: false)
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -844,15 +798,13 @@ public class SqlMigrationPlanRunnerTests
             // Create migration plan with multiple step types
             var plan = MigrationPlanBuilder.Create()
                 // Create table step
-                .WithCreateTableStep("User", user => user
+                .WithCreateTable("User", user => user
                     .WithField("UserID", "int", f => f.PrimaryKey().Identity().Nullable(false))
                     .WithField("Email", "nvarchar", f => f.Precision(256).Nullable(false)))
                 // Add column step
-                .WithAddColumnStep("User", column => column
-                    .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
+                .WithAddColumn("User", "Username", "nvarchar", f => f.Precision(100).Nullable(false))
                 // Add index step
-                .WithAddIndexStep("User", index => index
-                    .WithIndex("Email", isUnique: true))
+                .WithAddIndex("User", "Email", "Email", isUnique: true)
                 .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)

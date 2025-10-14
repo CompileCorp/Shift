@@ -10,6 +10,7 @@
     <Project Path="Shift/Shift.csproj" />
   </Folder>
   <Folder Name="/test/">
+    <Project Path="test/Shift.Cli.Tests/Shift.Cli.Tests.csproj" Id="4547a9bd-1ac4-43a9-9454-82b44af10b21" />
     <Project Path="test/Shift.Test.Framework/Shift.Test.Framework.csproj" Id="7bd17062-b127-47a2-b69f-08a7e22c4aae" />
     <Project Path="test/Shift.Tests/Shift.Tests.csproj" />
   </Folder>

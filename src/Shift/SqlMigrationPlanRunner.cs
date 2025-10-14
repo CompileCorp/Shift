@@ -314,4 +314,5 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         var uniqueKeyword = index.IsUnique ? "UNIQUE " : "";
         yield return $"CREATE {uniqueKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})";
     }
+
 }
