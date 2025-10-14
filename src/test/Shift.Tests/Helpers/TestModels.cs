@@ -6,123 +6,76 @@ public static class TestModels
 {
     public static DatabaseModel BuildComprehensiveModel()
     {
-        var model = new DatabaseModel();
-
-        // User table with GUID PK
-        var user = new TableModel
-        {
-            Name = "User",
-            Fields =
-            {
-                new FieldModel { Name = "UserID", Type = "uniqueidentifier", IsPrimaryKey = true, IsIdentity = false },
-                new FieldModel { Name = "Username", Type = "nvarchar", Precision = 50, IsNullable = false },
-                new FieldModel { Name = "Email", Type = "nvarchar", Precision = 100, IsNullable = true },
-                new FieldModel { Name = "CreatedAt", Type = "datetime2", IsNullable = false }
-            }
-        };
-        model.Tables[user.Name] = user;
-
-        // Product table with int identity PK and wide type coverage
-        var product = new TableModel
-        {
-            Name = "Product",
-            Fields =
-            {
-                new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true },
-                new FieldModel { Name = "IsActive", Type = "bit", IsNullable = false },
-                new FieldModel { Name = "SmallNumber", Type = "tinyint", IsNullable = false },
-                new FieldModel { Name = "ShortNumber", Type = "smallint", IsNullable = false },
-                new FieldModel { Name = "LongNumber", Type = "bigint", IsNullable = false },
-                new FieldModel { Name = "Price", Type = "decimal", Precision = 18, Scale = 2, IsNullable = false },
-                new FieldModel { Name = "NumericOnly", Type = "numeric", Precision = 10, IsNullable = true },
-                new FieldModel { Name = "MoneyValue", Type = "money", IsNullable = true },
-                new FieldModel { Name = "FloatValue", Type = "float", IsNullable = true },
-                new FieldModel { Name = "RealValue", Type = "real", IsNullable = true },
-                new FieldModel { Name = "FixedAscii", Type = "char", Precision = 10, IsNullable = true },
-                new FieldModel { Name = "Name", Type = "varchar", Precision = 50, IsNullable = false },
-                new FieldModel { Name = "Description", Type = "varchar", Precision = -1, IsNullable = true },
-                new FieldModel { Name = "FixedUnicode", Type = "nchar", Precision = 5, IsNullable = true },
-                new FieldModel { Name = "UnicodeName", Type = "nvarchar", Precision = 50, IsNullable = false },
-                new FieldModel { Name = "UnicodeBlob", Type = "nvarchar", Precision = -1, IsNullable = true },
-                new FieldModel { Name = "WhenAvailable", Type = "date", IsNullable = true },
-                new FieldModel { Name = "ShipTime", Type = "time", IsNullable = true },
-                new FieldModel { Name = "OffsetTime", Type = "datetimeoffset", IsNullable = true },
-                new FieldModel { Name = "BinaryFixed", Type = "binary", Precision = 50, IsNullable = true },
-                new FieldModel { Name = "BinaryVar", Type = "varbinary", Precision = -1, IsNullable = true },
-                new FieldModel { Name = "ExternalId", Type = "uniqueidentifier", IsNullable = true },
-                new FieldModel { Name = "Metadata", Type = "xml", IsNullable = true }
-            }
-        };
-        model.Tables[product.Name] = product;
-
-        // Order table with bigint identity PK and FK to User
-        var order = new TableModel
-        {
-            Name = "Order",
-            Fields =
-            {
-                new FieldModel { Name = "OrderID", Type = "bigint", IsPrimaryKey = true, IsIdentity = true },
-                new FieldModel { Name = "OrderDate", Type = "datetime2", IsNullable = false },
-                new FieldModel { Name = "UserID", Type = "uniqueidentifier", IsNullable = false },
-            },
-            ForeignKeys =
-            {
-                new ForeignKeyModel { ColumnName = "UserID", TargetTable = "User", TargetColumnName = "UserID", IsNullable = false }
-            }
-        };
-        model.Tables[order.Name] = order;
-
-        // OrderItem table with FKs to Order and Product
-        var orderItem = new TableModel
-        {
-            Name = "OrderItem",
-            Fields =
-            {
-                new FieldModel { Name = "OrderItemID", Type = "int", IsPrimaryKey = true, IsIdentity = true },
-                new FieldModel { Name = "OrderID", Type = "bigint", IsNullable = false },
-                new FieldModel { Name = "ProductID", Type = "int", IsNullable = false },
-                new FieldModel { Name = "Quantity", Type = "int", IsNullable = false },
-                new FieldModel { Name = "UnitPrice", Type = "decimal", Precision = 18, Scale = 2, IsNullable = false }
-            },
-            ForeignKeys =
-            {
-                new ForeignKeyModel { ColumnName = "OrderID", TargetTable = "Order", TargetColumnName = "OrderID", IsNullable = false },
-                new ForeignKeyModel { ColumnName = "ProductID", TargetTable = "Product", TargetColumnName = "ProductID", IsNullable = false }
-            }
-        };
-        model.Tables[orderItem.Name] = orderItem;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            // User table with GUID PK
+            .WithTable("User", user => user
+                .WithField("UserID", "uniqueidentifier", f => f.PrimaryKey().Identity(false))
+                .WithField("Username", "nvarchar", f => f.Precision(50).Nullable(false))
+                .WithField("Email", "nvarchar", f => f.Precision(100).Nullable(true))
+                .WithField("CreatedAt", "datetime2", f => f.Nullable(false)))
+            
+            // Product table with comprehensive type coverage
+            .WithTable("Product", product => product
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("IsActive", "bit", f => f.Nullable(false))
+                .WithField("SmallNumber", "tinyint", f => f.Nullable(false))
+                .WithField("ShortNumber", "smallint", f => f.Nullable(false))
+                .WithField("LongNumber", "bigint", f => f.Nullable(false))
+                .WithField("Price", "decimal", f => f.Precision(18, 2).Nullable(false))
+                .WithField("NumericOnly", "numeric", f => f.Precision(10).Nullable(true))
+                .WithField("MoneyValue", "money", f => f.Nullable(true))
+                .WithField("FloatValue", "float", f => f.Nullable(true))
+                .WithField("RealValue", "real", f => f.Nullable(true))
+                .WithField("FixedAscii", "char", f => f.Precision(10).Nullable(true))
+                .WithField("Name", "varchar", f => f.Precision(50).Nullable(false))
+                .WithField("Description", "varchar", f => f.Precision(-1).Nullable(true)) // MAX
+                .WithField("FixedUnicode", "nchar", f => f.Precision(5).Nullable(true))
+                .WithField("UnicodeName", "nvarchar", f => f.Precision(50).Nullable(false))
+                .WithField("UnicodeBlob", "nvarchar", f => f.Precision(-1).Nullable(true)) // MAX
+                .WithField("WhenAvailable", "date", f => f.Nullable(true))
+                .WithField("ShipTime", "time", f => f.Nullable(true))
+                .WithField("OffsetTime", "datetimeoffset", f => f.Nullable(true))
+                .WithField("BinaryFixed", "binary", f => f.Precision(50).Nullable(true))
+                .WithField("BinaryVar", "varbinary", f => f.Precision(-1).Nullable(true)) // MAX
+                .WithField("ExternalId", "uniqueidentifier", f => f.Nullable(true))
+                .WithField("Metadata", "xml", f => f.Nullable(true)))
+            
+            // Order table with foreign key to User
+            .WithTable("Order", order => order
+                .WithField("OrderID", "bigint", f => f.PrimaryKey().Identity())
+                .WithField("OrderDate", "datetime2", f => f.Nullable(false))
+                .WithField("UserID", "uniqueidentifier", f => f.Nullable(false))
+                .WithForeignKey("UserID", "User", "UserID", RelationshipType.OneToMany))
+            
+            // OrderItem table with foreign keys to Order and Product
+            .WithTable("OrderItem", item => item
+                .WithField("OrderItemID", "int", f => f.PrimaryKey().Identity())
+                .WithField("OrderID", "bigint", f => f.Nullable(false))
+                .WithField("ProductID", "int", f => f.Nullable(false))
+                .WithField("Quantity", "int", f => f.Nullable(false))
+                .WithField("UnitPrice", "decimal", f => f.Precision(18, 2).Nullable(false))
+                .WithForeignKey("OrderID", "Order", "OrderID", RelationshipType.OneToMany)
+                .WithForeignKey("ProductID", "Product", "ProductID", RelationshipType.OneToMany))
+            .Build();
     }
 
     public static (DatabaseModel model, string mixinContent, string tableContent) BuildMixinModel()
     {
-        var model = new DatabaseModel();
+        var model = DatabaseModelBuilder.Create()
+            .WithMixin("Auditable", mixin => mixin
+                .WithField("CreatedDateTime", "datetime2", f => f.Nullable(false))
+                .WithField("LastModifiedDateTime", "datetime2", f => f.Nullable(true))
+                .WithField("LockNumber", "int", f => f.Nullable(false)))
+            .WithTable("Task", task => task
+                .WithField("TaskID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Title", "nvarchar", f => f.Precision(200).Nullable(false)))
+            .Build();
 
-        var mixin = new MixinModel
-        {
-            Name = "Auditable",
-            Fields =
-            {
-                new FieldModel { Name = "CreatedDateTime", Type = "datetime2", IsNullable = false },
-                new FieldModel { Name = "LastModifiedDateTime", Type = "datetime2", IsNullable = true },
-                new FieldModel { Name = "LockNumber", Type = "int", IsNullable = false }
-            }
-        };
-        model.Mixins[mixin.Name] = mixin;
-
-        var taskTable = new TableModel
-        {
-            Name = "Task",
-            Fields =
-            {
-                new FieldModel { Name = "TaskID", Type = "int", IsPrimaryKey = true, IsIdentity = true },
-                new FieldModel { Name = "Title", Type = "nvarchar", Precision = 200, IsNullable = false }
-            }
-        };
         // Apply mixin programmatically similar to Parser.ApplyMixin
-        taskTable.Mixins.Add(mixin.Name);
-        foreach (var field in mixin.Fields)
+        var taskTable = model.Tables["Task"];
+        var auditableMixin = model.Mixins["Auditable"];
+        taskTable.Mixins.Add(auditableMixin.Name);
+        foreach (var field in auditableMixin.Fields)
         {
             taskTable.Fields.Add(new FieldModel
             {
@@ -136,7 +89,6 @@ public static class TestModels
                 IsIdentity = field.IsIdentity
             });
         }
-        model.Tables[taskTable.Name] = taskTable;
 
         return (model, string.Empty, string.Empty);
     }

@@ -63,6 +63,11 @@ public class SqlMigrationPlanRunner
                     Logger.LogInformation($"{step.Action} {step.TableName} {step.ForeignKey.ColumnName}");
                     sqls.AddRange(CreateForeignKeySql(step.TableName, step.ForeignKey));
                 }
+                else if (step is { Action: MigrationAction.AddIndex, Index: not null })
+                {
+                    Logger.LogInformation($"{step.Action} {step.TableName} {string.Join(",", step.Index.Fields)}");
+                    sqls.AddRange(GenerateIndexSql(step.TableName, step.Index));
+                }
 
                 foreach (var xsql in sqls)
                 {
@@ -295,5 +300,18 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         }
 
         return false;
+    }
+
+    private IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index)
+    {
+        // Generate index name: IX_TableName_Field1_Field2...
+        var indexName = $"IX_{tableName}_{string.Join("_", index.Fields)}";
+        
+        // Generate column list: [Column1], [Column2]
+        var columnList = string.Join(", ", index.Fields.Select(f => $"[{f}]"));
+        
+        // Generate CREATE INDEX statement
+        var uniqueKeyword = index.IsUnique ? "UNIQUE " : "";
+        yield return $"CREATE {uniqueKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})";
     }
 }

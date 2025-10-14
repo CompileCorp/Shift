@@ -6,4 +6,5 @@ public class MigrationStep
     public string TableName { get; set; } = string.Empty;
     public List<FieldModel> Fields { get; set; } = new List<FieldModel>();
     public ForeignKeyModel? ForeignKey { get; set; }
+    public IndexModel? Index { get; set; }
 }

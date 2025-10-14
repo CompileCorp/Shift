@@ -260,6 +260,120 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
     #endregion
 
+    #region Index Operation Tests
+
+    [Fact]
+    public void GeneratePlan_WithMissingIndexes_ShouldAddIndexSteps()
+    {
+        // Arrange
+        var targetModel = CreateModelWithIndexes();
+        var actualModel = CreateModelWithoutIndexes();
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().HaveCount(2);
+        plan.Steps.Should().AllSatisfy(step => step.Action.Should().Be(MigrationAction.AddIndex));
+        plan.Steps.Should().Contain(step => step.TableName == "User" && step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Email" }) && step.Index.IsUnique == true);
+        plan.Steps.Should().Contain(step => step.TableName == "User" && step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Username" }) && step.Index.IsUnique == false);
+    }
+
+    [Fact]
+    public void GeneratePlan_WithExtraIndexes_ShouldReportExtras()
+    {
+        // Arrange
+        var targetModel = CreateModelWithoutIndexes();
+        var actualModel = CreateModelWithIndexes();
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().BeEmpty();
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().HaveCount(2);
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra => 
+            extra.TableName == "User" && 
+            extra.Fields.SequenceEqual(new[] { "Email" }) && 
+            extra.IsUnique == true);
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra => 
+            extra.TableName == "User" && 
+            extra.Fields.SequenceEqual(new[] { "Username" }) && 
+            extra.IsUnique == false);
+    }
+
+    [Fact]
+    public void GeneratePlan_WithUniqueAndNonUniqueIndexes_ShouldDistinguish()
+    {
+        // Arrange
+        var targetModel = CreateModelWithMixedIndexes();
+        var actualModel = CreateModelWithoutIndexes();
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().HaveCount(3);
+        plan.Steps.Should().Contain(step => step.Index != null && step.Index.IsUnique == true);
+        plan.Steps.Should().Contain(step => step.Index != null && step.Index.IsUnique == false);
+        plan.Steps.Should().OnlyContain(step => step.Action == MigrationAction.AddIndex);
+    }
+
+    [Fact]
+    public void GeneratePlan_WithCaseInsensitiveIndexFields_ShouldMatch()
+    {
+        // Arrange
+        var targetModel = CreateModelWithIndexes();
+        var actualModel = CreateModelWithCaseInsensitiveIndexes();
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().BeEmpty();
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GeneratePlan_WithMultiColumnIndexes_ShouldMatchFieldOrder()
+    {
+        // Arrange
+        var targetModel = CreateModelWithMultiColumnIndexes();
+        var actualModel = CreateModelWithoutIndexes();
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().HaveCount(2);
+        plan.Steps.Should().Contain(step => 
+            step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Email", "Username" }));
+        plan.Steps.Should().Contain(step => 
+            step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Username", "Email" }));
+    }
+
+    [Fact]
+    public void GeneratePlan_WithSameTableMissingAndExtraIndexes_ShouldHandleBoth()
+    {
+        // Arrange
+        var targetModel = CreateModelWithSpecificIndexes();
+        var actualModel = CreateModelWithDifferentIndexes();
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().HaveCount(1);
+        plan.Steps.Should().Contain(step => 
+            step.Action == MigrationAction.AddIndex && 
+            step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Email" }));
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().HaveCount(1);
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra => 
+            extra.Fields.SequenceEqual(new[] { "Username" }));
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static DatabaseModel CreateTargetModelWithTables()
@@ -356,6 +470,87 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
                 .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
                 .WithField("CustomerID", "int")
                 .WithForeignKey("CustomerID", "Customer", "CustomerID", RelationshipType.OneToMany)) // This table doesn't exist in target model
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithIndex("IX_User_Email", "Email", isUnique: true)
+                .WithIndex("IX_User_Username", "Username", isUnique: false))
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithoutIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithMixedIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithIndex("IX_User_Email", "Email", isUnique: true)
+                .WithIndex("IX_User_Username", "Username", isUnique: false)
+                .WithIndex("IX_User_Email_Unique", "Email", isUnique: true))
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithCaseInsensitiveIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithIndex("IX_User_EMAIL", "EMAIL", isUnique: true)
+                .WithIndex("IX_User_USERNAME", "USERNAME", isUnique: false))
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithMultiColumnIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithIndex("IX_User_Email_Username", new[] { "Email", "Username" }, isUnique: false)
+                .WithIndex("IX_User_Username_Email", new[] { "Username", "Email" }, isUnique: false))
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithSpecificIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithIndex("IX_User_Email", "Email", isUnique: true))
+            .Build();
+    }
+
+    private static DatabaseModel CreateModelWithDifferentIndexes()
+    {
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithIndex("IX_User_Username", "Username", isUnique: false))
             .Build();
     }
 
