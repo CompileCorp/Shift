@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
@@ -26,6 +26,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\Shift\Shift.csproj" />
+      <ProjectReference Include="..\Shift.Test.Framework\Shift.Test.Framework.csproj" />
     </ItemGroup>
 
     <ItemGroup>

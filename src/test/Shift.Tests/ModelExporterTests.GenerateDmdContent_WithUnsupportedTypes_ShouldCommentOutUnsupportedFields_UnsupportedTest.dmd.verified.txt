@@ -1,0 +1,4 @@
+﻿model UnsupportedTest {
+  int ID
+# geometry Location
+}

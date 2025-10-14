@@ -1,0 +1,39 @@
+﻿{
+  Name: User,
+  Fields: [
+    {
+      IsPrimaryKey: true,
+      IsIdentity: true,
+      Name: UserID,
+      Type: int,
+      IsNullable: false,
+      IsOptional: false
+    },
+    {
+      IsPrimaryKey: false,
+      IsIdentity: false,
+      Name: Username,
+      Type: nvarchar,
+      IsNullable: false,
+      IsOptional: false,
+      Precision: 100
+    },
+    {
+      IsPrimaryKey: false,
+      IsIdentity: false,
+      Name: Email,
+      Type: nvarchar,
+      IsNullable: false,
+      IsOptional: false,
+      Precision: 256
+    },
+    {
+      IsPrimaryKey: false,
+      IsIdentity: false,
+      Name: IsActive,
+      Type: bit,
+      IsNullable: false,
+      IsOptional: false
+    }
+  ]
+}

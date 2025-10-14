@@ -6,10 +6,14 @@
   </Configurations>
   <Folder Name="/src/">
     <Project Path="Shift.Cli/Shift.Cli.csproj" />
-    <Project Path="Shift/Shift.csproj" />
     <Project Path="Shift.Ef/Shift.Ef.csproj" />
+    <Project Path="Shift/Shift.csproj" />
   </Folder>
   <Folder Name="/test/">
+    <Project Path="test/Shift.Test.Framework/Shift.Test.Framework.csproj" Id="7bd17062-b127-47a2-b69f-08a7e22c4aae" />
     <Project Path="test/Shift.Tests/Shift.Tests.csproj" />
+  </Folder>
+  <Folder Name="/wiki/">
+    <Project Path="../wiki/Shift.Wiki/Shift.Wiki.csproj" Id="f81814a3-c003-42e2-b601-fc250fd254bc" />
   </Folder>
 </Solution>

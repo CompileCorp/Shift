@@ -1,0 +1,221 @@
+﻿{
+  Tables: {
+    TestOrder: {
+      Name: TestOrder,
+      Fields: [
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: OrderID,
+          Type: int,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: UserID,
+          Type: int,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: ProductID,
+          Type: int,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: OrderDate,
+          Type: datetime2,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: Quantity,
+          Type: int,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: TotalAmount,
+          Type: decimal,
+          IsNullable: true,
+          IsOptional: false,
+          Precision: 18,
+          Scale: 2
+        }
+      ],
+      ForeignKeys: [
+        {
+          TargetTable: TestProduct,
+          TargetColumnName: TestProductID,
+          ColumnName: ProductID,
+          IsNullable: false
+        },
+        {
+          TargetTable: TestUser,
+          TargetColumnName: TestUserID,
+          ColumnName: UserID,
+          IsNullable: false
+        }
+      ],
+      Indexes: [
+        {
+          Fields: [
+            OrderDate
+          ],
+          IsUnique: false
+        },
+        {
+          Fields: [
+            UserID
+          ],
+          IsUnique: false
+        }
+      ]
+    },
+    TestProduct: {
+      Name: TestProduct,
+      Fields: [
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: ProductID,
+          Type: int,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: Name,
+          Type: nvarchar,
+          IsNullable: false,
+          IsOptional: false,
+          Precision: 200
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: Description,
+          Type: nvarchar,
+          IsNullable: true,
+          IsOptional: false,
+          Precision: 1000
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: Price,
+          Type: decimal,
+          IsNullable: true,
+          IsOptional: false,
+          Precision: 18,
+          Scale: 2
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: CategoryID,
+          Type: int,
+          IsNullable: true,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: IsActive,
+          Type: bit,
+          IsNullable: false,
+          IsOptional: false
+        }
+      ],
+      Indexes: [
+        {
+          Fields: [
+            CategoryID
+          ],
+          IsUnique: false
+        }
+      ]
+    },
+    TestUser: {
+      Name: TestUser,
+      Fields: [
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: UserID,
+          Type: int,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: Username,
+          Type: nvarchar,
+          IsNullable: false,
+          IsOptional: false,
+          Precision: 100
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: Email,
+          Type: nvarchar,
+          IsNullable: false,
+          IsOptional: false,
+          Precision: 256
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: IsActive,
+          Type: bit,
+          IsNullable: false,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: CreatedDate,
+          Type: datetime2,
+          IsNullable: true,
+          IsOptional: false
+        },
+        {
+          IsPrimaryKey: false,
+          IsIdentity: false,
+          Name: LastLogin,
+          Type: datetime2,
+          IsNullable: true,
+          IsOptional: false
+        }
+      ],
+      Indexes: [
+        {
+          Fields: [
+            Email
+          ],
+          IsUnique: true
+        },
+        {
+          Fields: [
+            Username
+          ],
+          IsUnique: false
+        }
+      ]
+    }
+  }
+}
