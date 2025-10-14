@@ -54,3 +54,9 @@ Thumbs.db
 
 # Verify output file
 *.received.txt
+
+# Coverage report output folders
+coverage-reports/
+coverage-report/
+coverage-reports-*/
+coverage-report-*/
