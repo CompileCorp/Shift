@@ -24,6 +24,7 @@ public class FieldModel
     public bool IsOptional { get; set; }
     public int? Precision { get; set; }
     public int? Scale { get; set; }
+    public Dictionary<string, bool> Attributes { get; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
     public override string ToString()
     {

@@ -225,6 +225,53 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         }
 
         var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
+
+        // Determine if this is a shrink for size-based types; if so, enforce nodataloss/allowdataloss
+        var isSizeType = field.Type.Equals("varchar", StringComparison.OrdinalIgnoreCase)
+                         || field.Type.Equals("nvarchar", StringComparison.OrdinalIgnoreCase)
+                         || field.Type.Equals("char", StringComparison.OrdinalIgnoreCase)
+                         || field.Type.Equals("nchar", StringComparison.OrdinalIgnoreCase)
+                         || field.Type.Equals("binary", StringComparison.OrdinalIgnoreCase)
+                         || field.Type.Equals("varbinary", StringComparison.OrdinalIgnoreCase);
+
+        if (isSizeType && field.Precision.HasValue && field.Precision.Value >= 0)
+        {
+            var newLen = field.Precision.Value;
+            var usesLen = field.Type.Equals("varchar", StringComparison.OrdinalIgnoreCase)
+                          || field.Type.Equals("nvarchar", StringComparison.OrdinalIgnoreCase)
+                          || field.Type.Equals("char", StringComparison.OrdinalIgnoreCase)
+                          || field.Type.Equals("nchar", StringComparison.OrdinalIgnoreCase);
+
+            // Build guard block: default nodataloss unless @allowdataloss present
+            var allowLoss = field.Attributes.ContainsKey("allowdataloss");
+
+            if (allowLoss)
+            {
+                if (usesLen)
+                {
+                    // Truncate string data exceeding new width
+                    yield return $"UPDATE [dbo].[{tableName}] SET [{field.Name}] = LEFT([{field.Name}], {newLen}) WHERE LEN([{field.Name}]) > {newLen}";
+                }
+                else
+                {
+                    // Truncate binary data exceeding new width
+                    yield return $"UPDATE [dbo].[{tableName}] SET [{field.Name}] = SUBSTRING([{field.Name}], 1, {newLen}) WHERE DATALENGTH([{field.Name}]) > {newLen}";
+                }
+            }
+            else
+            {
+                // No data loss allowed: block if any value exceeds new width
+                if (usesLen)
+                {
+                    yield return $"IF EXISTS (SELECT 1 FROM [dbo].[{tableName}] WHERE LEN([{field.Name}]) > {newLen}) THROW 50001, 'Column {tableName}.{field.Name} shrink would truncate data', 1";
+                }
+                else
+                {
+                    yield return $"IF EXISTS (SELECT 1 FROM [dbo].[{tableName}] WHERE DATALENGTH([{field.Name}]) > {newLen}) THROW 50001, 'Column {tableName}.{field.Name} shrink would truncate data', 1";
+                }
+            }
+        }
+
         yield return $"ALTER TABLE [dbo].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
     }
 }

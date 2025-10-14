@@ -210,8 +210,8 @@ public class Parser
 
     private FieldModel? ParseField(string line, IModel targetModel)
     {
-        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2) return null;
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (parts.Count < 2) return null;
 
         var type = "";
         var name = "";
@@ -238,7 +238,7 @@ public class Parser
                 isOptional = true;
             }
 
-            if (parts.Length == 4)
+            if (parts.Count == 4)
             {
                 alias = parts[3];
             }
@@ -301,6 +301,24 @@ public class Parser
         };
 
         ConvertType(field);
+
+        // Parse any trailing @attributes and attach to field.Attributes
+        // Attributes are tokens starting with '@' anywhere after the name
+        if (parts.Count > 2)
+        {
+            for (int i = 2; i < parts.Count; i++)
+            {
+                var token = parts[i].Trim();
+                if (token.StartsWith("@"))
+                {
+                    var attr = token.Substring(1).Trim();
+                    if (!string.IsNullOrWhiteSpace(attr))
+                    {
+                        field.Attributes[attr] = true;
+                    }
+                }
+            }
+        }
 
         targetModel.Fields.Add(field);
 

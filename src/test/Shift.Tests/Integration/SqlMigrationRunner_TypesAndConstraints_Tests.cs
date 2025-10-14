@@ -146,6 +146,191 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         }
     }
+
+    [Fact]
+    public async Task Reducing_Width_Without_Annotation_Should_Not_Alter()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+
+            // Seed initial schema
+            var initial = TestModels.BuildComprehensiveModel();
+            var empty = await shift.LoadFromSqlAsync(connectionString);
+            var planner = new MigrationPlanner();
+            var plan1 = planner.GeneratePlan(initial, empty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            Assert.Empty(runner1.Run());
+
+            // Attempt shrink without annotation
+            var updated = TestModels.BuildComprehensiveModel();
+            var product = updated.Tables["Product"];
+            var unicode = product.Fields.First(f => f.Name == "UnicodeName");
+            unicode.Precision = 20; // shrink but no @reducesize on model object, so planner must not schedule
+
+            var actual = await shift.LoadFromSqlAsync(connectionString);
+            var plan2 = planner.GeneratePlan(updated, actual);
+            Assert.DoesNotContain(plan2.Steps, s => s.Action == MigrationAction.AlterColumn && s.TableName == "Product" && s.Fields.Any(f => f.Name == "UnicodeName"));
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
+
+    [Fact]
+    public async Task Reducing_Width_With_ReduceSize_And_NoDataLoss_No_Violations_Should_Alter()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+
+            // Seed initial schema
+            var initial = TestModels.BuildComprehensiveModel();
+            var empty = await shift.LoadFromSqlAsync(connectionString);
+            var planner = new MigrationPlanner();
+            var plan1 = planner.GeneratePlan(initial, empty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            Assert.Empty(runner1.Run());
+
+            // Insert data <= 20 chars
+            using (var conn = new Microsoft.Data.SqlClient.SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+                var cmd = conn.CreateCommand();
+                cmd.CommandText = "INSERT INTO [dbo].[Product] ([IsActive],[SmallNumber],[ShortNumber],[LongNumber],[Price],[Name],[UnicodeName]) VALUES (1,1,1,1,1.00,'abc',N'ShortName')";
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Shrink with reducesize (default nodataloss)
+            var updated = TestModels.BuildComprehensiveModel();
+            var product = updated.Tables["Product"];
+            var unicode = product.Fields.First(f => f.Name == "UnicodeName");
+            unicode.Precision = 20;
+            unicode.Attributes["reducesize"] = true;
+
+            var actual = await shift.LoadFromSqlAsync(connectionString);
+            var plan2 = planner.GeneratePlan(updated, actual);
+            var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
+            var failures = runner2.Run();
+            Assert.Empty(failures);
+
+            var reloaded = await shift.LoadFromSqlAsync(connectionString);
+            var unicodeReloaded = reloaded.Tables["Product"].Fields.First(f => f.Name == "UnicodeName");
+            Assert.Equal(20, unicodeReloaded.Precision);
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
+
+    [Fact]
+    public async Task Reducing_Width_With_ReduceSize_NoDataLoss_With_Violations_Should_Fail()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+
+            // Seed initial schema
+            var initial = TestModels.BuildComprehensiveModel();
+            var empty = await shift.LoadFromSqlAsync(connectionString);
+            var planner = new MigrationPlanner();
+            var plan1 = planner.GeneratePlan(initial, empty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            Assert.Empty(runner1.Run());
+
+            // Insert violating data (> 20 chars)
+            using (var conn = new Microsoft.Data.SqlClient.SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+                var cmd = conn.CreateCommand();
+                cmd.CommandText = "INSERT INTO [dbo].[Product] ([IsActive],[SmallNumber],[ShortNumber],[LongNumber],[Price],[Name],[UnicodeName]) VALUES (1,1,1,1,1.00,'abc',N'NameLongerThanTwentyCharsHere')";
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Shrink with reducesize (default nodataloss)
+            var updated = TestModels.BuildComprehensiveModel();
+            var product = updated.Tables["Product"];
+            var unicode = product.Fields.First(f => f.Name == "UnicodeName");
+            unicode.Precision = 20;
+            unicode.Attributes["reducesize"] = true;
+
+            var actual = await shift.LoadFromSqlAsync(connectionString);
+            var plan2 = planner.GeneratePlan(updated, actual);
+            var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
+            var failures = runner2.Run();
+            Assert.NotEmpty(failures);
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
+
+    [Fact]
+    public async Task Reducing_Width_With_ReduceSize_AllowDataLoss_Truncates_And_Succeeds()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+
+            // Seed initial schema
+            var initial = TestModels.BuildComprehensiveModel();
+            var empty = await shift.LoadFromSqlAsync(connectionString);
+            var planner = new MigrationPlanner();
+            var plan1 = planner.GeneratePlan(initial, empty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            Assert.Empty(runner1.Run());
+
+            // Insert violating data (> 20 chars)
+            using (var conn = new Microsoft.Data.SqlClient.SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+                var cmd = conn.CreateCommand();
+                cmd.CommandText = "INSERT INTO [dbo].[Product] ([IsActive],[SmallNumber],[ShortNumber],[LongNumber],[Price],[Name],[UnicodeName]) VALUES (1,1,1,1,1.00,'abc',N'NameLongerThanTwentyCharsHere')";
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Shrink with reducesize and allowdataloss
+            var updated = TestModels.BuildComprehensiveModel();
+            var product = updated.Tables["Product"];
+            var unicode = product.Fields.First(f => f.Name == "UnicodeName");
+            unicode.Precision = 20;
+            unicode.Attributes["reducesize"] = true;
+            unicode.Attributes["allowdataloss"] = true;
+
+            var actual = await shift.LoadFromSqlAsync(connectionString);
+            var plan2 = planner.GeneratePlan(updated, actual);
+            var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
+            var failures = runner2.Run();
+            Assert.Empty(failures);
+
+            var reloaded = await shift.LoadFromSqlAsync(connectionString);
+            var unicodeReloaded = reloaded.Tables["Product"].Fields.First(f => f.Name == "UnicodeName");
+            Assert.Equal(20, unicodeReloaded.Precision);
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
 }
 
 

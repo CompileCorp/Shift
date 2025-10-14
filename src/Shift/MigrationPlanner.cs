@@ -69,7 +69,7 @@ public class MigrationPlanner
                     //}
                 }
 
-                // Detect safe widen operations for string/binary types (e.g., nvarchar/varbinary/char/nchar)
+                // Detect width changes for string/binary types (e.g., nvarchar/varbinary/char/nchar)
                 foreach (var targetField in targetTable.Fields)
                 {
                     var actualField = actualTable.Fields
@@ -88,11 +88,12 @@ public class MigrationPlanner
                     var isSizeType = targetType is "varchar" or "nvarchar" or "char" or "nchar" or "binary" or "varbinary";
                     if (!isSizeType) continue;
 
-                    // max widening is allowed anytime; numeric precision increase allowed when target > actual
+                    // max widening is allowed anytime; plan shrink only when explicitly annotated
                     int? targetPrecision = targetField.Precision;
                     int? actualPrecision = actualField.Precision;
 
                     bool widening = false;
+                    bool shrinking = false;
                     if (targetPrecision == -1 && actualPrecision != -1)
                     {
                         widening = true; // to MAX
@@ -101,8 +102,13 @@ public class MigrationPlanner
                     {
                         widening = true;
                     }
+                    else if (targetPrecision.HasValue && actualPrecision.HasValue && targetPrecision.Value >= 0 && actualPrecision.Value >= 0 && targetPrecision.Value < actualPrecision.Value)
+                    {
+                        // shrinking: only if annotated with @reducesize
+                        shrinking = targetField.Attributes.ContainsKey("reducesize");
+                    }
 
-                    if (widening)
+                    if (widening || shrinking)
                     {
                         plan.Steps.Add(new MigrationStep
                         {

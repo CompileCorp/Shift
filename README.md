@@ -151,3 +151,38 @@ extends Task {
 | `string(max)` | `nvarchar(max)` | Unicode string with max length |
 | `ntext` | `ntext` | Unicode text (deprecated) |
 | `text` | `text` | ASCII text (deprecated) |
+
+### Reducing Column Sizes
+
+You can intentionally shrink the width/length of columns by updating the field's length in the target model and annotating the field with `@reducesize`. By default, Shift blocks migrations that would truncate existing data; add `@allowdataloss` to permit truncation.
+
+- **Opt-in shrink**: Shrinks are only planned when the target field is marked with `@reducesize`.
+- **Default no-data-loss**: Without `@allowdataloss`, the migration will fail if any existing values exceed the new size.
+- **Allow data loss**: With `@allowdataloss`, Shift will truncate existing values to the new size before altering the column.
+- **Supported types**:
+  - Strings: `string(n)` → `nvarchar(n)`, `astring(n)` → `varchar(n)`, `char(n)`, `achar(n)` → `nchar(n)`
+  - Binary: `binary(n)`, `varbinary(n)` (including shrinking from `max` to a fixed length)
+
+#### Syntax
+
+```dmd
+model Product {
+  // Shrink an nvarchar from 50 to 20, block if truncation would occur
+  string(20) Name @reducesize
+
+  // Shrink an nvarchar from 50 to 20, truncate values > 20 then alter
+  string(20) ShortName @reducesize @allowdataloss
+
+  // Shrink varbinary(max) to varbinary(20), truncate to 20 bytes then alter
+  varbinary(20) BinaryVar @reducesize @allowdataloss
+}
+```
+
+#### Behavior
+
+- When `@reducesize` is present and `@allowdataloss` is not:
+  - Shift inserts a guard that throws if any row has a value longer than the new size (strings use `LEN`, binaries use `DATALENGTH`).
+  - No changes are applied if the guard fails.
+- When both `@reducesize` and `@allowdataloss` are present:
+  - Shift issues an `UPDATE` to truncate oversized data (strings via `LEFT(value, newLen)`, binaries via `SUBSTRING(value, 1, newLen)`).
+  - Then Shift alters the column to the new size.
