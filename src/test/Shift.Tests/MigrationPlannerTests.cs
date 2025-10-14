@@ -1,4 +1,5 @@
 using Compile.Shift.Model;
+using Compile.Shift.Tests.Helpers;
 using FluentAssertions;
 using Shift.Test.Framework.Infrastructure;
 
@@ -263,21 +264,14 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
     private static DatabaseModel CreateTargetModelWithTables()
     {
-        var model = new DatabaseModel();
-        
-        // User table
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        model.Tables["User"] = userTable;
-
-        // Product table
-        var productTable = new TableModel { Name = "Product" };
-        productTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        productTable.Fields.Add(new FieldModel { Name = "Name", Type = "nvarchar", Precision = 200 });
-        model.Tables["Product"] = productTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .Build();
     }
 
     private static DatabaseModel CreateActualModelWithSameTables()
@@ -287,33 +281,28 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
     private static DatabaseModel CreateActualModelWithCaseInsensitiveTables()
     {
-        var model = new DatabaseModel();
-        
-        // User table with different case
-        var userTable = new TableModel { Name = "USER" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        model.Tables["USER"] = userTable;
-
-        // Product table with different case
-        var productTable = new TableModel { Name = "PRODUCT" };
-        productTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        productTable.Fields.Add(new FieldModel { Name = "Name", Type = "nvarchar", Precision = 200 });
-        model.Tables["PRODUCT"] = productTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("USER", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .WithTable("PRODUCT", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .Build();
     }
 
     private static DatabaseModel CreateTargetModelWithExtraColumns()
     {
-        var model = CreateTargetModelWithTables();
-        
-        // Add extra columns to User table
-        var userTable = model.Tables["User"];
-        userTable.Fields.Add(new FieldModel { Name = "Email", Type = "nvarchar", Precision = 256 });
-        userTable.Fields.Add(new FieldModel { Name = "IsActive", Type = "bit" });
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithField("IsActive", "bit"))
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .Build();
     }
 
     private static DatabaseModel CreateActualModelWithTables()
@@ -323,41 +312,30 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
     private static DatabaseModel CreateActualModelWithCaseInsensitiveColumns()
     {
-        var model = new DatabaseModel();
-        
-        // User table with case-insensitive column names
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "USERNAME", Type = "nvarchar", Precision = 100 }); // Different case
-        model.Tables["User"] = userTable;
-
-        // Product table
-        var productTable = new TableModel { Name = "Product" };
-        productTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        productTable.Fields.Add(new FieldModel { Name = "NAME", Type = "nvarchar", Precision = 200 }); // Different case
-        model.Tables["Product"] = productTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("USERNAME", "nvarchar", f => f.Precision(100))) // Different case
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("NAME", "nvarchar", f => f.Precision(200))) // Different case
+            .Build();
     }
 
     private static DatabaseModel CreateTargetModelWithForeignKeys()
     {
-        var model = CreateTargetModelWithTables();
-        
-        // Add Order table with foreign key
-        var orderTable = new TableModel { Name = "Order" };
-        orderTable.Fields.Add(new FieldModel { Name = "OrderID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        orderTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int" });
-        orderTable.ForeignKeys.Add(new ForeignKeyModel 
-        { 
-            ColumnName = "UserID", 
-            TargetTable = "User", 
-            TargetColumnName = "UserID",
-            RelationshipType = RelationshipType.OneToMany
-        });
-        model.Tables["Order"] = orderTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .WithTable("Order", table => table
+                .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
+                .WithField("UserID", "int")
+                .WithForeignKey("UserID", "User", "UserID", RelationshipType.OneToMany))
+            .Build();
     }
 
     private static DatabaseModel CreateActualModelWithForeignKeys()
@@ -367,22 +345,18 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
     private static DatabaseModel CreateTargetModelWithInvalidForeignKeys()
     {
-        var model = CreateTargetModelWithTables();
-        
-        // Add Order table with foreign key to non-existent table
-        var orderTable = new TableModel { Name = "Order" };
-        orderTable.Fields.Add(new FieldModel { Name = "OrderID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        orderTable.Fields.Add(new FieldModel { Name = "CustomerID", Type = "int" });
-        orderTable.ForeignKeys.Add(new ForeignKeyModel 
-        { 
-            ColumnName = "CustomerID", 
-            TargetTable = "Customer", // This table doesn't exist in target model
-            TargetColumnName = "CustomerID",
-            RelationshipType = RelationshipType.OneToMany
-        });
-        model.Tables["Order"] = orderTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .WithTable("Order", table => table
+                .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
+                .WithField("CustomerID", "int")
+                .WithForeignKey("CustomerID", "Customer", "CustomerID", RelationshipType.OneToMany)) // This table doesn't exist in target model
+            .Build();
     }
 
     #endregion

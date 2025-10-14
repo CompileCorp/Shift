@@ -1,4 +1,5 @@
 using Compile.Shift.Model;
+using Compile.Shift.Tests.Helpers;
 using Shift.Test.Framework.Infrastructure;
 
 namespace Compile.Shift.Tests;
@@ -179,175 +180,119 @@ public class ModelExporterTests : UnitTestContext<ModelExporter>
 
     private static DatabaseModel CreateSimpleDatabaseModel()
     {
-        var model = new DatabaseModel();
-        
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        model.Tables["User"] = userTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithMultipleTables()
     {
-        var model = new DatabaseModel();
-        
-        // User table
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        model.Tables["User"] = userTable;
-
-        // Product table
-        var productTable = new TableModel { Name = "Product" };
-        productTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        productTable.Fields.Add(new FieldModel { Name = "Name", Type = "nvarchar", Precision = 200 });
-        model.Tables["Product"] = productTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithForeignKeys()
     {
-        var model = new DatabaseModel();
-        
-        // User table
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        model.Tables["User"] = userTable;
-
-        // Product table
-        var productTable = new TableModel { Name = "Product" };
-        productTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        productTable.Fields.Add(new FieldModel { Name = "Name", Type = "nvarchar", Precision = 200 });
-        model.Tables["Product"] = productTable;
-
-        // Order table with foreign keys
-        var orderTable = new TableModel { Name = "Order" };
-        orderTable.Fields.Add(new FieldModel { Name = "OrderID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        orderTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int" });
-        orderTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int" });
-        orderTable.ForeignKeys.Add(new ForeignKeyModel 
-        { 
-            ColumnName = "UserID", 
-            TargetTable = "User", 
-            TargetColumnName = "UserID",
-            RelationshipType = RelationshipType.OneToMany
-        });
-        orderTable.ForeignKeys.Add(new ForeignKeyModel 
-        { 
-            ColumnName = "ProductID", 
-            TargetTable = "Product", 
-            TargetColumnName = "ProductID",
-            RelationshipType = RelationshipType.OneToMany
-        });
-        model.Tables["Order"] = orderTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100)))
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200)))
+            .WithTable("Order", table => table
+                .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
+                .WithField("UserID", "int")
+                .WithField("ProductID", "int")
+                .WithForeignKey("UserID", "User", "UserID", RelationshipType.OneToMany)
+                .WithForeignKey("ProductID", "Product", "ProductID", RelationshipType.OneToMany))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithIndexes()
     {
-        var model = new DatabaseModel();
-        
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        userTable.Fields.Add(new FieldModel { Name = "Email", Type = "nvarchar", Precision = 256 });
-        
-        // Add indexes
-        userTable.Indexes.Add(new IndexModel { Fields = new List<string> { "Email" }, IsUnique = true });
-        userTable.Indexes.Add(new IndexModel { Fields = new List<string> { "Username" }, IsUnique = false });
-        
-        model.Tables["User"] = userTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithField("Email", "nvarchar", f => f.Precision(256))
+                .WithIndex("IX_User_Email", "Email", isUnique: true)
+                .WithIndex("IX_User_Username", "Username", isUnique: false))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithMixins()
     {
-        var model = new DatabaseModel();
-        
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        userTable.Fields.Add(new FieldModel { Name = "CreatedDate", Type = "datetime2" });
-        userTable.Fields.Add(new FieldModel { Name = "ModifiedDate", Type = "datetime2" });
-        model.Tables["User"] = userTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100))
+                .WithField("CreatedDate", "datetime2")
+                .WithField("ModifiedDate", "datetime2"))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithVariousTypes()
     {
-        var model = new DatabaseModel();
-        
-        var testTable = new TableModel { Name = "TypeTest" };
-        testTable.Fields.Add(new FieldModel { Name = "ID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        testTable.Fields.Add(new FieldModel { Name = "IsActive", Type = "bit" });
-        testTable.Fields.Add(new FieldModel { Name = "Name", Type = "nvarchar", Precision = 100 });
-        testTable.Fields.Add(new FieldModel { Name = "Description", Type = "varchar", Precision = 500 });
-        testTable.Fields.Add(new FieldModel { Name = "Count", Type = "bigint" });
-        testTable.Fields.Add(new FieldModel { Name = "Price", Type = "decimal", Precision = 18, Scale = 2 });
-        model.Tables["TypeTest"] = testTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("TypeTest", table => table
+                .WithField("ID", "int", f => f.PrimaryKey().Identity())
+                .WithField("IsActive", "bit")
+                .WithField("Name", "nvarchar", f => f.Precision(100))
+                .WithField("Description", "varchar", f => f.Precision(500))
+                .WithField("Count", "bigint")
+                .WithField("Price", "decimal", f => f.Precision(18, 2)))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithUnsupportedTypes()
     {
-        var model = new DatabaseModel();
-        
-        var testTable = new TableModel { Name = "UnsupportedTest" };
-        testTable.Fields.Add(new FieldModel { Name = "ID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        testTable.Fields.Add(new FieldModel { Name = "Location", Type = "geometry" }); // Unsupported type
-        model.Tables["UnsupportedTest"] = testTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("UnsupportedTest", table => table
+                .WithField("ID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Location", "geometry")) // Unsupported type
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithAttributes()
     {
-        var model = new DatabaseModel();
-        
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100 });
-        userTable.Attributes["NoIdentity"] = true;
-        model.Tables["User"] = userTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false))
+                .WithAttribute("NoIdentity", true))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithNullableFields()
     {
-        var model = new DatabaseModel();
-        
-        var userTable = new TableModel { Name = "User" };
-        userTable.Fields.Add(new FieldModel { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        userTable.Fields.Add(new FieldModel { Name = "Username", Type = "nvarchar", Precision = 100, IsNullable = false });
-        userTable.Fields.Add(new FieldModel { Name = "Email", Type = "nvarchar", Precision = 256, IsNullable = true });
-        userTable.Fields.Add(new FieldModel { Name = "Phone", Type = "nvarchar", Precision = 20, IsNullable = true });
-        model.Tables["User"] = userTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false))
+                .WithField("Email", "nvarchar", f => f.Precision(256).Nullable(true))
+                .WithField("Phone", "nvarchar", f => f.Precision(20).Nullable(true)))
+            .Build();
     }
 
     private static DatabaseModel CreateDatabaseModelWithPrecisionAndScale()
     {
-        var model = new DatabaseModel();
-        
-        var productTable = new TableModel { Name = "Product" };
-        productTable.Fields.Add(new FieldModel { Name = "ProductID", Type = "int", IsPrimaryKey = true, IsIdentity = true });
-        productTable.Fields.Add(new FieldModel { Name = "Name", Type = "nvarchar", Precision = 200 });
-        productTable.Fields.Add(new FieldModel { Name = "Price", Type = "decimal", Precision = 18, Scale = 2 });
-        productTable.Fields.Add(new FieldModel { Name = "Weight", Type = "decimal", Precision = 8, Scale = 3 });
-        productTable.Fields.Add(new FieldModel { Name = "Description", Type = "nvarchar", Precision = 1000 });
-        model.Tables["Product"] = productTable;
-
-        return model;
+        return DatabaseModelBuilder.Create()
+            .WithTable("Product", table => table
+                .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Name", "nvarchar", f => f.Precision(200))
+                .WithField("Price", "decimal", f => f.Precision(18, 2))
+                .WithField("Weight", "decimal", f => f.Precision(8, 3))
+                .WithField("Description", "nvarchar", f => f.Precision(1000)))
+            .Build();
     }
 
     #endregion
