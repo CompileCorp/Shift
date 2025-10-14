@@ -4,7 +4,17 @@ using System.Reflection;
 
 namespace Compile.Shift;
 
-public class Shift
+public interface IShift
+{
+    Task<DatabaseModel> LoadFromAssembly(Assembly assembly);
+    Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies);
+    Task<DatabaseModel> LoadFromPathAsync(IEnumerable<string> paths);
+    Task<DatabaseModel> LoadFromSqlAsync(string connectionString, string schema = "dbo");
+    Task ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo");
+}
+
+
+public class Shift : IShift
 {
     private const string ModelFileExtension = ".dmd";
     private const string MixinFileExtension = ".dmdx";
