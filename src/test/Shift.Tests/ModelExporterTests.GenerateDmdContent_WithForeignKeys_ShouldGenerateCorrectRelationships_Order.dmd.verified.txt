@@ -1,0 +1,4 @@
+﻿model Order {
+  models Product
+  models User
+}

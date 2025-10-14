@@ -1,0 +1,8 @@
+﻿model TypeTest {
+  long Count
+  astring(500) Description
+  int ID
+  bool IsActive
+  string(100) Name
+  decimal(18,2) Price
+}

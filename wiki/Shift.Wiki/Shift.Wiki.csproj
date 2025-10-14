@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.Build.NoTargets/3.7.0">
+	<PropertyGroup>
+		<BuildProject>false</BuildProject>
+		<IsPackable>false</IsPackable>
+		<ExcludeFromSolutionBuild>true</ExcludeFromSolutionBuild>
+		<TargetFramework>net9.0</TargetFramework>
+		<OutputType>None</OutputType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Include documentation files -->
+		<None Include="**/*.md" />
+		<None Include="**/*.txt" />
+	</ItemGroup>
+</Project>

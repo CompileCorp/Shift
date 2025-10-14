@@ -1,0 +1,5 @@
+﻿model User {
+  string(256)? Email
+  string(20)? Phone
+  string(100) Username
+}
