@@ -152,6 +152,48 @@ public class MigrationPlanner
             }
         }
 
+        // 4. Add missing indexes for existing tables (+ report extras)
+        foreach (var targetTable in targetModel.Tables.Values)
+        {
+            var actualTable = actualModel.Tables.Values
+                .FirstOrDefault(at => at.Name.Equals(targetTable.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (actualTable != null)
+            {
+                // Add missing indexes
+                var missingIndexes = targetTable.Indexes
+                    .Where(ti => !actualTable.Indexes.Any(ai =>
+                        ai.Fields.SequenceEqual(ti.Fields, StringComparer.OrdinalIgnoreCase) &&
+                        ai.IsUnique == ti.IsUnique))
+                    .ToList();
+
+                foreach (var index in missingIndexes)
+                {
+                    plan.Steps.Add(new MigrationStep
+                    {
+                        Action = MigrationAction.AddIndex,
+                        TableName = targetTable.Name,
+                        Index = index
+                    });
+                }
+
+                // Report extra indexes (indexes in actual but not in target)
+                var extraIndexes = actualTable.Indexes
+                    .Where(ai => !targetTable.Indexes.Any(ti =>
+                        ti.Fields.SequenceEqual(ai.Fields, StringComparer.OrdinalIgnoreCase) &&
+                        ti.IsUnique == ai.IsUnique))
+                    .Select(f => new ExtraIndexReport
+                    {
+                        TableName = actualTable.Name,
+                        IsUnique = f.IsUnique,
+                        Fields = f.Fields,
+                    })
+                    .ToList();
+
+                plan.ExtrasInSqlServer.ExtraIndexes.AddRange(extraIndexes);
+            }
+        }
+
         /*
 
 				// Report extras in SQL Server (not included in migration plan)

@@ -95,6 +95,19 @@ public class TableModelBuilder
     }
 
     /// <summary>
+    /// Adds a multi-column index to the table.
+    /// </summary>
+    public TableModelBuilder WithIndex(string name, IEnumerable<string> columnNames, bool isUnique = false)
+    {
+        _table.Indexes.Add(new IndexModel
+        {
+            Fields = columnNames.ToList(),
+            IsUnique = isUnique
+        });
+        return this;
+    }
+
+    /// <summary>
     /// Adds an attribute to the table.
     /// </summary>
     public TableModelBuilder WithAttribute(string key, bool value)

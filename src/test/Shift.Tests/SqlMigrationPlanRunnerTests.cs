@@ -1,4 +1,5 @@
 using Compile.Shift.Model;
+using Compile.Shift.Tests.Helpers;
 using Compile.Shift.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.SqlClient;
@@ -72,22 +73,14 @@ public class SqlMigrationPlanRunnerTests
     public async Task Run_WithCreateTableStep_ShouldCreateTableSuccessfully()
     {
         // Arrange
-        var plan = new MigrationPlan();
-        var fields = new List<FieldModel>
-        {
-            new() { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true },
-            new() { Name = "Username", Type = "nvarchar", Precision = 100, IsNullable = false },
-            new() { Name = "Email", Type = "nvarchar", Precision = 256, IsNullable = true },
-            new() { Name = "IsActive", Type = "bit", IsNullable = false },
-            new() { Name = "CreatedDate", Type = "datetime2", IsNullable = false }
-        };
-
-        plan.Steps.Add(new MigrationStep
-        {
-            Action = MigrationAction.CreateTable,
-            TableName = "TestUser",
-            Fields = fields
-        });
+        var plan = MigrationPlanBuilder.Create()
+            .WithCreateTableStep("TestUser", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false))
+                .WithField("Email", "nvarchar", f => f.Precision(256).Nullable(true))
+                .WithField("IsActive", "bit", f => f.Nullable(false))
+                .WithField("CreatedDate", "datetime2", f => f.Nullable(false)))
+            .Build();
 
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
@@ -144,16 +137,10 @@ public class SqlMigrationPlanRunnerTests
             await createTableCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to add column
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AddColumn,
-                TableName = "TestUser",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "Username", Type = "nvarchar", Precision = 100, IsNullable = false }
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddColumnStep("TestUser", column => column
+                    .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -204,19 +191,9 @@ public class SqlMigrationPlanRunnerTests
             await createOrderTableCmd.ExecuteNonQueryAsync();
 
             // Create migration plan to add foreign key
-            var plan = new MigrationPlan();
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AddForeignKey,
-                TableName = "Order",
-                ForeignKey = new ForeignKeyModel
-                {
-                    ColumnName = "UserID",
-                    TargetTable = "User",
-                    TargetColumnName = "UserID",
-                    RelationshipType = RelationshipType.OneToMany
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddForeignKeyStep("Order", "UserID", "User", "UserID", RelationshipType.OneToMany)
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -261,45 +238,18 @@ public class SqlMigrationPlanRunnerTests
         
         try
         {
-            var plan = new MigrationPlan();
-            
-            // Step 1: Create User table
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.CreateTable,
-                TableName = "User",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "UserID", Type = "int", IsPrimaryKey = true, IsIdentity = true },
-                    new() { Name = "Username", Type = "nvarchar", Precision = 100, IsNullable = false }
-                }
-            });
-
-            // Step 2: Create Order table
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.CreateTable,
-                TableName = "Order",
-                Fields = new List<FieldModel>
-                {
-                    new() { Name = "OrderID", Type = "int", IsPrimaryKey = true, IsIdentity = true },
-                    new() { Name = "UserID", Type = "int", IsNullable = false }
-                }
-            });
-
-            // Step 3: Add foreign key
-            plan.Steps.Add(new MigrationStep
-            {
-                Action = MigrationAction.AddForeignKey,
-                TableName = "Order",
-                ForeignKey = new ForeignKeyModel
-                {
-                    ColumnName = "UserID",
-                    TargetTable = "User",
-                    TargetColumnName = "UserID",
-                    RelationshipType = RelationshipType.OneToMany
-                }
-            });
+            var plan = MigrationPlanBuilder.Create()
+                // Step 1: Create User table
+                .WithCreateTableStep("User", user => user
+                    .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                    .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
+                // Step 2: Create Order table
+                .WithCreateTableStep("Order", order => order
+                    .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
+                    .WithField("UserID", "int", f => f.Nullable(false)))
+                // Step 3: Add foreign key
+                .WithAddForeignKeyStep("Order", "UserID", "User", "UserID", RelationshipType.OneToMany)
+                .Build();
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
@@ -708,4 +658,239 @@ public class SqlMigrationPlanRunnerTests
             await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
         }
     }
+
+    #region AddIndex Tests
+
+    /// <summary>
+    /// Tests that SqlMigrationPlanRunner creates non-unique indexes correctly.
+    /// Verifies the SQL generation and execution for single-column indexes.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithAddIndexStep_ShouldCreateIndex()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        try
+        {
+            // Create table first
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var createTableCmd = new SqlCommand("CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, [Email] nvarchar(256) NOT NULL)", connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            // Create migration plan with AddIndex step
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndexStep("User", index => index
+                    .WithIndex("Email", isUnique: false))
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify index exists
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.is_unique = 0";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            indexCount.Should().Be(1, "Non-unique index should exist");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that SqlMigrationPlanRunner creates unique indexes correctly.
+    /// Verifies the SQL generation and execution for unique indexes.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithAddUniqueIndexStep_ShouldCreateUniqueIndex()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        try
+        {
+            // Create table first
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var createTableCmd = new SqlCommand("CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, [Email] nvarchar(256) NOT NULL)", connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            // Create migration plan with AddIndex step
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndexStep("User", index => index
+                    .WithIndex("Email", isUnique: true))
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify unique index exists
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.is_unique = 1";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            indexCount.Should().Be(1, "Unique index should exist");
+        }
+       finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that SqlMigrationPlanRunner creates multi-column indexes correctly.
+    /// Verifies the SQL generation and execution for indexes with multiple columns.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithMultiColumnIndexStep_ShouldCreateMultiColumnIndex()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        try
+        {
+            // Create table first
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var createTableCmd = new SqlCommand("CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, [Email] nvarchar(256) NOT NULL, [Username] nvarchar(100) NOT NULL)", connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            // Create migration plan with AddIndex step
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndexStep("User", index => index
+                    .WithIndex(new[] { "Email", "Username" }, isUnique: false))
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify multi-column index exists
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name LIKE 'IX_User_%'";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            indexCount.Should().Be(1, "Multi-column index should exist");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that SqlMigrationPlanRunner executes mixed migration steps in correct order.
+    /// Verifies that AddIndex steps work correctly alongside other migration actions.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithMixedMigrationSteps_ShouldExecuteAddIndexInCorrectOrder()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        try
+        {
+            // Create migration plan with multiple step types
+            var plan = MigrationPlanBuilder.Create()
+                // Create table step
+                .WithCreateTableStep("User", user => user
+                    .WithField("UserID", "int", f => f.PrimaryKey().Identity().Nullable(false))
+                    .WithField("Email", "nvarchar", f => f.Precision(256).Nullable(false)))
+                // Add column step
+                .WithAddColumnStep("User", column => column
+                    .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false)))
+                // Add index step
+                .WithAddIndexStep("User", index => index
+                    .WithIndex("Email", isUnique: true))
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify table exists
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            
+            var checkTableQuery = "SELECT COUNT(*) FROM sys.tables WHERE name = 'User'";
+            await using var tableCmd = new SqlCommand(checkTableQuery, connection);
+            var tableCount = (int)await tableCmd.ExecuteScalarAsync();
+            tableCount.Should().Be(1, "Table should exist");
+
+            // Verify index exists
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.is_unique = 1";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            indexCount.Should().Be(1, "Unique index should exist");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    #endregion
 }
