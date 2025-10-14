@@ -1,0 +1,6 @@
+﻿model Product {
+  string(1000) Description
+  string(200) Name
+  decimal(18,2) Price
+  decimal(8,3) Weight
+}

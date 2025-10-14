@@ -1,0 +1,6 @@
+﻿model User {
+  string(256) Email
+  string(100) Username
+  key (Email)
+  index (Username)
+}
