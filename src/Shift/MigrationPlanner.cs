@@ -69,7 +69,7 @@ public class MigrationPlanner
                     //}
                 }
 
-                // Detect safe widen operations for string/binary types (e.g., nvarchar/varbinary/char/nchar)
+                // Detect alter operations for size/precision changes (strings/binaries/decimals)
                 foreach (var targetField in targetTable.Fields)
                 {
                     var actualField = actualTable.Fields
@@ -77,39 +77,50 @@ public class MigrationPlanner
 
                     if (actualField == null) continue;
 
-                    // Only consider same base type
                     var targetType = targetField.Type.ToLowerInvariant();
                     var actualType = actualField.Type.ToLowerInvariant();
 
-                    if (!string.Equals(targetType, actualType, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    // Candidates: varchar/nvarchar/char/nchar/binary/varbinary
+                    // Handle string/binary size-bearing types only when base type matches
                     var isSizeType = targetType is "varchar" or "nvarchar" or "char" or "nchar" or "binary" or "varbinary";
-                    if (!isSizeType) continue;
-
-                    // max widening is allowed anytime; numeric precision increase allowed when target > actual
-                    int? targetPrecision = targetField.Precision;
-                    int? actualPrecision = actualField.Precision;
-
-                    bool widening = false;
-                    if (targetPrecision == -1 && actualPrecision != -1)
+                    if (isSizeType && string.Equals(targetType, actualType, StringComparison.OrdinalIgnoreCase))
                     {
-                        widening = true; // to MAX
-                    }
-                    else if (targetPrecision.HasValue && actualPrecision.HasValue && targetPrecision.Value > actualPrecision.Value)
-                    {
-                        widening = true;
-                    }
+                        int? targetPrecision = targetField.Precision;
+                        int? actualPrecision = actualField.Precision;
 
-                    if (widening)
-                    {
-                        plan.Steps.Add(new MigrationStep
+                        bool sizeChanged = false;
+                        // Any change including MAX <-> fixed and different fixed lengths
+                        if (targetPrecision != actualPrecision)
                         {
-                            Action = MigrationAction.AlterColumn,
-                            TableName = targetTable.Name,
-                            Fields = new List<FieldModel> { targetField }
-                        });
+                            sizeChanged = true;
+                        }
+
+                        if (sizeChanged)
+                        {
+                            plan.Steps.Add(new MigrationStep
+                            {
+                                Action = MigrationAction.AlterColumn,
+                                TableName = targetTable.Name,
+                                Fields = new List<FieldModel> { targetField }
+                            });
+                        }
+                    }
+
+                    // Handle decimal/numeric precision/scale changes (treat decimal and numeric as compatible)
+                    bool targetIsDecimal = targetType is "decimal" or "numeric";
+                    bool actualIsDecimal = actualType is "decimal" or "numeric";
+                    if (targetIsDecimal && actualIsDecimal)
+                    {
+                        var precisionChanged = (targetField.Precision ?? 0) != (actualField.Precision ?? 0);
+                        var scaleChanged = (targetField.Scale ?? 0) != (actualField.Scale ?? 0);
+                        if (precisionChanged || scaleChanged)
+                        {
+                            plan.Steps.Add(new MigrationStep
+                            {
+                                Action = MigrationAction.AlterColumn,
+                                TableName = targetTable.Name,
+                                Fields = new List<FieldModel> { targetField }
+                            });
+                        }
                     }
                 }
             }
