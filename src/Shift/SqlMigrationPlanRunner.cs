@@ -48,6 +48,13 @@ public class SqlMigrationPlanRunner
                     foreach (var field in step.Fields)
                     {
                         Logger.LogInformation($"{step.Action} {step.TableName} {field}");
+                        // Safety check: skip alters that would cause data loss
+                        if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field))
+                        {
+                            Logger.LogWarning("Skipping ALTER COLUMN {table}.{column}: would cause data loss", step.TableName, field.Name);
+                            continue;
+                        }
+
                         sqls.AddRange(GenerateAlterColumnSql(step.TableName, field));
                     }
                 }
@@ -226,5 +233,67 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
 
         var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
         yield return $"ALTER TABLE [dbo].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
+    }
+
+    private bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)
+    {
+        // Only guard for types where resizing/precision can cause truncation or rounding
+        var baseType = field.Type.ToLowerInvariant();
+
+        // Strings and binaries: if shrinking, ensure no existing value exceeds new limit
+        if (baseType is "varchar" or "nvarchar" or "char" or "nchar" or "binary" or "varbinary")
+        {
+            if (!field.Precision.HasValue)
+                return false; // nothing to check
+
+            // Compute byte limit appropriately
+            int targetBytes;
+            bool isUnicode = baseType is "nvarchar" or "nchar";
+            if (field.Precision == -1)
+            {
+                return false; // to MAX is never unsafe
+            }
+
+            targetBytes = isUnicode ? field.Precision.Value * 2 : field.Precision.Value;
+
+            // For char/nchar use LEN to avoid fixed padding interference for equality
+            string predicate;
+            if (baseType is "char" or "nchar")
+            {
+                // LEN returns character count ignoring trailing spaces; use chars threshold
+                predicate = $"LEN([{field.Name}]) > @limitChars";
+            }
+            else
+            {
+                predicate = $"DATALENGTH([{field.Name}]) > @limitBytes";
+            }
+
+            var sql = $"SELECT TOP 1 1 FROM [dbo].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND {predicate}";
+            using var cmd = new SqlCommand(sql, connection);
+            if (baseType is "char" or "nchar")
+            {
+                cmd.Parameters.AddWithValue("@limitChars", field.Precision!.Value);
+            }
+            else
+            {
+                cmd.Parameters.AddWithValue("@limitBytes", targetBytes);
+            }
+            var result = cmd.ExecuteScalar();
+            return result != null;
+        }
+
+        // Decimal/numeric: ensure values fit exactly in target precision/scale without rounding
+        if (baseType is "decimal" or "numeric")
+        {
+            int precision = field.Precision ?? 18;
+            int scale = field.Scale ?? 0;
+
+            var sql = $"SELECT TOP 1 1 FROM [dbo].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND (TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) IS NULL OR TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) <> [{field.Name}])";
+            using var cmd = new SqlCommand(sql, connection);
+            var result = cmd.ExecuteScalar();
+            return result != null;
+        }
+
+        return false;
     }
 }
