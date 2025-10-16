@@ -31,15 +31,16 @@ jobs:
     # Run all tests in the solution with TRX logger for test reporting
     # This will automatically discover and run all test projects
     - name: Run tests
-      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal --logger "trx" --results-directory TestResults
       continue-on-error: true
       
     # Publish test results to GitHub PR interface for clear visual feedback
+    # Uses wildcard pattern to collect all TRX files from all test projects
     - name: Publish Test Results
       uses: dorny/test-reporter@v2
       if: always()
       with:
         name: Test Results
-        path: TestResults/test-results.trx
+        path: TestResults/*.trx
         reporter: dotnet-trx
         fail-on-error: true
