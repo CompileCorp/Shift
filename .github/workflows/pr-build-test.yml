@@ -28,10 +28,18 @@ jobs:
     - name: Build solution
       run: dotnet build src/Shift.slnx --configuration Release --no-restore
       
-    # Run all tests in the solution with verbose output for clear reporting
+    # Run all tests in the solution with TRX logger for test reporting
     # This will automatically discover and run all test projects
     - name: Run tests
-      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal
+      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+      continue-on-error: true
       
-    # Note: The workflow will automatically fail if any test fails
-    # No additional failure handling is needed as dotnet test returns non-zero exit code on test failures
+    # Publish test results to GitHub PR interface for clear visual feedback
+    - name: Publish Test Results
+      uses: dorny/test-reporter@v2
+      if: always()
+      with:
+        name: Test Results
+        path: TestResults/test-results.trx
+        reporter: dotnet-trx
+        fail-on-error: true
