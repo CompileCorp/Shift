@@ -3,6 +3,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Compile.Shift.Ef;
 
+public interface IEfCodeGenerator
+{
+    Task GenerateEfCodeAsync(DatabaseModel model, string outputPath, EfCodeGenerationOptions options);
+    Task GenerateEfCodeAsync(DatabaseModel model, string outputPath, string namespaceName = "Generated");
+}
+
 public class EfCodeGenerator
 {
     private readonly EntityGenerator _entityGenerator;
