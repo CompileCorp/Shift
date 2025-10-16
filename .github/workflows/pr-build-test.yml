@@ -1,0 +1,37 @@
+name: PR Build and Test
+
+# Trigger only on pull requests
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Checkout the repository code
+    - name: Checkout code
+      uses: actions/checkout@v4
+        
+    # Setup .NET 9.0.x 
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    # Restore all NuGet packages for the solution
+    - name: Restore dependencies
+      run: dotnet restore src/Shift.slnx
+      
+    # Build the entire solution in Release configuration
+    - name: Build solution
+      run: dotnet build src/Shift.slnx --configuration Release --no-restore
+      
+    # Run all tests in the solution with verbose output for clear reporting
+    # This will automatically discover and run all test projects
+    - name: Run tests
+      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal
+      
+    # Note: The workflow will automatically fail if any test fails
+    # No additional failure handling is needed as dotnet test returns non-zero exit code on test failures
