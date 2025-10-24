@@ -133,7 +133,7 @@ internal static class RequestHelper
         var outputPath = args[1];
         var schema = args.Length > 2 ? args[2] : "dbo";
 
-        Console.WriteLine($"🏗️  Generating Entity Framework code from SQL Server...");
+        Console.WriteLine($"Generating Entity Framework code from SQL Server...");
         Console.WriteLine($"   Connection: {connectionString}");
         Console.WriteLine($"   Schema: {schema}");
         Console.WriteLine($"   Output: {outputPath}");
@@ -156,7 +156,7 @@ internal static class RequestHelper
         var outputPath = args[^1]; // Last argument is output path
         var inputPaths = args[..^1]; // All but last are input paths
 
-        Console.WriteLine($"🏗️  Generating Entity Framework code from model files...");
+        Console.WriteLine($"Generating Entity Framework code from model files...");
         Console.WriteLine($"   Input files: {string.Join(", ", inputPaths)}");
         Console.WriteLine($"   Output: {outputPath}");
 
@@ -206,7 +206,7 @@ internal static class RequestHelper
             }
         }
 
-        Console.WriteLine($"🏗️  Generating Entity Framework code from SQL Server with custom options...");
+        Console.WriteLine($"Generating Entity Framework code from SQL Server with custom options...");
         Console.WriteLine($"   Connection: {connectionString}");
         Console.WriteLine($"   Output: {outputPath}");
         Console.WriteLine($"   Namespace: {options.NamespaceName}");

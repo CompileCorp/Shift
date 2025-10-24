@@ -11,7 +11,7 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
-        Console.WriteLine("🧠 Domain Migration Definition (DMD) System");
+        Console.WriteLine("Domain Migration Definition (DMD) System");
 
         var host = CreateHostBuilder().Build();
         var mediator = host.Services.GetRequiredService<IMediator>();
@@ -65,7 +65,7 @@ internal class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
             Environment.Exit(1);
         }
     }
