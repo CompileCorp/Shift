@@ -5,5 +5,5 @@
 # uniqueidentifier EventId
   int ID
 # geometry Location
-# numeric Tax
+  decimal(18,2) Tax
 }

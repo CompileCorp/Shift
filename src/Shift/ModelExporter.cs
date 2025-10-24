@@ -1,4 +1,6 @@
 using Compile.Shift.Model;
+using Compile.Shift.Model.Vnums;
+using Compile.VnumEnumeration;
 using System.Text;
 
 namespace Compile.Shift;
@@ -149,99 +151,20 @@ public class ModelExporter
             .OrderBy(f => f.Name)
             .ToList();
 
-        // Supported DMD field types (extend as needed)
-        var supportedTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "bool", "string", "astring", "long", "datetime", "int", "decimal", "ntext", "float", "achar", "char"
-        };
-
-        // consider making char = astring(1) and nchar = string(1)
-
         foreach (var field in sortedFields)
         {
-            string fieldType = field.Type;
-            // Map SQL types to simplified types
-            switch (fieldType.ToLowerInvariant())
-            {
-                case "bit":
-                    fieldType = "bool";
-                    break;
-                case "nvarchar":
-                    fieldType = "string";
-                    break;
-                case "varchar":
-                    fieldType = "astring";
-                    break;
-                case "bigint":
-                    fieldType = "long";
-                    break;
-                case "text":
-                    fieldType = "astring";
-                    break;
-                case "ntext":
-                    fieldType = "string";
-                    break;
-                case "char":
-                    fieldType = "astring";
-                    field.Precision = 1;
-                    break;
-                case "nchar":
-                    fieldType = "string";
-                    field.Precision = 1;
-                    break;
-                case "money":
-                    fieldType = "decimal";
-                    field.Precision = 19;
-                    field.Scale = 4;
-                    break;
-                case "smallmoney":
-                    fieldType = "decimal";
-                    field.Precision = 10;
-                    field.Scale = 4;
-                    break;
-            }
+            var isSupportedDataType = Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType);
 
-            // Omit unsupported types (e.g., geometry)
-            if (!supportedTypes.Contains(fieldType.ToLowerInvariant()))
+            if (!isSupportedDataType)
             {
-                sb.AppendLine($"# {fieldType} {field.Name}");
-                Console.WriteLine($"Skipping unsupported type: {table.Name} {field.Name} {fieldType}");
+                // Omit unsupported types (e.g., geometry)
+                sb.AppendLine($"# {field.Type.ToLower()} {field.Name}");
+                Console.WriteLine($"Skipping unsupported type: {table.Name} {field.Name} {field.Type}");
                 continue;
             }
 
-            // Add length/precision/scale if not default
-            if (field.Type.Equals("nvarchar", StringComparison.OrdinalIgnoreCase) ||
-                field.Type.Equals("varchar", StringComparison.OrdinalIgnoreCase) ||
-                field.Type.Equals("char", StringComparison.OrdinalIgnoreCase) ||
-                field.Type.Equals("nchar", StringComparison.OrdinalIgnoreCase))
-            {
-                // Default is 1 if not specified
-                if (field.Precision.HasValue && field.Precision.Value != 1 && field.Precision.Value != -1)
-                {
-                    fieldType += $"({field.Precision.Value})";
-                }
-                else if (field.Precision == -1) // -1 means MAX
-                {
-                    fieldType += "(max)";
-                }
-            }
-            else if (field.Type.Equals("decimal", StringComparison.OrdinalIgnoreCase) ||
-                     field.Type.Equals("numeric", StringComparison.OrdinalIgnoreCase))
-            {
-                // Default is (18,0)
-                if (field.Precision.HasValue && field.Precision.Value != 18 ||
-                    field.Scale.HasValue && field.Scale.Value != 0)
-                {
-                    int precision = field.Precision ?? 18;
-                    int scale = field.Scale ?? 0;
-                    fieldType += $"({precision},{scale})";
-                }
-            }
-            if (field.IsNullable)
-            {
-                fieldType += "?";
-            }
-            sb.AppendLine($"  {fieldType} {field.Name}");
+            string fieldType = GetFieldTypeString(field, sqlFieldType);
+            sb.AppendLine($"  {fieldType}{(field.IsNullable ? "?" : "")} {field.Name}");
         }
 
         // Determine PK and FK columns
@@ -342,5 +265,46 @@ public class ModelExporter
         }
 
         return table.Fields.Where(f => !mixinFieldNames.Contains(f.Name));
+    }
+
+    private string GetFieldTypeString(FieldModel fieldModel, SqlFieldType sqlFieldType)
+    {
+        string dmdTypeCode = sqlFieldType.DmdType.Code;
+
+        // TEXT/NTEXT always use (max)
+        if (sqlFieldType == SqlFieldType.TEXT || sqlFieldType == SqlFieldType.NTEXT)
+            return $"{dmdTypeCode}(max)";
+
+        // Check for MAX length marker
+        if (sqlFieldType.SupportsMaxLength &&
+            fieldModel.Precision.HasValue &&
+            fieldModel.Precision == sqlFieldType.MaxLengthMarker)
+        {
+            return $"{dmdTypeCode}(max)";
+        }
+
+        // Handle precision/scale based on type
+        return sqlFieldType.PrecisionType switch
+        {
+            PrecisionType.PrecisionOnlyAlwaysRequired =>
+                $"{dmdTypeCode}({fieldModel.Precision ?? sqlFieldType.DefaultPrecision})",
+
+            PrecisionType.PrecisionWithScaleAlwaysRequired =>
+                FormatPrecisionAndScale(dmdTypeCode, fieldModel, sqlFieldType),
+
+            PrecisionType.PrecisionOnlyOptional when fieldModel.Precision.HasValue =>
+                $"{dmdTypeCode}({fieldModel.Precision.Value})",
+
+            _ => dmdTypeCode
+        };
+    }
+
+    private string FormatPrecisionAndScale(string dmdTypeCode, FieldModel fieldModel, SqlFieldType sqlFieldType)
+    {
+        var precision = fieldModel.Precision ?? sqlFieldType.DefaultPrecision ?? sqlFieldType.DmdType.DefaultPrecision;
+
+        var scale = fieldModel.Scale ?? sqlFieldType.DefaultScale ?? sqlFieldType.DmdType.DefaultScale;
+
+        return $"{dmdTypeCode}({precision},{scale})";
     }
 }
