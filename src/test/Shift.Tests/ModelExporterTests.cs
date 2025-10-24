@@ -249,7 +249,16 @@ public class ModelExporterTests : UnitTestContext<ModelExporter>
                 .WithField("Name", "nvarchar", f => f.Precision(100))
                 .WithField("Description", "varchar", f => f.Precision(500))
                 .WithField("Count", "bigint")
-                .WithField("Price", "decimal", f => f.Precision(18, 2)))
+                .WithField("Price", "decimal", f => f.Precision(18, 2))
+                .WithField("GST", "money")
+                .WithField("VAT", "smallmoney")
+                .WithField("Temperature", "float", f => f.Precision(24))
+                .WithField("Distance", "float")
+                .WithField("ClientCode", "char", f => f.Precision(4))
+                .WithField("UniCode", "nchar", f => f.Precision(8))
+                .WithField("TextDescription", "text")
+                .WithField("UniTextDescription", "ntext")
+                .WithField("CreatedAt", "datetime"))
             .Build();
     }
 
@@ -258,7 +267,12 @@ public class ModelExporterTests : UnitTestContext<ModelExporter>
         return DatabaseModelBuilder.Create()
             .WithTable("UnsupportedTest", table => table
                 .WithField("ID", "int", f => f.PrimaryKey().Identity())
-                .WithField("Location", "geometry")) // Unsupported type
+                .WithField("Location", "geometry")        // Unsupported type
+                .WithField("EventId", "uniqueidentifier") // Unsupported type
+                .WithField("CreatedAt", "datetime2")      // Unsupported type
+                .WithField("CheckInDate", "date")         // Unsupported type
+                .WithField("CheckInTime", "time")         // Unsupported type
+                .WithField("Tax", "numeric", f => f.Precision(18, 2))) // Unsupported type
             .Build();
     }
 
