@@ -1,4 +1,5 @@
 using Compile.Shift.Model;
+using Compile.Shift.Model.Helpers;
 using Compile.Shift.Model.Vnums;
 using Compile.VnumEnumeration;
 using System.Text;
@@ -163,7 +164,7 @@ public class ModelExporter
                 continue;
             }
 
-            string fieldType = GetFieldTypeString(field, sqlFieldType);
+            string fieldType = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
             sb.AppendLine($"  {fieldType}{(field.IsNullable ? "?" : "")} {field.Name}");
         }
 
@@ -265,46 +266,5 @@ public class ModelExporter
         }
 
         return table.Fields.Where(f => !mixinFieldNames.Contains(f.Name));
-    }
-
-    private string GetFieldTypeString(FieldModel fieldModel, SqlFieldType sqlFieldType)
-    {
-        string dmdTypeCode = sqlFieldType.DmdType.Code;
-
-        // TEXT/NTEXT always use (max)
-        if (sqlFieldType == SqlFieldType.TEXT || sqlFieldType == SqlFieldType.NTEXT)
-            return $"{dmdTypeCode}(max)";
-
-        // Check for MAX length marker
-        if (sqlFieldType.SupportsMaxLength &&
-            fieldModel.Precision.HasValue &&
-            fieldModel.Precision == sqlFieldType.MaxLengthMarker)
-        {
-            return $"{dmdTypeCode}(max)";
-        }
-
-        // Handle precision/scale based on type
-        return sqlFieldType.PrecisionType switch
-        {
-            PrecisionType.PrecisionOnlyAlwaysRequired =>
-                $"{dmdTypeCode}({fieldModel.Precision ?? sqlFieldType.DefaultPrecision})",
-
-            PrecisionType.PrecisionWithScaleAlwaysRequired =>
-                FormatPrecisionAndScale(dmdTypeCode, fieldModel, sqlFieldType),
-
-            PrecisionType.PrecisionOnlyOptional when fieldModel.Precision.HasValue =>
-                $"{dmdTypeCode}({fieldModel.Precision.Value})",
-
-            _ => dmdTypeCode
-        };
-    }
-
-    private string FormatPrecisionAndScale(string dmdTypeCode, FieldModel fieldModel, SqlFieldType sqlFieldType)
-    {
-        var precision = fieldModel.Precision ?? sqlFieldType.DefaultPrecision ?? sqlFieldType.DmdType.DefaultPrecision;
-
-        var scale = fieldModel.Scale ?? sqlFieldType.DefaultScale ?? sqlFieldType.DmdType.DefaultScale;
-
-        return $"{dmdTypeCode}({precision},{scale})";
     }
 }

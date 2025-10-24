@@ -23,7 +23,7 @@ public static class TestModels
                 .WithField("LongNumber", "bigint", f => f.Nullable(false))
                 .WithField("Price", "decimal", f => f.Precision(18, 2).Nullable(false))
                 .WithField("NumericOnly", "numeric", f => f.Precision(10).Nullable(true))
-                .WithField("MoneyValue", "money", f => f.Nullable(true))
+                .WithField("MoneyValue", "decimal", f => f.Precision(19, 4).Nullable(true))
                 .WithField("FloatValue", "float", f => f.Nullable(true))
                 .WithField("RealValue", "real", f => f.Nullable(true))
                 .WithField("FixedAscii", "char", f => f.Precision(10).Nullable(true))

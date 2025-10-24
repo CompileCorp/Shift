@@ -1,0 +1,14 @@
+﻿model TestAllPrecisionTypes {
+  decimal(10,2)? Amount
+  achar(5) AsciiChar
+  astring(200) AsciiVarChar
+  float? Distance
+  int ID
+  decimal(19,4)? MoneyValue
+  decimal(18,2) Price
+  decimal(10,4)? SmallMoneyValue
+  decimal(5,4)? TaxRate
+  char(10) UnicodeChar
+  string(100) UnicodeVarChar
+  decimal(8,3)? Weight
+}

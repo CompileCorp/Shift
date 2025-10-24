@@ -1,0 +1,5 @@
+﻿model TestFloatTypes {
+  float? FloatValue
+  float? FloatWithPrecision
+  int ID
+}

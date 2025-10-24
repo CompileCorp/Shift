@@ -1,4 +1,7 @@
 using Compile.Shift.Model;
+using Compile.Shift.Model.Helpers;
+using Compile.Shift.Model.Vnums;
+using Compile.VnumEnumeration;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
@@ -109,22 +112,11 @@ public class SqlMigrationPlanRunner
 
         foreach (var field in fields)
         {
-            var typeSql = field.Type;
-            if (field.Precision.HasValue)
-            {
-                if (field.Precision == -1)
-                {
-                    typeSql += "(max)";
-                }
-                else if (field.Scale.HasValue)
-                {
-                    typeSql += $"({field.Precision.Value},{field.Scale.Value})";
-                }
-                else
-                {
-                    typeSql += $"({field.Precision.Value})";
-                }
-            }
+            var typeSql =
+                Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType)
+                    ? SqlTypeHelper.GetSqlTypeString(field, sqlFieldType)
+                    : SqlTypeHelper.GetUnknownSqlTypeString(field);
+
             var identitySql = field.IsIdentity ? " IDENTITY(1,1)" : string.Empty;
             var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
             var colSql = $"[{field.Name}] {typeSql}{identitySql} {nullSql}";
@@ -138,23 +130,10 @@ public class SqlMigrationPlanRunner
 
     private IEnumerable<string> GenerateColumnSql(string tableName, FieldModel field)
     {
-        string typeSql = field.Type;
-
-        if (field.Precision.HasValue)
-        {
-            if (field.Precision == -1)
-            {
-                typeSql += "(max)";
-            }
-            else if (field.Scale.HasValue)
-            {
-                typeSql += $"({field.Precision.Value},{field.Scale.Value})";
-            }
-            else
-            {
-                typeSql += $"({field.Precision.Value})";
-            }
-        }
+        var typeSql =
+            Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType)
+                ? SqlTypeHelper.GetSqlTypeString(field, sqlFieldType)
+                : SqlTypeHelper.GetUnknownSqlTypeString(field);
 
         var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
         var defaultSql = string.Empty;
@@ -219,22 +198,10 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
 
     private IEnumerable<string> GenerateAlterColumnSql(string tableName, FieldModel field)
     {
-        var typeSql = field.Type;
-        if (field.Precision.HasValue)
-        {
-            if (field.Precision == -1)
-            {
-                typeSql += "(max)";
-            }
-            else if (field.Scale.HasValue)
-            {
-                typeSql += $"({field.Precision.Value},{field.Scale.Value})";
-            }
-            else
-            {
-                typeSql += $"({field.Precision.Value})";
-            }
-        }
+        var typeSql =
+            Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType)
+                ? SqlTypeHelper.GetSqlTypeString(field, sqlFieldType)
+                : SqlTypeHelper.GetUnknownSqlTypeString(field);
 
         var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
         yield return $"ALTER TABLE [dbo].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";

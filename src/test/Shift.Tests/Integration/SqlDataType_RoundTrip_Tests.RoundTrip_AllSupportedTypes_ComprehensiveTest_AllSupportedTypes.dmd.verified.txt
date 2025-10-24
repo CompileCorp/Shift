@@ -1,0 +1,23 @@
+﻿model TestAllSupportedTypes {
+  achar(10) AsciiCode
+  astring(max)? AsciiMax
+  astring(100) AsciiName
+  astring(max)? AsciiText
+  long BigNumber
+  datetime CreatedAt
+  float(53)? FloatValue
+  float(53)? FloatWithPrecision
+  int ID
+  bool IsActive
+  decimal(19,4)? MoneyValue
+  decimal(18,2) Price
+  int RegularNumber
+  decimal(10,4)? SmallMoneyValue
+  char(10) UnicodeCode
+  string(max)? UnicodeMax
+  string(100) UnicodeName
+  string(max)? UnicodeText
+  guid UniqueId
+  datetime? UpdatedAt
+  decimal(8,3)? Weight
+}
