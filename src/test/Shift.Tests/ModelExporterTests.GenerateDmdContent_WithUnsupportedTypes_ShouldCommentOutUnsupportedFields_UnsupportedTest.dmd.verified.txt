@@ -1,4 +1,9 @@
 ﻿model UnsupportedTest {
+# date CheckInDate
+# time CheckInTime
+# datetime2 CreatedAt
+# uniqueidentifier EventId
   int ID
 # geometry Location
+# numeric Tax
 }

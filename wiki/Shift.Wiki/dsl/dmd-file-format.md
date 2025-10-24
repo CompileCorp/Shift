@@ -57,27 +57,27 @@ type(precision, scale) fieldName
 
 ### Simple Types
 
-| DMD Type | SQL Server Type | Description |
-|----------|----------------|-------------|
-| `bool` | `bit` | Boolean value (true/false) |
-| `int` | `int` | 32-bit integer |
-| `long` | `bigint` | 64-bit integer |
-| `decimal` | `decimal` | Fixed-point decimal number |
-| `guid` | `uniqueidentifier` | Globally unique identifier |
-| `datetime` | `datetime2` | Date and time |
-| `date` | `date` | Date only |
-| `time` | `time` | Time only |
+| DMD Type   | SQL Server Type    | Description |
+|------------|--------------------|-------------|
+| `bool`     | `bit`              | Boolean value (true/false) |
+| `int`      | `int`              | 32-bit integer |
+| `long`     | `bigint`           | 64-bit integer |
+| `decimal`  | `decimal`          | Fixed-point decimal number |
+| `guid`     | `uniqueidentifier` | Globally unique identifier |
+| `datetime` | `datetime2`        | Date and time |
+| `date`     | `date`             | Date only |
+| `time`     | `time`             | Time only |
 
 ### String Types
 
-| DMD Type | SQL Server Type | Description |
-|----------|----------------|-------------|
-| `string` | `nvarchar(255)` | Unicode string (default length) |
-| `string(length)` | `nvarchar(length)` | Unicode string with specified length |
-| `string(max)` | `nvarchar(max)` | Unicode string with maximum length |
-| `astring` | `varchar(255)` | ASCII string (default length) |
-| `astring(length)` | `varchar(length)` | ASCII string with specified length |
-| `astring(max)` | `varchar(max)` | ASCII string with maximum length |
+| DMD Type          | SQL Server Type    | Description |
+|-------------------|--------------------|-------------|
+| `string`          | `nvarchar(255)`    | Unicode string (default length) |
+| `string(length)`  | `nvarchar(length)` | Unicode string with specified length |
+| `string(max)`     | `nvarchar(max)`    | Unicode string with maximum length |
+| `astring`         | `varchar(255)`     | ASCII string (default length) |
+| `astring(length)` | `varchar(length)`  | ASCII string with specified length |
+| `astring(max)`    | `varchar(max)`     | ASCII string with maximum length |
 
 ### Type Modifiers
 
