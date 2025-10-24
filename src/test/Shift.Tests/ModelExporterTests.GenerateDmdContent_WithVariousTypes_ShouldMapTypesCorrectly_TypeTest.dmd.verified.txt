@@ -1,17 +1,17 @@
 ﻿model TypeTest {
-  astring ClientCode
+  astring(4) ClientCode
   long Count
   datetime CreatedAt
   astring(500) Description
   float Distance
-  decimal GST
+  decimal(19,4) GST
   int ID
   bool IsActive
   string(100) Name
   decimal(18,2) Price
-  float Temperature
-  astring TextDescription
-  string UniCode
-  string UniTextDescription
-  decimal VAT
+  float(24) Temperature
+  astring(max) TextDescription
+  string(8) UniCode
+  string(max) UniTextDescription
+  decimal(10,4) VAT
 }

@@ -1,7 +1,7 @@
 ﻿using Compile.VnumEnumeration;
 using System.Text.RegularExpressions;
 
-namespace Compile.Shift.Cli.Tests.Vnums;
+namespace Shift.Test.Framework.Infrastructure;
 
 public class VnumTestingHelper<TVnum, TEnum>
     where TVnum : Vnum<TEnum>
