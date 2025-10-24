@@ -103,6 +103,8 @@ model Order {
   string(50) OrderNumber
   astring(20) ShortCode
   char(5) StatusCode
+  achar(1) DistrictCode
+  float(23) Temperature
 }";
 
         var model = new DatabaseModel();
@@ -127,10 +129,16 @@ model Order {
         shortCodeField.Precision.Should().Be(20);
 
         var statusField = table.Fields.First(f => f.Name == "StatusCode");
-        statusField.Type.Should().Be("char");
+        statusField.Type.Should().Be("nchar");
         statusField.Precision.Should().Be(5);
 
-        
+        var districtField = table.Fields.First(f => f.Name == "DistrictCode");
+        districtField.Type.Should().Be("char");
+        districtField.Precision.Should().Be(1);
+
+        var temperatureField = table.Fields.First(f => f.Name == "Temperature");
+        temperatureField.Type.Should().Be("float");
+        temperatureField.Precision.Should().Be(23);
     }
 
     /// <summary>

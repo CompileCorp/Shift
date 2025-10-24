@@ -1,0 +1,9 @@
+﻿model TestUnsupportedTypes {
+# datetime2 DateTime2Value
+# date DateValue
+# geometry GeometryValue
+  guid? GuidValue
+  int ID
+  decimal(18,2)? NumericValue
+# time TimeValue
+}

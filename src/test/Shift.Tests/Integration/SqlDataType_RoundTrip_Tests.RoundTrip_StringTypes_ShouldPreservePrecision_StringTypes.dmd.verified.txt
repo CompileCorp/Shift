@@ -1,0 +1,11 @@
+﻿model TestStringTypes {
+  achar(10) AsciiCode
+  astring(500)? AsciiDescription
+  astring(100) AsciiName
+  astring(max)? AsciiText
+  int ID
+  char(10) UnicodeCode
+  string(500)? UnicodeDescription
+  string(100) UnicodeName
+  string(max)? UnicodeText
+}

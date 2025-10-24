@@ -1,0 +1,5 @@
+﻿model TestDateTimeTypes {
+  datetime CreatedAt
+  int ID
+  datetime? UpdatedAt
+}

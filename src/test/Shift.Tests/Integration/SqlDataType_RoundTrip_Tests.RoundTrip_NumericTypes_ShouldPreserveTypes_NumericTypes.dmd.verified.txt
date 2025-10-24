@@ -1,0 +1,5 @@
+﻿model TestNumericTypes {
+  long BigNumber
+  int ID
+  int RegularNumber
+}

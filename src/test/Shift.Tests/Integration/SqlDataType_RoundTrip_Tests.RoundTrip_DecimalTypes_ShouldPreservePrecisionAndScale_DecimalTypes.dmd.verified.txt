@@ -1,0 +1,7 @@
+﻿model TestDecimalTypes {
+  int ID
+  decimal(19,4)? MoneyValue
+  decimal(18,2) Price
+  decimal(10,4)? SmallMoneyValue
+  decimal(8,3)? Weight
+}

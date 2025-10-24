@@ -1,41 +1,34 @@
-﻿using Compile.VnumEnumeration;
+using Compile.VnumEnumeration;
 
 namespace Compile.Shift.Model.Vnums;
 
 public enum SqlFieldTypeId
 {
-    BIT = 1,
+    BIT = 1,    // Maps to DMD bool
+    UNIQUEIDENTIFIER, // Maps to DMD guid
 
-    CHAR,
-    VARCHAR,
-    TEXT,
+    CHAR,       // Maps to DMD achar
+    VARCHAR,    // Maps to DMD astring
+    TEXT,       // Maps to DMD astring(max). TEXT was deprecated in SQL Server 2005 because VARCHAR(MAX) is superior
 
-    NCHAR,
-    NVARCHAR,
-    NTEXT,
+    NCHAR,      // Maps to DMD char
+    NVARCHAR,   // Maps to DMD string
+    NTEXT,      // Maps to DMD string(max). NTEXT was deprecated in SQL Server 2005 because NVARCHAR(MAX) is superior 
 
-    INT,
-    BIGINT,
-    DECIMAL,
-    NUMERIC,
-    FLOAT,
-    MONEY,
-    SMALLMONEY,
+    INT,        // Maps to DMD int
+    BIGINT,     // Maps to DMD long
+    DECIMAL,    // Maps to DMD decimal
+    NUMERIC,    // Maps to DMD decimal
+    FLOAT,      // Maps to DMD float
+    MONEY,      // Maps to DMD decimal
+    SMALLMONEY, // Maps to DMD decimal
 
-    DATETIME,
+    DATETIME,   // Maps to DMD datetime
 
-    //TODO: UNIQUEIDENTIFIER,
     //TODO: DATETIME2,
     //TODO: DATE,
     //TODO: TIME,
-}
-
-public enum PrecisionType
-{
-    None = 1,
-    PrecisionOnlyAlwaysRequired,
-    PrecisionOnlyOptional,
-    PrecisionWithScaleAlwaysRequired,
+    //TODO: NUMERIC,
 }
 
 /// <summary>
@@ -76,19 +69,23 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
             code: "bit",
             mapTo: DmdFieldTypeId.BOOL);
 
+    public static readonly SqlFieldType UNIQUEIDENTIFIER =
+        new(id: SqlFieldTypeId.UNIQUEIDENTIFIER,
+            code: "uniqueidentifier",
+            mapTo: DmdFieldTypeId.GUID);
 
     public static readonly SqlFieldType CHAR =
         new(id: SqlFieldTypeId.CHAR,
             code: "char",
-            mapTo: DmdFieldTypeId.ASTRING, // Conver to ASTRING
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            mapTo: DmdFieldTypeId.ACHAR,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 1);
 
     public static readonly SqlFieldType VARCHAR =
         new(id: SqlFieldTypeId.VARCHAR,
             code: "varchar",
-            mapTo: DmdFieldTypeId.ASTRING, // Conver to ASTRING
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            mapTo: DmdFieldTypeId.ASTRING,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255,
             supportsMaxLength: true,
             maxLengthMarker: -1); 
@@ -96,21 +93,21 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
     public static readonly SqlFieldType TEXT =
         new(id: SqlFieldTypeId.TEXT,
             code: "text",
-            mapTo: DmdFieldTypeId.ASTRING); // Conver to ASTRING
+            mapTo: DmdFieldTypeId.ASTRING); // Convert to ASTRING DMD data type
 
 
     public static readonly SqlFieldType NCHAR =
         new(id: SqlFieldTypeId.NCHAR,
             code: "nchar",
-            mapTo: DmdFieldTypeId.STRING, // Conver to STRING
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            mapTo: DmdFieldTypeId.CHAR,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 1);
 
     public static readonly SqlFieldType NVARCHAR =
         new(id: SqlFieldTypeId.NVARCHAR,
             code: "nvarchar",
-            mapTo: DmdFieldTypeId.STRING, // Conver to STRING
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            mapTo: DmdFieldTypeId.STRING,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255,
             supportsMaxLength: true,
             maxLengthMarker: -1); 
@@ -118,7 +115,7 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
     public static readonly SqlFieldType NTEXT =
         new(id: SqlFieldTypeId.NTEXT,
             code: "ntext",
-            mapTo: DmdFieldTypeId.STRING); // Conver to STRING
+            mapTo: DmdFieldTypeId.STRING); // Convert to STRING DMD data type
 
 
     public static readonly SqlFieldType INT =
@@ -135,37 +132,36 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
         new(id: SqlFieldTypeId.DECIMAL,
             code: "decimal",
             mapTo: DmdFieldTypeId.DECIMAL,
-            precisionType: PrecisionType.PrecisionWithScaleAlwaysRequired,
+            precisionType: PrecisionType.PrecisionWithScaleRequired,
             defaultPrecision: 18,
             defaultScale: 0);
 
     public static readonly SqlFieldType NUMERIC =
         new(id: SqlFieldTypeId.NUMERIC,
             code: "numeric",
-            mapTo: DmdFieldTypeId.DECIMAL, // Convert to DECIMAL
-            precisionType: PrecisionType.PrecisionWithScaleAlwaysRequired,
+            mapTo: DmdFieldTypeId.DECIMAL, // Convert to DECIMAL DMD data type
+            precisionType: PrecisionType.PrecisionWithScaleRequired,
             defaultPrecision: 18,
             defaultScale: 0); 
 
     public static readonly SqlFieldType FLOAT =
         new(id: SqlFieldTypeId.FLOAT,
             code: "float",
-            mapTo: DmdFieldTypeId.FLOAT,
-            precisionType: PrecisionType.PrecisionOnlyOptional);
+            mapTo: DmdFieldTypeId.FLOAT);
 
     public static readonly SqlFieldType MONEY =
         new(id: SqlFieldTypeId.MONEY,
             code: "money",
-            mapTo: DmdFieldTypeId.DECIMAL, // Convert to DECIMAL
-            precisionType: PrecisionType.PrecisionWithScaleAlwaysRequired,
+            mapTo: DmdFieldTypeId.DECIMAL, // Convert to DECIMAL DMD data type
+            precisionType: PrecisionType.None,
             defaultPrecision: 19,
             defaultScale: 4);
 
     public static readonly SqlFieldType SMALLMONEY =
         new(id: SqlFieldTypeId.SMALLMONEY,
             code: "smallmoney",
-            mapTo: DmdFieldTypeId.DECIMAL, // Convert to DECIMAL
-            precisionType: PrecisionType.PrecisionWithScaleAlwaysRequired,
+            mapTo: DmdFieldTypeId.DECIMAL, // Convert to DECIMAL DMD data type
+            precisionType: PrecisionType.None,
             defaultPrecision: 10,
             defaultScale: 4);
 

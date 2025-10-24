@@ -4,20 +4,21 @@ namespace Compile.Shift.Model.Vnums;
 
 public enum DmdFieldTypeId
 {
-    BOOL = 1,
+    BOOL = 1, // Maps to SQL bit
+    GUID,     // Maps to SQL uniqueidentifier
 
-    CHAR,    // nchar
-    STRING,  // nvarchar
+    CHAR,     // Maps to SQL nchar
+    STRING,   // Maps to SQL nvarchar
 
-    ACHAR,   // char
-    ASTRING, // varchar
+    ACHAR,    // Maps to SQL char
+    ASTRING,  // Maps to SQL varchar
 
-    INT,
-    LONG,
-    DECIMAL,
-    FLOAT,
+    INT,      // Maps to SQL int
+    LONG,     // Maps to SQL bigint
+    DECIMAL,  // Maps to SQL decimal
+    FLOAT,    // Maps to SQL float
 
-    DATETIME,
+    DATETIME, // Maps to SQL datetime
 }
 
 /// <summary>
@@ -53,36 +54,43 @@ public class DmdFieldType : Vnum<DmdFieldTypeId>
             code: "bool",
             mapTo: SqlFieldTypeId.BIT);
 
+    public static readonly DmdFieldType GUID =
+        new(id: DmdFieldTypeId.GUID,
+            code: "guid",
+            mapTo: SqlFieldTypeId.UNIQUEIDENTIFIER);
 
+
+    // String types
     public static readonly DmdFieldType STRING =
         new(id: DmdFieldTypeId.STRING,
             code: "string",
             mapTo: SqlFieldTypeId.NVARCHAR,
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255);
 
     public static readonly DmdFieldType CHAR =
         new(id: DmdFieldTypeId.CHAR,
             code: "char",
             mapTo: SqlFieldTypeId.NCHAR,
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 1);
 
     public static readonly DmdFieldType ASTRING =
         new(id: DmdFieldTypeId.ASTRING,
             code: "astring",
             mapTo: SqlFieldTypeId.VARCHAR,
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255);
 
     public static readonly DmdFieldType ACHAR =
         new(id: DmdFieldTypeId.ACHAR,
             code: "achar",
             mapTo: SqlFieldTypeId.CHAR,
-            precisionType: PrecisionType.PrecisionOnlyAlwaysRequired,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 1);
 
 
+    // Numeric types
     public static readonly DmdFieldType INT =
         new(id: DmdFieldTypeId.INT,
             code: "int",
@@ -97,17 +105,17 @@ public class DmdFieldType : Vnum<DmdFieldTypeId>
         new(id: DmdFieldTypeId.DECIMAL,
             code: "decimal",
             mapTo: SqlFieldTypeId.DECIMAL,
-            precisionType: PrecisionType.PrecisionWithScaleAlwaysRequired,
+            precisionType: PrecisionType.PrecisionWithScaleRequired,
             defaultPrecision: 18,
             defaultScale: 0);
 
     public static readonly DmdFieldType FLOAT =
         new(id: DmdFieldTypeId.FLOAT,
             code: "float",
-            mapTo: SqlFieldTypeId.FLOAT,
-            precisionType: PrecisionType.PrecisionOnlyOptional);
+            mapTo: SqlFieldTypeId.FLOAT);
 
 
+    // Date/time types
     public static readonly DmdFieldType DATETIME =
         new(id: DmdFieldTypeId.DATETIME,
             code: "datetime",

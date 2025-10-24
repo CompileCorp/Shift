@@ -1,0 +1,7 @@
+﻿model TestAsciiStringTypes {
+  achar(10) AsciiCode
+  astring(500)? AsciiDescription
+  astring(100) AsciiName
+  astring(max)? AsciiText
+  int ID
+}

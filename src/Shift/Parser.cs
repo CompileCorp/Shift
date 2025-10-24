@@ -1,4 +1,6 @@
 using Compile.Shift.Model;
+using Compile.Shift.Model.Vnums;
+using Compile.VnumEnumeration;
 using System.Text.RegularExpressions;
 
 namespace Compile.Shift;
@@ -185,7 +187,7 @@ public class Parser
                     var attribute = line.Substring(1).Trim();
                     table.Attributes[attribute] = true;
                 }
-                else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("//"))
+                else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("//") && !line.StartsWith("#"))
                 {
                     ParseField(line, table);
                 }
@@ -307,43 +309,58 @@ public class Parser
         return field;
     }
 
-    private void ConvertType(FieldModel field)
+    //TODO: Make into FieldModel extension method
+    internal void ConvertType(FieldModel field)
     {
-        switch (field.Type.ToLowerInvariant())
+        var isSupportedType = Vnum.TryFromCode<DmdFieldType>(field.Type, ignoreCase: true, out var dmdFieldType);
+
+        if (!isSupportedType)
         {
-            case "bool":
-                field.Type = "bit";
-                break;
-            case "string":
+            // For unsupported types, leave as-is or set to a default
+            // This should not happen if the parser correctly skips commented lines
+            return;
+        }
+
+        // Handle special cases that require precision-based logic
+        switch (dmdFieldType.Id)
+        {
+            case DmdFieldTypeId.STRING:
                 if (field.Precision == 1)
                 {
-                    field.Type = "nchar";
+                    field.Type = "nchar"; // This doesn't look right. Why is data type changed based of field length?
                 }
                 else
                 {
                     field.Type = "nvarchar";
                 }
                 break;
-            case "astring":
+            case DmdFieldTypeId.ASTRING:
                 if (field.Precision == 1)
                 {
-                    field.Type = "char";
+                    field.Type = "char"; // This doesn't look right. Why is data type changed based of field length?
                 }
                 else
                 {
                     field.Type = "varchar";
                 }
                 break;
-            case "long":
-                field.Type = "bigint";
-                break;
-			case "guid":
-				field.Type = "uniqueidentifier";
-				break;
-            case "decimal":
-                field.Type = "decimal";
+            case DmdFieldTypeId.DECIMAL:
+                // Check if this should be money or smallmoney based on precision/scale
+                if (field.Precision == 19 && field.Scale == 4)
+                {
+                    field.Type = "money"; // This smells bad but ok for now
+                }
+                else if (field.Precision == 10 && field.Scale == 4)
+                {
+                    field.Type = "smallmoney"; // This smells bad but ok for now
+                }
+                else
+                {
+                    field.Type = "decimal";
+                }
                 break;
             default:
+                field.Type = dmdFieldType.SqlFieldType.Code;
                 break;
         }
     }
@@ -370,7 +387,7 @@ public class Parser
         // Add mixin fields
         foreach (var field in mixin.Fields)
         {
-            table.Fields.Add(new FieldModel()
+            table.Fields.Add(new FieldModel
             {
                 Name = field.Name,
                 Type = field.Type,

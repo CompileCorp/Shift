@@ -5,9 +5,9 @@ public class FieldModel
     private string _type = string.Empty;
     public bool IsPrimaryKey { get; set; }
     public bool IsIdentity { get; set; }
-    public string Name { get; set; } = string.Empty;
+    public required string Name { get; set; } = string.Empty;
 
-    public string Type
+    public required string Type
     {
         get => _type;
         set

@@ -252,7 +252,7 @@ public class ModelExporterTests : UnitTestContext<ModelExporter>
                 .WithField("Price", "decimal", f => f.Precision(18, 2))
                 .WithField("GST", "money")
                 .WithField("VAT", "smallmoney")
-                .WithField("Temperature", "float", f => f.Precision(24))
+                .WithField("Temperature", "float", f => f.Precision(53))
                 .WithField("Distance", "float")
                 .WithField("ClientCode", "char", f => f.Precision(4))
                 .WithField("UniCode", "nchar", f => f.Precision(8))
@@ -268,11 +268,10 @@ public class ModelExporterTests : UnitTestContext<ModelExporter>
             .WithTable("UnsupportedTest", table => table
                 .WithField("ID", "int", f => f.PrimaryKey().Identity())
                 .WithField("Location", "geometry")        // Unsupported type
-                .WithField("EventId", "uniqueidentifier") // Unsupported type
                 .WithField("CreatedAt", "datetime2")      // Unsupported type
                 .WithField("CheckInDate", "date")         // Unsupported type
                 .WithField("CheckInTime", "time")         // Unsupported type
-                .WithField("Tax", "numeric", f => f.Precision(18, 2))) // Unsupported type
+                .WithField("Tax", "numeric", f => f.Precision(18, 2))) // Numeric is auto converted to decimal
             .Build();
     }
 

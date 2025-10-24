@@ -1,5 +1,5 @@
 ﻿model TypeTest {
-  astring(4) ClientCode
+  achar(4) ClientCode
   long Count
   datetime CreatedAt
   astring(500) Description
@@ -9,9 +9,9 @@
   bool IsActive
   string(100) Name
   decimal(18,2) Price
-  float(24) Temperature
+  float Temperature
   astring(max) TextDescription
-  string(8) UniCode
+  char(8) UniCode
   string(max) UniTextDescription
   decimal(10,4) VAT
 }
