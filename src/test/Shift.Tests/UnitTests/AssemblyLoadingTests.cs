@@ -2,7 +2,7 @@ using Compile.Shift.Model;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
-namespace Compile.Shift;
+namespace Compile.Shift.UnitTests;
 
 public class AssemblyLoadingTests
 {
@@ -11,7 +11,7 @@ public class AssemblyLoadingTests
 
     public AssemblyLoadingTests()
     {
-        var loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole());
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         _logger = loggerFactory.CreateLogger<Shift>();
         _shift = new Shift { Logger = _logger };
     }

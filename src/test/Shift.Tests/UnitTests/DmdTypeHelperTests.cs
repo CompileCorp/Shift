@@ -3,7 +3,7 @@ using Compile.Shift.Model.Helpers;
 using Compile.Shift.Model.Vnums;
 using FluentAssertions;
 
-namespace Compile.Shift;
+namespace Compile.Shift.UnitTests;
 
 /// <summary>
 /// Comprehensive test harness for ModelExporter.GetFieldTypeString method.

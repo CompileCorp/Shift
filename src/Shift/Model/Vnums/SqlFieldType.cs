@@ -20,8 +20,8 @@ public enum SqlFieldTypeId
     DECIMAL,    // Maps to DMD decimal
     NUMERIC,    // Maps to DMD decimal
     FLOAT,      // Maps to DMD float
-    MONEY,      // Maps to DMD decimal
-    SMALLMONEY, // Maps to DMD decimal
+    MONEY,      // Maps to DMD decimal(19,4)
+    SMALLMONEY, // Maps to DMD decimal(10,4)
 
     DATETIME,   // Maps to DMD datetime
 
@@ -29,6 +29,8 @@ public enum SqlFieldTypeId
     //TODO: DATE,
     //TODO: TIME,
     //TODO: NUMERIC,
+    //TODO: BINARY,
+    //TODO: VARBINARY,
 }
 
 /// <summary>

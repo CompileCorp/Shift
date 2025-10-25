@@ -2,7 +2,7 @@ using Compile.Shift.Model;
 using FluentAssertions;
 using Shift.Test.Framework.Infrastructure;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.UnitTests;
 
 /// <summary>
 /// Comprehensive test harness for Parser.ConvertType method.

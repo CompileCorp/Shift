@@ -4,7 +4,7 @@ using FluentAssertions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
-namespace Compile.Shift.Tests.Integration;
+namespace Compile.Shift.Integration;
 
 /// <summary>
 /// Integration tests for SQL data type round-trip conversions.

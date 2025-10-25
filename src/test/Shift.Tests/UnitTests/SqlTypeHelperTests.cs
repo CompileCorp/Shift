@@ -2,12 +2,10 @@ using Compile.Shift.Model;
 using Compile.Shift.Model.Helpers;
 using Compile.Shift.Model.Vnums;
 using FluentAssertions;
-using Shift.Test.Framework.Infrastructure;
-using Xunit;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.UnitTests;
 
-public class SqlTypeHelperTests : UnitTestContext<object>
+public class SqlTypeHelperTests
 {
     #region GetSqlTypeString Tests
 
