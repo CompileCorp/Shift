@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using System.Linq;
 using Xunit;
 
-namespace Compile.Shift.Tests.Integration;
+namespace Compile.Shift.Integration;
 
 [Collection("SqlServer")]
 public class SqlMigrationRunner_SafeShrink_Tests

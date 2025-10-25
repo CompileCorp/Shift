@@ -3,7 +3,7 @@ using Compile.Shift.Tests.Helpers;
 using FluentAssertions;
 using Shift.Test.Framework.Infrastructure;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.UnitTests;
 
 public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 {

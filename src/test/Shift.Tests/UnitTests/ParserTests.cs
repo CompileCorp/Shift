@@ -2,7 +2,7 @@ using Compile.Shift.Model;
 using FluentAssertions;
 using Shift.Test.Framework.Infrastructure;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.UnitTests;
 
 public class ParserTests : UnitTestContext<Parser>
 {
