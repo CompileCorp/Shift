@@ -1,7 +1,7 @@
 ﻿using Compile.Shift.Model.Vnums;
 using Shift.Test.Framework.Infrastructure;
 
-namespace Compile.Shift.Cli.Tests.Vnums;
+namespace Compile.Shift.UnitTests;
 
 public class SqlFieldTypeVnumTests : UnitTestContext<VnumTestingHelper<SqlFieldType, SqlFieldTypeId>>
 {

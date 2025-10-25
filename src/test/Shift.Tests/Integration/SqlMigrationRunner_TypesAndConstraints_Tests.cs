@@ -3,7 +3,7 @@ using Compile.Shift.Tests.Helpers;
 using Compile.Shift.Tests.Infrastructure;
 using Microsoft.Extensions.Logging;
 
-namespace Compile.Shift.Tests.Integration;
+namespace Compile.Shift.Integration;
 
 [Collection("SqlServer")]
 public class SqlMigrationRunner_TypesAndConstraints_Tests

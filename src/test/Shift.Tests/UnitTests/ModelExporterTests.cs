@@ -2,7 +2,7 @@ using Compile.Shift.Model;
 using Compile.Shift.Tests.Helpers;
 using Shift.Test.Framework.Infrastructure;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.UnitTests;
 
 public class ModelExporterTests : UnitTestContext<ModelExporter>
 {

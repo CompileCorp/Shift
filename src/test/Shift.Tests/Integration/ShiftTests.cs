@@ -5,7 +5,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.Integration;
 
 /// <summary>
 /// Unit tests for Shift class.
