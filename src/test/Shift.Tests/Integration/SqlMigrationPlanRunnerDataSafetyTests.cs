@@ -4,7 +4,7 @@ using FluentAssertions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
-namespace Compile.Shift.Tests;
+namespace Compile.Shift.Integration;
 
 /// <summary>
 /// Unit tests for SqlMigrationPlanRunner data safety validation.
