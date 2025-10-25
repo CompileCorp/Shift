@@ -63,10 +63,9 @@ type(precision, scale) fieldName
 | `int`      | `int`              | 32-bit integer |
 | `long`     | `bigint`           | 64-bit integer |
 | `decimal`  | `decimal`          | Fixed-point decimal number |
+| `float`    | `float`            | Floating-point number |
 | `guid`     | `uniqueidentifier` | Globally unique identifier |
-| `datetime` | `datetime2`        | Date and time |
-| `date`     | `date`             | Date only |
-| `time`     | `time`             | Time only |
+| `datetime` | `datetime`         | Date and time |
 
 ### String Types
 
@@ -75,17 +74,23 @@ type(precision, scale) fieldName
 | `string`          | `nvarchar(255)`    | Unicode string (default length) |
 | `string(length)`  | `nvarchar(length)` | Unicode string with specified length |
 | `string(max)`     | `nvarchar(max)`    | Unicode string with maximum length |
+| `char`            | `nchar(1)`         | Unicode character (default length) |
+| `char(length)`    | `nchar(length)`    | Unicode character with specified length |
 | `astring`         | `varchar(255)`     | ASCII string (default length) |
 | `astring(length)` | `varchar(length)`  | ASCII string with specified length |
 | `astring(max)`    | `varchar(max)`     | ASCII string with maximum length |
+| `achar`           | `char(1)`          | ASCII character (default length) |
+| `achar(length)`   | `char(length)`     | ASCII character with specified length |
 
 ### Type Modifiers
 
 #### Precision and Scale
 ```dmd
-decimal(10,2) Price       // 10 digits total, 2 after decimal
-string(100) Username      // 100 character string
-string(max) Description   // Maximum length string
+decimal(10,2) Price      // 10 digits total, 2 after decimal
+string(100) Username     // 100 character string
+string(max) Description  // Maximum length string
+char(1) Status           // Single character
+achar(10) Code           // 10 ASCII characters
 ```
 
 #### Nullable Fields
@@ -182,6 +187,7 @@ CREATE TABLE [User] (
 
 ### Basic Relationships
 
+#### One-to-One Relationships
 ```dmd
 model Order {
   model Customer
@@ -190,17 +196,28 @@ model Order {
 }
 ```
 
-**Generated SQL:**
+#### One-to-Many Relationships
+```dmd
+model Customer {
+  string(100) Name
+  string(255) Email
+  models Order        // One-to-many relationship
+}
+```
+
+**Generated SQL for Order table:**
 ```sql
 CREATE TABLE [Order] (
   [OrderID] int IDENTITY(1,1) NOT NULL,
   [CustomerID] int NOT NULL,
   [Amount] decimal(10,2) NOT NULL,
-  [OrderDate] datetime2 NOT NULL,
+  [OrderDate] datetime NOT NULL,
   CONSTRAINT [PK_Order] PRIMARY KEY ([OrderID]),
   CONSTRAINT [FK_Order_CustomerID] FOREIGN KEY ([CustomerID]) REFERENCES [Customer]([CustomerID])
 )
 ```
+
+**Note:** The `models` syntax in the Customer table is for documentation purposes and doesn't generate additional SQL - the foreign key is created in the Order table.
 
 ### Nullable Relationships
 
@@ -300,8 +317,8 @@ CREATE TABLE [User] (
   [Username] nvarchar(100) NOT NULL,
   [Email] nvarchar(256) NOT NULL,
   [IsActive] bit NOT NULL,
-  [CreatedAt] datetime2 NOT NULL,
-  [UpdatedAt] datetime2 NOT NULL,
+  [CreatedAt] datetime NOT NULL,
+  [UpdatedAt] datetime NOT NULL,
   [CreatedBy] nvarchar(50) NOT NULL,
   [UpdatedBy] nvarchar(50) NOT NULL,
   [IsDeleted] bit NOT NULL,
@@ -327,6 +344,8 @@ model Document with Auditable {
   string(max) Content
 }
 ```
+
+**Note:** The `!` prefix indicates optional relationships that may not be required in all contexts.
 
 ## Indexes
 
@@ -498,6 +517,8 @@ model Task with Auditable {
 }
 ```
 
+**Note:** The `with Auditable` syntax applies the Auditable mixin to the Task model.
+
 **Auditable.dmdx:**
 ```dmdx
 mixin Auditable {
@@ -644,6 +665,18 @@ var failures = runner.Run();
 var generator = new EfCodeGenerator();
 await generator.GenerateAsync(model, outputPath);
 ```
+
+## Future Enhancements
+
+### Planned Data Types
+
+The following SQL Server types are planned for future implementation:
+
+- **`date`** - Date only (maps to SQL `date`)
+- **`time`** - Time only (maps to SQL `time`) 
+- **`datetime2`** - Enhanced datetime with precision (maps to SQL `datetime2`)
+
+These types are currently not supported but may be added in future versions.
 
 ## Troubleshooting
 
