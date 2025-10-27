@@ -68,7 +68,7 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 // Result: Creates MigrationStep with Action = AddForeignKey
 ```
 
-### Step 4: Add Missing Indexes for Existing Tables (NEW)
+### Step 4: Add Missing Indexes for Existing Tables
 **Purpose**: Identify indexes that exist in the target model but not in the actual model.
 
 **Detection Logic**:
@@ -105,6 +105,23 @@ public class ExtraIndexReport
     public required string TableName { get; init; }
     public required bool IsUnique { get; init; }
     public required IEnumerable<string> Fields { get; init; }
+}
+```
+
+**Key Features**:
+- **Non-destructive reporting**: Extra indexes are reported but not removed
+- **Case-insensitive matching**: Field names are compared case-insensitively
+- **Order preservation**: Field order in multi-column indexes is preserved
+- **Unique vs non-unique**: Distinguishes between unique and non-unique indexes
+
+**Usage**:
+```csharp
+// Access extra indexes from migration plan
+foreach (var extraIndex in plan.ExtrasInSqlServer.ExtraIndexes)
+{
+    Console.WriteLine($"Extra index on {extraIndex.TableName}: " +
+                     $"{(extraIndex.IsUnique ? "UNIQUE" : "NON-UNIQUE")} " +
+                     $"({string.Join(", ", extraIndex.Fields)})");
 }
 ```
 

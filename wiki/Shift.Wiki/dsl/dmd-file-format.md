@@ -14,6 +14,20 @@ DMD files are text files that define database models using a simple, declarative
 - **Version control friendly** schema management
 - **Team collaboration** with clear, readable database models
 
+### ⚠️ Important: SQL-DMD-SQL Roundtrip Conversion
+
+When converting from SQL Server to DMD format and back, certain SQL types will be converted to their modern equivalents:
+
+| Original SQL Type | DMD Type        | Converted Back To |
+|-------------------|-----------------|-------------------|
+| `text`            | `astring(max)`  | `varchar(max)` |
+| `ntext`           | `string(max)`   | `nvarchar(max)` |
+| `money`           | `decimal(19,4)` | `decimal(19,4)` |
+| `smallmoney`      | `decimal(10,4)` | `decimal(10,4)` |
+| `numeric`         | `decimal`       | `decimal` |
+
+This conversion is **intentional** and represents best practices for modern SQL Server development. The deprecated `text` and `ntext` types are converted to their `varchar(max)` and `nvarchar(max)` equivalents, while `money` and `smallmoney` are normalized to `decimal` with appropriate precision and scale.
+
 ### File Extensions
 
 - **`.dmd`** - Database model files (tables, relationships, indexes)
@@ -57,30 +71,35 @@ type(precision, scale) fieldName
 
 ### Simple Types
 
-| DMD Type   | SQL Server Type    | Description |
-|------------|--------------------|-------------|
-| `bool`     | `bit`              | Boolean value (true/false) |
-| `int`      | `int`              | 32-bit integer |
-| `long`     | `bigint`           | 64-bit integer |
-| `decimal`  | `decimal`          | Fixed-point decimal number |
-| `float`    | `float`            | Floating-point number |
-| `guid`     | `uniqueidentifier` | Globally unique identifier |
-| `datetime` | `datetime`         | Date and time |
+| DMD Type   | SQL Server Type    | Default Precision | Description |
+|------------|--------------------|-------------------|-------------|
+| `bool`     | `bit`              | -                 | Boolean value (true/false) |
+| `int`      | `int`              | -                 | 32-bit integer |
+| `long`     | `bigint`           | -                 | 64-bit integer |
+| `decimal`  | `decimal(18,0)`    | 18,0              | Fixed-point decimal number |
+| `float`    | `float`            | -                 | Floating-point number |
+| `guid`     | `uniqueidentifier` | -                 | Globally unique identifier |
+| `datetime` | `datetime`         | -                 | Date and time |
 
 ### String Types
 
-| DMD Type          | SQL Server Type    | Description |
-|-------------------|--------------------|-------------|
-| `string`          | `nvarchar(255)`    | Unicode string (default length) |
-| `string(length)`  | `nvarchar(length)` | Unicode string with specified length |
-| `string(max)`     | `nvarchar(max)`    | Unicode string with maximum length |
-| `char`            | `nchar(1)`         | Unicode character (default length) |
-| `char(length)`    | `nchar(length)`    | Unicode character with specified length |
-| `astring`         | `varchar(255)`     | ASCII string (default length) |
-| `astring(length)` | `varchar(length)`  | ASCII string with specified length |
-| `astring(max)`    | `varchar(max)`     | ASCII string with maximum length |
-| `achar`           | `char(1)`          | ASCII character (default length) |
-| `achar(length)`   | `char(length)`     | ASCII character with specified length |
+#### Unicode String Types
+| DMD Type          | SQL Server Type    | Default Length | Description |
+|-------------------|--------------------|----------------|-------------|
+| `string`          | `nvarchar(255)`    | 255            | Unicode string (default length) |
+| `string(length)`  | `nvarchar(length)` | -              | Unicode string with specified length |
+| `string(max)`     | `nvarchar(max)`    | -              | Unicode string with maximum length |
+| `char`            | `nchar(1)`         | 1              | Unicode character (default length) |
+| `char(length)`    | `nchar(length)`    | -              | Unicode character with specified length |
+
+#### ASCII String Types
+| DMD Type          | SQL Server Type    | Default Length | Description |
+|-------------------|--------------------|----------------|-------------|
+| `astring`         | `varchar(255)`     | 255            | ASCII string (default length) |
+| `astring(length)` | `varchar(length)`  | -              | ASCII string with specified length |
+| `astring(max)`    | `varchar(max)`     | -              | ASCII string with maximum length |
+| `achar`           | `char(1)`          | 1              | ASCII character (default length) |
+| `achar(length)`   | `char(length)`     | -              | ASCII character with specified length |
 
 ### Type Modifiers
 
@@ -666,6 +685,41 @@ var generator = new EfCodeGenerator();
 await generator.GenerateAsync(model, outputPath);
 ```
 
+## Type Conversion Matrix
+
+### Complete SQL ↔ DMD Type Mapping
+
+| SQL Server Type    | DMD Type        | Notes |
+|--------------------|-----------------|-------|
+| `bit`              | `bool`          | Direct mapping |
+| `uniqueidentifier` | `guid`          | Direct mapping |
+| `int`              | `int`           | Direct mapping |
+| `bigint`           | `long`          | Direct mapping |
+| `decimal(p,s)`     | `decimal(p,s)`  | Direct mapping with precision/scale |
+| `numeric(p,s)`     | `decimal(p,s)`  | **Converted** - numeric becomes decimal |
+| `float`            | `float`         | Direct mapping |
+| `money`            | `decimal(19,4)` | **Converted** - money becomes decimal with fixed precision |
+| `smallmoney`       | `decimal(10,4)` | **Converted** - smallmoney becomes decimal with fixed precision |
+| `datetime`         | `datetime`      | Direct mapping |
+| `char(n)`          | `achar(n)`      | ASCII character type |
+| `varchar(n)`       | `astring(n)`    | ASCII string type |
+| `varchar(max)`     | `astring(max)`  | ASCII string with max length |
+| `text`             | `astring(max)`  | **Converted** - deprecated text becomes varchar(max) |
+| `nchar(n)`         | `char(n)`       | Unicode character type |
+| `nvarchar(n)`      | `string(n)`     | Unicode string type |
+| `nvarchar(max)`    | `string(max)`   | Unicode string with max length |
+| `ntext`            | `string(max)`   | **Converted** - deprecated ntext becomes nvarchar(max) |
+
+### Roundtrip Conversion Behavior
+
+When converting SQL → DMD → SQL, the following types will change:
+
+1. **Deprecated Types**: `text` and `ntext` are converted to their modern equivalents
+2. **Money Types**: `money` and `smallmoney` are normalized to `decimal` with appropriate precision
+3. **Numeric Type**: `numeric` is converted to `decimal` (they are functionally equivalent)
+
+This behavior is **intentional** and follows SQL Server best practices for modern development.
+
 ## Future Enhancements
 
 ### Planned Data Types
@@ -675,6 +729,9 @@ The following SQL Server types are planned for future implementation:
 - **`date`** - Date only (maps to SQL `date`)
 - **`time`** - Time only (maps to SQL `time`) 
 - **`datetime2`** - Enhanced datetime with precision (maps to SQL `datetime2`)
+- **`binary(n)`** - Fixed-length binary data
+- **`varbinary(n)`** - Variable-length binary data
+- **`varbinary(max)`** - Large binary data
 
 These types are currently not supported but may be added in future versions.
 

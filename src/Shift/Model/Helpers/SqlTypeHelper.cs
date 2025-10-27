@@ -4,6 +4,19 @@ namespace Compile.Shift.Model.Helpers;
 
 internal static class SqlTypeHelper
 {
+    /// <summary>
+    /// Generates the SQL type string representation for the specified field model and SQL field type.
+    /// </summary>
+    /// <remarks>
+    /// The method handles special cases for certain SQL field types, such as converting `TEXT` and
+    /// `NTEXT`  to their modern equivalents (`nvarchar(max)` or `varchar(max)`), and formatting `MONEY` and 
+    /// `SMALLMONEY` types with their default precision and scale. If the field model specifies a precision  equal to
+    /// the maximum length marker, the type is formatted with "(max)".
+    /// </remarks>
+    /// <returns>
+    /// A string representing the SQL type, including any applicable precision, scale, or length modifiers.
+    /// For example, "nvarchar(max)", "decimal(19,4)", or "int".
+    /// </returns>
     public static string GetSqlTypeString(FieldModel fieldModel, SqlFieldType sqlFieldType)
     {
         if (sqlFieldType is null)
