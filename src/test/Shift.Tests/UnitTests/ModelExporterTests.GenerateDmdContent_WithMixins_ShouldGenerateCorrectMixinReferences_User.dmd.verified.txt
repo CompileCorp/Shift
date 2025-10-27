@@ -1,5 +1,5 @@
 ﻿model User {
 # datetime2 CreatedDate
 # datetime2 ModifiedDate
-  string(100) Username
+  ustring(100) Username
 }

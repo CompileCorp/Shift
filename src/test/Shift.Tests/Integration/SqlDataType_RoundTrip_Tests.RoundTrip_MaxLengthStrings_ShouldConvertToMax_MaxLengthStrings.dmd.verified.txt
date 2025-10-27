@@ -1,5 +1,5 @@
 ﻿model TestMaxLengthStrings {
   astring(max)? AsciiMax
   int ID
-  string(max)? UnicodeMax
+  ustring(max)? UnicodeMax
 }

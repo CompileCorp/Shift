@@ -102,7 +102,7 @@ model Order {
   decimal(18,4) TotalAmount
   string(50) OrderNumber
   astring(20) ShortCode
-  char(5) StatusCode
+  uchar(5) StatusCode
   achar(1) DistrictCode
   float(23) Temperature
 }";
@@ -651,6 +651,76 @@ model TestTypes {
         table.Fields.Should().Contain(f => f.Name == "Money" && f.Type == "decimal" && f.Precision == 10 && f.Scale == 2);
 
         
+    }
+
+    /// <summary>
+    /// Tests that parsing fields with all supported DMD type names correctly parses them
+    /// and converts them to the appropriate SQL types.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithAllSupportedDataTypes_ShouldParseCorrectly()
+    {
+        // Arrange
+        var content = @"
+model TestAllTypes {
+  // Simple types
+  bool IsActive
+  int UserId
+  long BigNumber
+  decimal(10,2) Money
+  float Price
+  guid UniqueId
+  datetime CreatedAt
+  
+  // Unicode string types
+  ustring(100) UnicodeString
+  ustring(max) UnicodeMaxString
+  uchar(10) UnicodeCode
+  uchar(1) SingleUnicodeChar
+  
+  // ASCII string types
+  astring(50) AsciiString
+  astring(max) AsciiMaxString
+  achar(5) AsciiCode
+  achar(1) SingleAsciiChar
+  
+  // Deprecated types (still supported for backward compatibility)
+  string(200) DeprecatedUnicodeString
+  char(10) DeprecatedUnicodeFixedWidth
+}";
+
+        var model = new DatabaseModel();
+
+        // Act
+        Sut.ParseTable(model, content);
+
+        // Assert
+        var table = model.Tables["TestAllTypes"];
+        
+        // Simple types
+        table.Fields.Should().Contain(f => f.Name == "IsActive" && f.Type == "bit");
+        table.Fields.Should().Contain(f => f.Name == "UserId" && f.Type == "int");
+        table.Fields.Should().Contain(f => f.Name == "BigNumber" && f.Type == "bigint");
+        table.Fields.Should().Contain(f => f.Name == "Money" && f.Type == "decimal" && f.Precision == 10 && f.Scale == 2);
+        table.Fields.Should().Contain(f => f.Name == "Price" && f.Type == "float");
+        table.Fields.Should().Contain(f => f.Name == "UniqueId" && f.Type == "uniqueidentifier");
+        table.Fields.Should().Contain(f => f.Name == "CreatedAt" && f.Type == "datetime");
+        
+        // Unicode string types
+        table.Fields.Should().Contain(f => f.Name == "UnicodeString" && f.Type == "nvarchar" && f.Precision == 100);
+        table.Fields.Should().Contain(f => f.Name == "UnicodeMaxString" && f.Type == "nvarchar" && f.Precision == -1);
+        table.Fields.Should().Contain(f => f.Name == "UnicodeCode" && f.Type == "nchar" && f.Precision == 10);
+        table.Fields.Should().Contain(f => f.Name == "SingleUnicodeChar" && f.Type == "nchar" && f.Precision == 1);
+        
+        // ASCII string types
+        table.Fields.Should().Contain(f => f.Name == "AsciiString" && f.Type == "varchar" && f.Precision == 50);
+        table.Fields.Should().Contain(f => f.Name == "AsciiMaxString" && f.Type == "varchar" && f.Precision == -1);
+        table.Fields.Should().Contain(f => f.Name == "AsciiCode" && f.Type == "char" && f.Precision == 5);
+        table.Fields.Should().Contain(f => f.Name == "SingleAsciiChar" && f.Type == "char" && f.Precision == 1);
+        
+        // Deprecated types (should still work for backward compatibility)
+        table.Fields.Should().Contain(f => f.Name == "DeprecatedUnicodeString" && f.Type == "nvarchar" && f.Precision == 200);
+        table.Fields.Should().Contain(f => f.Name == "DeprecatedUnicodeFixedWidth" && f.Type == "nchar" && f.Precision == 10);
     }
 
     #endregion

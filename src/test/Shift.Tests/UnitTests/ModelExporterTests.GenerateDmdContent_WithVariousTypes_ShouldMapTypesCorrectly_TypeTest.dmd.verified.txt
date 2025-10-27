@@ -7,11 +7,11 @@
   decimal(19,4) GST
   int ID
   bool IsActive
-  string(100) Name
+  ustring(100) Name
   decimal(18,2) Price
   float Temperature
   astring(max) TextDescription
-  char(8) UniCode
-  string(max) UniTextDescription
+  uchar(8) UniCode
+  ustring(max) UniTextDescription
   decimal(10,4) VAT
 }

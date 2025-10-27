@@ -44,7 +44,7 @@ public class DmdTypeHelperTests
         var result = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
 
         // Assert
-        result.Should().Be("string(max)");
+        result.Should().Be("ustring(max)");
     }
 
     #endregion
@@ -82,7 +82,7 @@ public class DmdTypeHelperTests
         var result = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
 
         // Assert
-        result.Should().Be("string(max)");
+        result.Should().Be("ustring(max)");
     }
 
     /// <summary>
@@ -226,7 +226,7 @@ public class DmdTypeHelperTests
         var result = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
 
         // Assert
-        result.Should().Be("char(10)");
+        result.Should().Be("uchar(10)");
     }
 
     /// <summary>
@@ -260,7 +260,7 @@ public class DmdTypeHelperTests
         var result = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
 
         // Assert
-        result.Should().Be("string(100)");
+        result.Should().Be("ustring(100)");
     }
 
     /// <summary>
@@ -473,7 +473,7 @@ public class DmdTypeHelperTests
         var testCases = new[]
         {
             // PrecisionType.None
-            (SqlFieldType.BIT, "bool", null, null, "bool"),
+            (SqlFieldType.BIT, "bit", null, null, "bool"),
             (SqlFieldType.INT, "int", null, null, "int"),
             (SqlFieldType.BIGINT, "bigint", null, null, "long"),
             (SqlFieldType.DATETIME, "datetime", null, null, "datetime"),
@@ -481,9 +481,9 @@ public class DmdTypeHelperTests
 
             // PrecisionType.PrecisionOnlyRequired
             (SqlFieldType.CHAR, "char", 5, null, "achar(5)"),
-            (SqlFieldType.NCHAR, "nchar", 10, null, "char(10)"),
+            (SqlFieldType.NCHAR, "nchar", 10, null, "uchar(10)"),
             (SqlFieldType.VARCHAR, "varchar", 100, null, "astring(100)"),
-            (SqlFieldType.NVARCHAR, "nvarchar", 255, null, "string(255)"),
+            (SqlFieldType.NVARCHAR, "nvarchar", 255, null, "ustring(255)"),
             
             // PrecisionType.PrecisionWithScaleRequired
             (SqlFieldType.DECIMAL, "decimal", 18, 2, "decimal(18,2)"),
@@ -493,9 +493,9 @@ public class DmdTypeHelperTests
             
             // Special cases
             (SqlFieldType.TEXT, "text", 100, null, "astring(max)"),
-            (SqlFieldType.NTEXT, "ntext", 50, null, "string(max)"),
+            (SqlFieldType.NTEXT, "ntext", 50, null, "ustring(max)"),
             (SqlFieldType.VARCHAR, "varchar", -1, null, "astring(max)"),
-            (SqlFieldType.NVARCHAR, "nvarchar", (int?)-1, (int?)null, "string(max)")
+            (SqlFieldType.NVARCHAR, "nvarchar", (int?)-1, (int?)null, "ustring(max)")
         };
 
         foreach (var (sqlFieldType, fieldType, precision, scale, expectedResult) in testCases)

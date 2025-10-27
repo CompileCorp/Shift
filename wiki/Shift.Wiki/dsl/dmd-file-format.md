@@ -21,10 +21,10 @@ When converting from SQL Server to DMD format and back, certain SQL types will b
 | Original SQL Type | DMD Type        | Converted Back To |
 |-------------------|-----------------|-------------------|
 | `text`            | `astring(max)`  | `varchar(max)` |
-| `ntext`           | `string(max)`   | `nvarchar(max)` |
+| `ntext`           | `ustring(max)`  | `nvarchar(max)` |
 | `money`           | `decimal(19,4)` | `decimal(19,4)` |
 | `smallmoney`      | `decimal(10,4)` | `decimal(10,4)` |
-| `numeric`         | `decimal`       | `decimal` |
+| `numeric(p,s)`    | `decimal(p,s)`  | `decimal(p,s)` |
 
 This conversion is **intentional** and represents best practices for modern SQL Server development. The deprecated `text` and `ntext` types are converted to their `varchar(max)` and `nvarchar(max)` equivalents, while `money` and `smallmoney` are normalized to `decimal` with appropriate precision and scale.
 
@@ -69,30 +69,31 @@ type(precision, scale) fieldName
 
 ## Data Types
 
-### Simple Types
+### Current Types (Recommended)
 
-| DMD Type   | SQL Server Type    | Default Precision | Description |
-|------------|--------------------|-------------------|-------------|
-| `bool`     | `bit`              | -                 | Boolean value (true/false) |
-| `int`      | `int`              | -                 | 32-bit integer |
-| `long`     | `bigint`           | -                 | 64-bit integer |
-| `decimal`  | `decimal(18,0)`    | 18,0              | Fixed-point decimal number |
-| `float`    | `float`            | -                 | Floating-point number |
-| `guid`     | `uniqueidentifier` | -                 | Globally unique identifier |
-| `datetime` | `datetime`         | -                 | Date and time |
+#### Simple Types
+| DMD Type       | SQL Server Type    | Default Precision | Description |
+|----------------|--------------------|-------------------|-------------|
+| `bool`         | `bit`              | -                 | Boolean value (true/false) |
+| `int`          | `int`              | -                 | 32-bit integer |
+| `long`         | `bigint`           | -                 | 64-bit integer |
+| `decimal(p,s)` | `decimal(p,s)`     | 18,0              | Fixed-point decimal number |
+| `float`        | `float`            | -                 | Floating-point number |
+| `guid`         | `uniqueidentifier` | -                 | Globally unique identifier |
+| `datetime`     | `datetime`         | -                 | Date and time |
 
-### String Types
+#### String Types
 
-#### Unicode String Types
+##### Unicode String Types
 | DMD Type          | SQL Server Type    | Default Length | Description |
 |-------------------|--------------------|----------------|-------------|
-| `string`          | `nvarchar(255)`    | 255            | Unicode string (default length) |
-| `string(length)`  | `nvarchar(length)` | -              | Unicode string with specified length |
-| `string(max)`     | `nvarchar(max)`    | -              | Unicode string with maximum length |
-| `char`            | `nchar(1)`         | 1              | Unicode character (default length) |
-| `char(length)`    | `nchar(length)`    | -              | Unicode character with specified length |
+| `ustring`         | `nvarchar(255)`    | 255            | Unicode string (default length) |
+| `ustring(length)` | `nvarchar(length)` | -              | Unicode string with specified length |
+| `ustring(max)`    | `nvarchar(max)`    | -              | Unicode string with maximum length |
+| `uchar`           | `nchar(1)`         | 1              | Unicode character (default length) |
+| `uchar(length)`   | `nchar(length)`    | -              | Unicode character with specified length |
 
-#### ASCII String Types
+##### ASCII String Types
 | DMD Type          | SQL Server Type    | Default Length | Description |
 |-------------------|--------------------|----------------|-------------|
 | `astring`         | `varchar(255)`     | 255            | ASCII string (default length) |
@@ -101,22 +102,48 @@ type(precision, scale) fieldName
 | `achar`           | `char(1)`          | 1              | ASCII character (default length) |
 | `achar(length)`   | `char(length)`     | -              | ASCII character with specified length |
 
+### Deprecated Types (Backward Compatibility)
+
+> **⚠️ Deprecated**: These types are still supported but should be migrated to the new type names.
+
+#### Deprecated String Types
+| DMD Type          | SQL Server Type    | Migration To      | Status |
+|-------------------|--------------------|-------------------|--------|
+| `string`          | `nvarchar(255)`    | `ustring`         | ⚠️ Deprecated |
+| `string(length)`  | `nvarchar(length)` | `ustring(length)` | ⚠️ Deprecated |
+| `string(max)`     | `nvarchar(max)`    | `ustring(max)`    | ⚠️ Deprecated |
+| `char`            | `nchar(1)`         | `uchar`           | ⚠️ Deprecated |
+| `char(length)`    | `nchar(length)`    | `uchar(length)`   | ⚠️ Deprecated |
+
 ### Type Modifiers
 
 #### Precision and Scale
 ```dmd
 decimal(10,2) Price      // 10 digits total, 2 after decimal
-string(100) Username     // 100 character string
-string(max) Description  // Maximum length string
-char(1) Status           // Single character
+ustring(100) Username    // 100 character Unicode string
+ustring(max) Description // Maximum length Unicode string
+uchar(1) Status          // Single Unicode character
 achar(10) Code           // 10 ASCII characters
+```
+
+**Deprecated syntax (still supported)**:
+```dmd
+string(100) Username     // Use nvarchar(100) instead
+string(max) Description  // Use nvarchar(max) instead
+achar(10) Code           // Use char(10) instead
 ```
 
 #### Nullable Fields
 ```dmd
-string Username          // NOT NULL
-string? Email            // NULL allowed
+ustring Username         // NOT NULL
+ustring? Email           // NULL allowed
 datetime? LastLoginDate  // NULL allowed
+```
+
+**Deprecated syntax (still supported)**:
+```dmd
+string Username          // Use nvarchar instead
+string? Email            // Use nvarchar? instead
 ```
 
 ## Primary Keys
@@ -127,8 +154,8 @@ Every model automatically gets a primary key field:
 
 ```dmd
 model User {
-  string Username
-  string Email
+  ustring Username
+  ustring Email
 }
 ```
 
@@ -147,8 +174,8 @@ CREATE TABLE [User] (
 #### GUID Primary Key
 ```dmd
 model User guid {
-  string Username
-  string Email
+  ustring Username
+  ustring Email
 }
 ```
 
@@ -165,8 +192,8 @@ CREATE TABLE [User] (
 #### Explicit Integer Primary Key
 ```dmd
 model User int {
-  string Username
-  string Email
+  ustring Username
+  ustring Email
 }
 ```
 
@@ -186,8 +213,8 @@ Disable the IDENTITY property on primary keys:
 
 ```dmd
 model User {
-  string Username
-  string Email
+  ustring Username
+  ustring Email
   @NoIdentity
 }
 ```
@@ -243,8 +270,8 @@ CREATE TABLE [Order] (
 ```dmd
 model Task {
   model User? AssignedUser
-  string Title
-  bool IsCompleted
+  nvarchar Title
+  bit IsCompleted
 }
 ```
 
@@ -606,14 +633,14 @@ mixin Timestamps {
 }
 
 mixin SoftDelete {
-  bool IsDeleted
+  bit IsDeleted
   datetime? DeletedAt
 }
 
 mixin FullAudit with Timestamps {
-  string(50) CreatedBy
-  string(50) UpdatedBy
-  bool IsDeleted
+  nvarchar(50) CreatedBy
+  nvarchar(50) UpdatedBy
+  bit IsDeleted
 }
 ```
 
@@ -689,6 +716,7 @@ await generator.GenerateAsync(model, outputPath);
 
 ### Complete SQL ↔ DMD Type Mapping
 
+#### Current Types (Recommended)
 | SQL Server Type    | DMD Type        | Notes |
 |--------------------|-----------------|-------|
 | `bit`              | `bool`          | Direct mapping |
@@ -704,21 +732,53 @@ await generator.GenerateAsync(model, outputPath);
 | `char(n)`          | `achar(n)`      | ASCII character type |
 | `varchar(n)`       | `astring(n)`    | ASCII string type |
 | `varchar(max)`     | `astring(max)`  | ASCII string with max length |
-| `text`             | `astring(max)`  | **Converted** - deprecated text becomes varchar(max) |
-| `nchar(n)`         | `char(n)`       | Unicode character type |
-| `nvarchar(n)`      | `string(n)`     | Unicode string type |
-| `nvarchar(max)`    | `string(max)`   | Unicode string with max length |
-| `ntext`            | `string(max)`   | **Converted** - deprecated ntext becomes nvarchar(max) |
+| `text`             | `astring(max)`  | **Converted** - deprecated text becomes astring(max) |
+| `nchar(n)`         | `uchar(n)`      | Unicode character type |
+| `nvarchar(n)`      | `ustring(n)`    | Unicode string type |
+| `nvarchar(max)`    | `ustring(max)`  | Unicode string with max length |
+| `ntext`            | `ustring(max)`  | **Converted** - deprecated ntext becomes ustring(max) |
+
+#### Deprecated Types (Backward Compatibility)
+| SQL Server Type    | DMD Type        | Migration To | Status |
+|--------------------|-----------------|--------------|--------|
+| `nvarchar(n)`      | `string(n)`     | `ustring(n)` | ⚠️ Deprecated |
+| `nvarchar(max)`    | `string(max)`   | `ustring(max)` | ⚠️ Deprecated |
 
 ### Roundtrip Conversion Behavior
 
 When converting SQL → DMD → SQL, the following types will change:
 
-1. **Deprecated Types**: `text` and `ntext` are converted to their modern equivalents
+1. **Deprecated SQL Types**: `text` and `ntext` are converted to their modern equivalents (`astring(max)` and `ustring(max)`)
 2. **Money Types**: `money` and `smallmoney` are normalized to `decimal` with appropriate precision
 3. **Numeric Type**: `numeric` is converted to `decimal` (they are functionally equivalent)
+4. **Type Name Alignment**: DMD types use descriptive names that clearly indicate their SQL mapping
 
 This behavior is **intentional** and follows SQL Server best practices for modern development.
+
+### Migration from Deprecated Types
+
+If you have existing DMD files using deprecated type names, you can migrate them gradually:
+
+1. **Immediate**: Deprecated types continue to work without changes
+2. **Recommended**: Update to new type names for better clarity and future compatibility
+3. **Automatic**: The system will generate appropriate SQL regardless of which type names you use
+
+**Example Migration**:
+```dmd
+// Old (deprecated but still works)
+model User {
+  string Username
+  astring Email
+  bool IsActive
+}
+
+// New (recommended)
+model User {
+  ustring Username
+  astring Email
+  bool IsActive
+}
+```
 
 ## Future Enhancements
 

@@ -1,4 +1,4 @@
 ﻿model User {
-  string(100) Username
+  ustring(100) Username
   @NoIdentity
 }

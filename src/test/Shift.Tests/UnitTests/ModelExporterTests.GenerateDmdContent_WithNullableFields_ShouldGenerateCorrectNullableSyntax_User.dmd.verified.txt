@@ -1,5 +1,5 @@
 ﻿model User {
-  string(256)? Email
-  string(20)? Phone
-  string(100) Username
+  ustring(256)? Email
+  ustring(20)? Phone
+  ustring(100) Username
 }
