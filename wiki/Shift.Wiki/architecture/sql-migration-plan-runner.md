@@ -120,6 +120,22 @@ CREATE [UNIQUE] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Fiel
 - Support for unique and non-unique indexes
 - Multi-column index support
 - Proper column ordering
+- Case-insensitive field name matching
+
+**Examples**:
+```sql
+-- Single column index
+CREATE INDEX [IX_User_Email] ON [dbo].[User]([Email])
+
+-- Unique index
+CREATE UNIQUE INDEX [IX_User_Username] ON [dbo].[User]([Username])
+
+-- Multi-column index
+CREATE INDEX [IX_Order_CustomerID_OrderDate] ON [dbo].[Order]([CustomerID], [OrderDate])
+
+-- Unique multi-column index
+CREATE UNIQUE INDEX [IX_Product_SKU_Category] ON [dbo].[Product]([SKU], [Category])
+```
 
 ## SQL Generation Details
 
@@ -263,7 +279,7 @@ plan.Steps.Add(new MigrationStep
     }
 });
 
-// Add index
+// Add single column unique index
 plan.Steps.Add(new MigrationStep
 {
     Action = MigrationAction.AddIndex,
@@ -272,6 +288,18 @@ plan.Steps.Add(new MigrationStep
     {
         Fields = new List<string> { "Email" },
         IsUnique = true
+    }
+});
+
+// Add multi-column index
+plan.Steps.Add(new MigrationStep
+{
+    Action = MigrationAction.AddIndex,
+    TableName = "Order",
+    Index = new IndexModel
+    {
+        Fields = new List<string> { "CustomerID", "OrderDate" },
+        IsUnique = false
     }
 });
 

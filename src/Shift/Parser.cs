@@ -97,9 +97,13 @@ public class Parser
 					fieldModel.Type = parts[1].Trim();
 				}
 
-				// Normalize DSL type to SQL type for primary key and adjust identity if needed
-				ConvertType(fieldModel);
-				if (fieldModel.Type.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase))
+                // Normalize DSL type to SQL type for primary key and adjust identity if needed
+                fieldModel.Type =
+                    Vnum.TryFromCode<DmdFieldType>(fieldModel.Type, ignoreCase: true, out var dmdFieldType)
+                        ? dmdFieldType.SqlFieldType.Code
+                        : fieldModel.Type;
+
+                if (fieldModel.Type.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase))
 				{
 					fieldModel.IsIdentity = false;
 				}
@@ -302,67 +306,14 @@ public class Parser
             Scale = scale
         };
 
-        ConvertType(field);
+        field.Type =
+            Vnum.TryFromCode<DmdFieldType>(field.Type, ignoreCase: true, out var dmdFieldType)
+                ? dmdFieldType.SqlFieldType.Code
+                : field.Type;
 
         targetModel.Fields.Add(field);
 
         return field;
-    }
-
-    //TODO: Make into FieldModel extension method
-    internal void ConvertType(FieldModel field)
-    {
-        var isSupportedType = Vnum.TryFromCode<DmdFieldType>(field.Type, ignoreCase: true, out var dmdFieldType);
-
-        if (!isSupportedType)
-        {
-            // For unsupported types, leave as-is or set to a default
-            // This should not happen if the parser correctly skips commented lines
-            return;
-        }
-
-        // Handle special cases that require precision-based logic
-        switch (dmdFieldType.Id)
-        {
-            case DmdFieldTypeId.STRING:
-                if (field.Precision == 1)
-                {
-                    field.Type = "nchar"; // This doesn't look right. Why is data type changed based of field length?
-                }
-                else
-                {
-                    field.Type = "nvarchar";
-                }
-                break;
-            case DmdFieldTypeId.ASTRING:
-                if (field.Precision == 1)
-                {
-                    field.Type = "char"; // This doesn't look right. Why is data type changed based of field length?
-                }
-                else
-                {
-                    field.Type = "varchar";
-                }
-                break;
-            case DmdFieldTypeId.DECIMAL:
-                // Check if this should be money or smallmoney based on precision/scale
-                if (field.Precision == 19 && field.Scale == 4)
-                {
-                    field.Type = "money"; // This smells bad but ok for now
-                }
-                else if (field.Precision == 10 && field.Scale == 4)
-                {
-                    field.Type = "smallmoney"; // This smells bad but ok for now
-                }
-                else
-                {
-                    field.Type = "decimal";
-                }
-                break;
-            default:
-                field.Type = dmdFieldType.SqlFieldType.Code;
-                break;
-        }
     }
 
     private IndexModel? ParseIndex(string line)
