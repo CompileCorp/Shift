@@ -1,6 +1,6 @@
 ﻿model User {
-  string(256) Email
-  string(100) Username
+  ustring(256) Email
+  ustring(100) Username
   key (Email)
   index (Username)
 }

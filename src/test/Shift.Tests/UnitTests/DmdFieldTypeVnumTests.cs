@@ -23,10 +23,17 @@ public class DmdFieldTypeVnumTests : UnitTestContext<VnumTestingHelper<DmdFieldT
         {
             // Act & Assert
             var sqlType = originalDmdType.SqlFieldType;
-
             var result = sqlType.DmdType;
 
-            result.Should().Be(originalDmdType);
+            // Assert
+            var expected = originalDmdType.Id switch
+            {
+                DmdFieldTypeId.STRING => DmdFieldType.USTRING,
+                DmdFieldTypeId.CHAR => DmdFieldType.UCHAR,
+                _ => originalDmdType
+            };
+
+            result.Should().Be(expected);
         }
     }
 }

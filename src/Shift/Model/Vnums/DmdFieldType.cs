@@ -4,21 +4,27 @@ namespace Compile.Shift.Model.Vnums;
 
 public enum DmdFieldTypeId
 {
-    BOOL = 1, // Maps to SQL bit
-    GUID,     // Maps to SQL uniqueidentifier
+    BOOL = 1,   // Maps to SQL bit
+    GUID,       // Maps to SQL uniqueidentifier
 
-    CHAR,     // Maps to SQL nchar
-    STRING,   // Maps to SQL nvarchar
+    // ASCII string types
+    ACHAR,      // Maps to SQL char(n)
+    ASTRING,    // Maps to SQL varchar(n)
 
-    ACHAR,    // Maps to SQL char
-    ASTRING,  // Maps to SQL varchar
+    // Unicode string types
+    UCHAR,      // Maps to SQL nchar(n)
+    USTRING,    // Maps to SQL nvarchar(n)
 
-    INT,      // Maps to SQL int
-    LONG,     // Maps to SQL bigint
-    DECIMAL,  // Maps to SQL decimal
-    FLOAT,    // Maps to SQL float
+    // Backward compatibility
+    [Obsolete("Replaced with UCHAR")] CHAR,     // Maps to SQL nchar(n)
+    [Obsolete("Replaced with USTRING")] STRING, // Maps to SQL nvarchar(n)
 
-    DATETIME, // Maps to SQL datetime
+    INT,        // Maps to SQL int
+    LONG,       // Maps to SQL bigint
+    DECIMAL,    // Maps to SQL decimal(p,s)
+    FLOAT,      // Maps to SQL float
+
+    DATETIME,   // Maps to SQL datetime
 }
 
 /// <summary>
@@ -35,90 +41,107 @@ public class DmdFieldType : Vnum<DmdFieldTypeId>
 
     private DmdFieldType(
         DmdFieldTypeId id,
-        string code,
-        SqlFieldTypeId mapTo,
+        string dmdCode,
+        SqlFieldTypeId mapToSql,
         PrecisionType precisionType = PrecisionType.None,
         int? defaultPrecision = null,
         int? defaultScale = null
-    ) : base(id, code)
+    ) : base(id, dmdCode)
     {
-        SqlFieldTypeId = mapTo;
+        SqlFieldTypeId = mapToSql;
         PrecisionType = precisionType;
         DefaultPrecision = defaultPrecision;
         DefaultScale = defaultScale;
     }
 
-
     public static readonly DmdFieldType BOOL =
         new(id: DmdFieldTypeId.BOOL,
-            code: "bool",
-            mapTo: SqlFieldTypeId.BIT);
+            dmdCode: "bool",
+            mapToSql: SqlFieldTypeId.BIT);
 
     public static readonly DmdFieldType GUID =
         new(id: DmdFieldTypeId.GUID,
-            code: "guid",
-            mapTo: SqlFieldTypeId.UNIQUEIDENTIFIER);
+            dmdCode: "guid",
+            mapToSql: SqlFieldTypeId.UNIQUEIDENTIFIER);
 
 
-    // String types
-    public static readonly DmdFieldType STRING =
-        new(id: DmdFieldTypeId.STRING,
-            code: "string",
-            mapTo: SqlFieldTypeId.NVARCHAR,
-            precisionType: PrecisionType.PrecisionOnlyRequired,
-            defaultPrecision: 255);
-
-    public static readonly DmdFieldType CHAR =
-        new(id: DmdFieldTypeId.CHAR,
-            code: "char",
-            mapTo: SqlFieldTypeId.NCHAR,
+    // ASCII string types
+    public static readonly DmdFieldType ACHAR =
+        new(id: DmdFieldTypeId.ACHAR,
+            dmdCode: "achar",
+            mapToSql: SqlFieldTypeId.CHAR,
             precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 1);
 
     public static readonly DmdFieldType ASTRING =
         new(id: DmdFieldTypeId.ASTRING,
-            code: "astring",
-            mapTo: SqlFieldTypeId.VARCHAR,
+            dmdCode: "astring",
+            mapToSql: SqlFieldTypeId.VARCHAR,
             precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255);
 
-    public static readonly DmdFieldType ACHAR =
-        new(id: DmdFieldTypeId.ACHAR,
-            code: "achar",
-            mapTo: SqlFieldTypeId.CHAR,
+
+    // Unicode string types
+    public static readonly DmdFieldType UCHAR =
+        new(id: DmdFieldTypeId.UCHAR,
+            dmdCode: "uchar",
+            mapToSql: SqlFieldTypeId.NCHAR,
             precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 1);
+
+    public static readonly DmdFieldType USTRING =
+        new(id: DmdFieldTypeId.USTRING,
+            dmdCode: "ustring",
+            mapToSql: SqlFieldTypeId.NVARCHAR,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
+            defaultPrecision: 255);
+
+    [Obsolete("Replaced with UCHAR")]
+    public static readonly DmdFieldType CHAR =
+        new(id: DmdFieldTypeId.CHAR,
+            dmdCode: "char",
+            mapToSql: SqlFieldTypeId.NCHAR,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
+            defaultPrecision: 1);
+
+    [Obsolete("Replaced with USTRING")]
+    public static readonly DmdFieldType STRING =
+        new(id: DmdFieldTypeId.STRING,
+            dmdCode: "string",
+            mapToSql: SqlFieldTypeId.NVARCHAR,
+            precisionType: PrecisionType.PrecisionOnlyRequired,
+            defaultPrecision: 255);
 
 
     // Numeric types
     public static readonly DmdFieldType INT =
         new(id: DmdFieldTypeId.INT,
-            code: "int",
-            mapTo: SqlFieldTypeId.INT);
+            dmdCode: "int",
+            mapToSql: SqlFieldTypeId.INT);
 
     public static readonly DmdFieldType LONG =
         new(id: DmdFieldTypeId.LONG,
-            code: "long",
-            mapTo: SqlFieldTypeId.BIGINT);
+            dmdCode: "long",
+            mapToSql: SqlFieldTypeId.BIGINT);
 
     public static readonly DmdFieldType DECIMAL =
         new(id: DmdFieldTypeId.DECIMAL,
-            code: "decimal",
-            mapTo: SqlFieldTypeId.DECIMAL,
+            dmdCode: "decimal",
+            mapToSql: SqlFieldTypeId.DECIMAL,
             precisionType: PrecisionType.PrecisionWithScaleRequired,
             defaultPrecision: 18,
             defaultScale: 0);
 
     public static readonly DmdFieldType FLOAT =
         new(id: DmdFieldTypeId.FLOAT,
-            code: "float",
-            mapTo: SqlFieldTypeId.FLOAT);
+            dmdCode: "float",
+            mapToSql: SqlFieldTypeId.FLOAT);
 
 
     // Date/time types
     public static readonly DmdFieldType DATETIME =
         new(id: DmdFieldTypeId.DATETIME,
-            code: "datetime",
-            mapTo: SqlFieldTypeId.DATETIME);
+            dmdCode: "datetime",
+            mapToSql: SqlFieldTypeId.DATETIME);
 
 }
