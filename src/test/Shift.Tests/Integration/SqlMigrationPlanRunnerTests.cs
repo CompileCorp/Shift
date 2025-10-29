@@ -4,6 +4,7 @@ using Compile.Shift.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 namespace Compile.Shift.Integration;
 
@@ -837,6 +838,91 @@ public class SqlMigrationPlanRunnerTests
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
             indexCount.Should().Be(1, "Unique index should exist");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that SqlMigrationPlanRunner correctly resolves model names to FK column names in index definitions.
+    /// This test reproduces the bug where DMD files use model names in indexes but SQL Server expects column names.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithIndexUsingModelNames_ShouldResolveToColumnNames()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        // Create test database
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        try
+        {
+            // Create target model with index using model names (like in DMD files)
+            var targetModel = DatabaseModelBuilder.Create()
+                .WithTable("Client", table => table
+                    .WithField("ClientID", "int", f => f.PrimaryKey().Identity())
+                    .WithField("Email", "varchar", f => f.Precision(100).Nullable(true))
+                    .WithField("ClientStatusID", "int", f => f.Nullable(false))
+                    .WithForeignKey("ClientStatusID", "ClientStatus", "ClientStatusID", RelationshipType.OneToMany)
+                    .WithIndex("IX_Client_Email_ClientStatus", new[] { "Email", "ClientStatus" }, isUnique: false)) // Note: "ClientStatus" is model name, not column name
+                .Build();
+
+            // Create actual model with the index already existing (using actual column names)
+            var actualModel = DatabaseModelBuilder.Create()
+                .WithTable("Client", table => table
+                    .WithField("ClientID", "int", f => f.PrimaryKey().Identity())
+                    .WithField("Email", "varchar", f => f.Precision(100).Nullable(true))
+                    .WithField("ClientStatusID", "int", f => f.Nullable(false))
+                    .WithForeignKey("ClientStatusID", "ClientStatus", "ClientStatusID", RelationshipType.OneToMany)
+                    .WithIndex("IX_Client_Email_ClientStatusID", new[] { "Email", "ClientStatusID" }, isUnique: false)) // Note: "ClientStatusID" is actual column name
+                .Build();
+
+            // Generate migration plan
+            var migrationPlanner = new MigrationPlanner();
+            var plan = migrationPlanner.GeneratePlan(targetModel, actualModel);
+
+            // The plan should contain one AddIndex step because the indexes are different (model name vs column name)
+            plan.Steps.Should().HaveCount(1, "Migration plan should contain one AddIndex step");
+            plan.Steps.Should().Contain(step => step.Action == MigrationAction.AddIndex);
+
+            // Test the SQL generation directly to verify column name resolution
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Create a test step with model names to verify SQL generation
+            var testStep = new MigrationStep
+            {
+                Action = MigrationAction.AddIndex,
+                TableName = "Client",
+                Index = new IndexModel
+                {
+                    Fields = new List<string> { "Email", "ClientStatus" }, // Model names
+                    IsUnique = false
+                },
+                Table = targetModel.Tables["Client"] // Include table model for resolution
+            };
+
+            // Use reflection to test the private GenerateIndexSql method
+            var method = typeof(SqlMigrationPlanRunner).GetMethod("GenerateIndexSql", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            var sqls = (IEnumerable<string>)method!.Invoke(runner, [testStep.TableName, testStep.Index, testStep.Table])!;
+            
+            var sqlList = sqls.ToList();
+            sqlList.Should().HaveCount(1, "Should generate one SQL statement");
+            
+            var sql = sqlList[0];
+
+            sql.Should().Contain("[Email]", "Should include Email column");
+            sql.Should().Contain("[ClientStatusID]", "Should resolve ClientStatus model name to ClientStatusID column name");
+            sql.Should().NotContain("[ClientStatus]", "Should not use the model name ClientStatus");
+
+            sql.Should().Be("CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])");
         }
         finally
         {

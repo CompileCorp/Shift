@@ -121,6 +121,7 @@ CREATE [UNIQUE] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Fiel
 - Multi-column index support
 - Proper column ordering
 - Case-insensitive field name matching
+- **Model name resolution**: Automatically resolves model names to foreign key column names
 
 **Examples**:
 ```sql
@@ -136,6 +137,75 @@ CREATE INDEX [IX_Order_CustomerID_OrderDate] ON [dbo].[Order]([CustomerID], [Ord
 -- Unique multi-column index
 CREATE UNIQUE INDEX [IX_Product_SKU_Category] ON [dbo].[Product]([SKU], [Category])
 ```
+
+**Model Name Resolution**:
+```sql
+-- DMD: index (Email, ClientStatus)
+-- Resolves to: CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])
+
+-- DMD: index (User, OrderDate)  
+-- Resolves to: CREATE INDEX [IX_Order_UserID_OrderDate] ON [dbo].[Order]([UserID], [OrderDate])
+```
+
+## Index Field Resolution
+
+### IndexFieldResolver Utility
+
+The `SqlMigrationPlanRunner` uses the `IndexFieldResolver` utility class to automatically resolve model names in index definitions to their corresponding foreign key column names.
+
+#### How It Works
+
+1. **Input**: Index field names from DMD files (e.g., `["Email", "ClientStatus"]`)
+2. **Resolution**: Model names are mapped to foreign key column names using the table's foreign key relationships
+3. **Output**: Resolved field names for SQL generation (e.g., `["Email", "ClientStatusID"]`)
+
+#### Resolution Logic
+
+```csharp
+// Build mapping from model names to foreign key column names
+var modelToColumnMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+foreach (var fk in table.ForeignKeys)
+{
+    // Map by TargetTable (model name) to ColumnName (foreign key column name)
+    modelToColumnMap[fk.TargetTable] = fk.ColumnName;
+}
+
+// Resolve each field name
+foreach (var field in fields)
+{
+    if (modelToColumnMap.TryGetValue(field, out var resolvedName))
+    {
+        resolvedFields.Add(resolvedName);
+    }
+    else
+    {
+        resolvedFields.Add(field); // Use as-is if no mapping found
+    }
+}
+```
+
+#### Examples
+
+| DMD Index Definition          | Foreign Key Relationships         | Resolved SQL Columns |
+|-------------------------------|-----------------------------------|---------------------|
+| `index (Email, ClientStatus)` | `ClientStatusID` → `ClientStatus` | `[Email], [ClientStatusID]` |
+| `index (User, OrderDate)`     | `UserID` → `User`                 | `[UserID], [OrderDate]` |
+| `index (Product, Category)`   | `ProductID` → `Product`           | `[ProductID], [Category]` |
+
+#### Edge Cases
+
+- **Case Insensitive**: `"clientstatus"` resolves to `"ClientStatusID"`
+- **No Match**: Field names that don't match any foreign key target tables are used as-is
+- **Multiple Foreign Keys**: When multiple foreign keys reference the same target table, the last one in the collection is used (due to Dictionary behavior)
+- **Mixed Fields**: Regular field names and model names can be mixed in the same index
+
+#### Benefits
+
+- **Maintainable DMD Files**: Use meaningful model names instead of technical column names
+- **Automatic Resolution**: No manual mapping required
+- **Consistent Naming**: Follows DMD file naming conventions
+- **Error Prevention**: Reduces mistakes from manual column name mapping
 
 ## SQL Generation Details
 
