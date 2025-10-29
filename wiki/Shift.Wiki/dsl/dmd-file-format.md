@@ -20,11 +20,11 @@ When converting from SQL Server to DMD format and back, certain SQL types will b
 
 | Original SQL Type | DMD Type        | Converted Back To |
 |-------------------|-----------------|-------------------|
-| `text`            | `astring(max)`  | `varchar(max)` |
-| `ntext`           | `ustring(max)`  | `nvarchar(max)` |
-| `money`           | `decimal(19,4)` | `decimal(19,4)` |
-| `smallmoney`      | `decimal(10,4)` | `decimal(10,4)` |
-| `numeric(p,s)`    | `decimal(p,s)`  | `decimal(p,s)` |
+| `text`            | `astring(max)`  | `varchar(max)`    |
+| `ntext`           | `ustring(max)`  | `nvarchar(max)`   |
+| `money`           | `decimal(19,4)` | `decimal(19,4)`   |
+| `smallmoney`      | `decimal(10,4)` | `decimal(10,4)`   |
+| `numeric(p,s)`    | `decimal(p,s)`  | `decimal(p,s)`    |
 
 This conversion is **intentional** and represents best practices for modern SQL Server development. The deprecated `text` and `ntext` types are converted to their `varchar(max)` and `nvarchar(max)` equivalents, while `money` and `smallmoney` are normalized to `decimal` with appropriate precision and scale.
 
@@ -454,6 +454,109 @@ model Product {
   index (Category)
 }
 ```
+
+### Index Field Resolution
+
+When defining indexes in DMD files, you can use **model names** (the names of related tables) in index definitions, and Shift will automatically resolve them to the actual foreign key column names when generating SQL.
+
+#### Using Model Names in Indexes
+
+```dmd
+model Client {
+  int ClientID
+  string(100) Email
+  int ClientStatusID
+  int ClientTypeID
+  
+  // Foreign key relationships
+  model ClientStatus
+  model ClientType
+  
+  // Index using model names (automatically resolved to column names)
+  index (Email, ClientStatus)
+  index (ClientType, Email) @unique
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])
+CREATE UNIQUE INDEX [IX_Client_ClientTypeID_Email] ON [dbo].[Client]([ClientTypeID], [Email])
+```
+
+#### How Field Resolution Works
+
+1. **Model Name Detection**: When parsing index definitions, Shift identifies field names that match the `TargetTable` names of foreign key relationships
+2. **Column Name Resolution**: These model names are automatically resolved to their corresponding foreign key column names
+3. **SQL Generation**: The resolved column names are used in the generated `CREATE INDEX` statements
+
+#### Examples of Field Resolution
+
+| DMD Index Definition          | Resolved SQL Column         | Foreign Key Relationship |
+|-------------------------------|-----------------------------|-------------------------|
+| `index (Email, ClientStatus)` | `[Email], [ClientStatusID]` | `ClientStatusID` → `ClientStatus` |
+| `index (User, OrderDate)`     | `[UserID], [OrderDate]`     | `UserID` → `User` |
+| `index (Product, Category)`   | `[ProductID], [Category]`   | `ProductID` → `Product` |
+
+#### Benefits of Model Name Resolution
+
+- **Readable DMD Files**: Index definitions use meaningful model names instead of technical column names
+- **Maintainable**: Changes to foreign key column names don't require updating index definitions
+- **Consistent**: Follows the same naming patterns used throughout DMD files
+- **Automatic**: No manual mapping required - Shift handles the resolution automatically
+
+#### Complex Foreign Key Scenarios
+
+```dmd
+model OrderItem {
+  int OrderItemID
+  int OrderID
+  int ProductID
+  int CreatedByUserID
+  int AssignedUserID
+  
+  // Multiple foreign keys to the same table
+  model Order
+  model Product  
+  model User  // Maps to CreatedByUserID (first occurrence)
+  
+  // Indexes using model names
+  index (Order, Product)
+  index (User, OrderItemID)  // Resolves to CreatedByUserID
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE INDEX [IX_OrderItem_OrderID_ProductID] ON [dbo].[OrderItem]([OrderID], [ProductID])
+CREATE INDEX [IX_OrderItem_CreatedByUserID_OrderItemID] ON [dbo].[OrderItem]([CreatedByUserID], [OrderItemID])
+```
+
+> **Note**: When multiple foreign keys reference the same target table, the last foreign key in the collection is used for resolution. In the example above, `User` resolves to `CreatedByUserID` because it appears last in the foreign keys list.
+
+#### Fallback Behavior
+
+If a field name in an index definition doesn't match any foreign key target table names, it's used as-is in the generated SQL:
+
+```dmd
+model User {
+  string(100) Username
+  string(256) Email
+  int DepartmentID
+  
+  model Department
+  
+  // Mixed: model name + regular field name
+  index (Username, Department, Email)
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE INDEX [IX_User_Username_DepartmentID_Email] ON [dbo].[User]([Username], [DepartmentID], [Email])
+```
+
+This feature makes DMD files more intuitive and maintainable while ensuring that the generated SQL uses the correct column names for optimal database performance.
 
 ## Attributes
 

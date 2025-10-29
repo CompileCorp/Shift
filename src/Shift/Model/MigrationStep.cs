@@ -7,4 +7,5 @@ public class MigrationStep
     public List<FieldModel> Fields { get; set; } = new List<FieldModel>();
     public ForeignKeyModel? ForeignKey { get; set; }
     public IndexModel? Index { get; set; }
+    public TableModel? Table { get; set; }
 }

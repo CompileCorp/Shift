@@ -173,7 +173,8 @@ public class MigrationPlanner
                     {
                         Action = MigrationAction.AddIndex,
                         TableName = targetTable.Name,
-                        Index = index
+                        Index = index,
+                        Table = targetTable
                     });
                 }
 
