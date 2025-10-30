@@ -10,7 +10,7 @@ This document provides comprehensive guidance on using Docker containers for tes
 
 | Component | Purpose | Location |
 |-----------|---------|----------|
-| **SqlServerContainerFixture** | Manages SQL Server 2022 containers | `src/test/Shift.Tests/Infrastructure/SqlServerContainerFixture.cs` |
+| **SqlServerContainerFixture** | Manages SQL Server containers | `src/test/Shift.Tests/Infrastructure/SqlServerContainerFixture.cs` |
 | **SqlServerTestHelper** | Database creation/cleanup utilities | `src/test/Shift.Tests/Infrastructure/SqlServerTestHelper.cs` |
 | **Collection Pattern** | Test isolation with `[Collection("SqlServer")]` | Used in test classes |
 
@@ -29,7 +29,7 @@ This document provides comprehensive guidance on using Docker containers for tes
 
 1. **Docker Desktop** installed and running
 2. **Testcontainers** NuGet package (already included)
-3. **SQL Server 2022** container image (automatically pulled)
+3. **SQL Server** container image (automatically pulled)
 
 ### **Basic Test Structure**
 
@@ -84,7 +84,7 @@ public class YourTestClass
 **Purpose**: Manages the lifecycle of SQL Server Docker containers.
 
 **Key Features**:
-- **SQL Server 2022**: Latest version with all features
+- **SQL Server**: Latest version with all features
 - **Automatic Startup**: Container starts and waits for SQL Server readiness
 - **Connection String**: Provides master connection string for database operations
 - **Cleanup**: Automatically disposes container after tests
@@ -92,7 +92,7 @@ public class YourTestClass
 **Configuration**:
 ```csharp
 // Container configuration
-.WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+.WithImage("mcr.microsoft.com/mssql/server:latest")
 .WithEnvironment("ACCEPT_EULA", "Y")
 .WithEnvironment("MSSQL_SA_PASSWORD", password)
 .WithEnvironment("MSSQL_PID", "Express")
@@ -300,7 +300,7 @@ public async Task Test_WithInvalidData_ShouldHandleGracefully()
 
 ```csharp
 // Default configuration (in SqlServerContainerFixture)
-.WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+.WithImage("mcr.microsoft.com/mssql/server:latest")
 .WithEnvironment("ACCEPT_EULA", "Y")
 .WithEnvironment("MSSQL_SA_PASSWORD", "Your_strong_password123!")
 .WithEnvironment("MSSQL_PID", "Express")
@@ -308,7 +308,7 @@ public async Task Test_WithInvalidData_ShouldHandleGracefully()
 .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
 ```
 
-## 📊 **Current Usage**
+## 📊 **Usage Examples**
 
 ### **Test Classes Using Docker**
 
@@ -333,7 +333,7 @@ public async Task Test_WithInvalidData_ShouldHandleGracefully()
 ```csharp
 // For specialized testing needs
 var customContainer = new ContainerBuilder()
-    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    .WithImage("mcr.microsoft.com/mssql/server:latest")
     .WithEnvironment("ACCEPT_EULA", "Y")
     .WithEnvironment("MSSQL_SA_PASSWORD", "CustomPassword123!")
     .WithEnvironment("MSSQL_PID", "Developer")  // Full features

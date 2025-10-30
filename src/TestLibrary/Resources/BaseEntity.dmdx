@@ -1,7 +1,0 @@
-mixin BaseEntity {
-  datetime CreatedAt
-  datetime UpdatedAt
-  string(50) CreatedBy
-  string(50) UpdatedBy
-  bool IsDeleted
-}

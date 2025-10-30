@@ -15,14 +15,14 @@ Shift employs a comprehensive multi-level testing strategy designed to ensure re
 
 ```
         /\
-       /  \     E2E Tests (8 tests)
-      /____\    - Complete workflows
+       /  \     E2E Tests - Complete workflows
+      /____\
      /      \   
-    /        \  Integration Tests (10 tests)
-   /__________\ - Real database operations
+    /        \  Integration Tests - Real database operations
+   /__________\
   /            \
- /              \  Unit Tests (70+ tests)
-/________________\ - Pure logic testing
+ /              \  Unit Tests - Pure logic testing
+/________________\
 ```
 
 ## Level 1: Unit Tests
@@ -32,10 +32,10 @@ Shift employs a comprehensive multi-level testing strategy designed to ensure re
 **Framework**: `UnitTestContext<T>` with AutoMocker for dependency injection
 
 **Examples**:
-- `MigrationPlannerTests.cs` - Plan generation logic
-- `ParserTests.cs` - DMD parsing logic  
-- `ModelExporterTests.cs` - Model export logic
-- `AssemblyLoadingTests.cs` - Assembly loading logic
+- Migration planning logic
+- DMD parsing logic  
+- Model export logic
+- Assembly loading logic
 
 **Benefits**:
 - ⚡ **Fast execution** (milliseconds)
@@ -71,9 +71,9 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 **Framework**: Docker containers via `SqlServerContainerFixture`
 
 **Examples**:
-- `SqlServerLoaderTests.cs` - Schema loading from database
-- `SqlMigrationPlanRunnerTests.cs` - SQL execution
-- `Integration/SqlMigrationRunner_TypesAndConstraints_Tests.cs`
+- Schema loading from database
+- SQL execution and migration
+- Type and constraint handling
 
 **Benefits**:
 - 🗄️ **Realistic behavior** - actual SQL Server features
@@ -120,7 +120,7 @@ public class SqlServerLoaderTests
 
 **Purpose**: Specialized tests for data loss prevention during migrations
 
-**Framework**: `SqlMigrationPlanRunnerDataSafetyTests.cs`
+**Framework**: Data safety test classes
 
 **Examples**:
 - String truncation detection
@@ -184,7 +184,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
 **Purpose**: Test complete workflows from assembly loading to database execution
 
-**Framework**: `ShiftTests.cs` and integration test classes
+**Framework**: End-to-end test classes
 
 **Examples**:
 - Complete migration workflows
@@ -248,8 +248,8 @@ public class ShiftTests
 **Framework**: Verify library with `.verified.txt` files
 
 **Examples**:
-- `ModelExporterTests` with verified output files
-- `ParserTests.ParseTable_SimpleModel_ShouldCreateTableWithPrimaryKey.verified.txt`
+- Model export output verification
+- Parser output format verification
 - DMD content generation verification
 
 **Benefits**:
@@ -281,7 +281,7 @@ public class ModelExporterTests
 ## Testing Infrastructure
 
 ### Docker Containers
-- **Testcontainers** for SQL Server 2022 containers
+- **Testcontainers** for SQL Server containers
 - **Automatic lifecycle** management (start/stop/cleanup)
 - **Port binding** for dynamic port allocation
 - **Readiness checks** to ensure SQL Server is ready
@@ -356,31 +356,29 @@ public async Task Test_WithDatabase_ShouldWork()
 - ✅ **Data safety tests** - Isolated by database name
 - ✅ **E2E tests** - Independent workflows
 
-## Current Test Coverage
+## Test Coverage
 
-### Test Counts by Level
+### Test Distribution by Level
 
-| Level | Test Count | Examples |
-|-------|------------|----------|
-| **Unit Tests** | ~70 tests | MigrationPlanner (13), Parser (15), ModelExporter (15), AssemblyLoading (6), Others (21) |
-| **Integration Tests** | ~10 tests | SqlServerLoader (12), SqlMigrationPlanRunner (11), Integration (3) |
-| **Data Safety Tests** | 7 tests | SqlMigrationPlanRunnerDataSafetyTests |
-| **E2E Tests** | ~8 tests | ShiftTests, Integration workflows |
-| **Snapshot Tests** | ~15 tests | ModelExporter, Parser output verification |
-| **Total** | **99 tests** | Comprehensive coverage across all levels |
+| Level | Coverage | Focus Areas |
+|-------|----------|-------------|
+| **Unit Tests** | Extensive | Core business logic, parsing, planning algorithms |
+| **Integration Tests** | Moderate | Database operations, SQL execution, schema loading |
+| **Data Safety Tests** | Focused | Migration safety, data loss prevention |
+| **E2E Tests** | Key Scenarios | Complete workflows, user scenarios |
+| **Snapshot Tests** | Output Critical | Format verification, content generation |
 
 ### Coverage by Component
 
-| Component | Unit Tests | Integration Tests | Data Safety | E2E | Total |
+| Component | Unit Tests | Integration Tests | Data Safety | E2E | Focus |
 |-----------|------------|-------------------|-------------|-----|-------|
-| **MigrationPlanner** | 13 | - | - | - | 13 |
-| **SqlMigrationPlanRunner** | 11 | - | 7 | - | 18 |
-| **Parser** | 15 | - | - | - | 15 |
-| **ModelExporter** | 15 | - | - | - | 15 |
-| **SqlServerLoader** | - | 12 | - | - | 12 |
-| **Shift (E2E)** | - | - | - | 8 | 8 |
-| **Integration** | - | 3 | - | - | 3 |
-| **Others** | 15 | - | - | - | 15 |
+| **MigrationPlanner** | Extensive | - | - | - | Plan generation logic |
+| **SqlMigrationPlanRunner** | Moderate | - | Focused | - | SQL execution safety |
+| **Parser** | Extensive | - | - | - | DMD parsing accuracy |
+| **ModelExporter** | Extensive | - | - | - | Output format consistency |
+| **SqlServerLoader** | - | Extensive | - | - | Database schema loading |
+| **Shift (E2E)** | - | - | - | Key Scenarios | Complete workflows |
+| **Integration** | - | Moderate | - | - | Cross-component testing |
 
 ## Running Tests
 
@@ -396,10 +394,10 @@ public async Task Test_WithDatabase_ShouldWork()
 dotnet test
 
 # Run specific test class
-dotnet test --filter "MigrationPlannerTests"
+dotnet test --filter "MigrationPlanner"
 
 # Run integration tests only
-dotnet test --filter "SqlServerLoaderTests"
+dotnet test --filter "SqlServer"
 
 # Run with verbose output
 dotnet test --logger "console;verbosity=normal"
@@ -409,9 +407,9 @@ dotnet test test/Shift.Tests/
 ```
 
 ### Test Execution Time
-- **Unit Tests**: ~1-2 seconds total
-- **Integration Tests**: ~3-5 minutes total (includes Docker startup)
-- **All Tests**: ~4-6 minutes total
+- **Unit Tests**: Fast execution (seconds)
+- **Integration Tests**: Moderate execution (includes Docker startup)
+- **All Tests**: Complete test suite runs in reasonable time
 
 ## Test Maintenance
 
