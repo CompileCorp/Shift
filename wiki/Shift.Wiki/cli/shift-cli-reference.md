@@ -168,7 +168,7 @@ shift export "Server=.;Database=MyDb;" "MySchema" ./ExportedModels
 #### Status
 ⚠️ **Partially implemented** - Core infrastructure exists but CLI command needs completion
 
-#### Current Capabilities
+#### Available Commands
 - **Database loading** - `SqlServerLoader` can read database schemas
 - **DMD generation** - `ModelExporter` can create DMD files
 - **Schema analysis** - Full table, column, foreign key, and index support
@@ -666,7 +666,7 @@ services:
       - db
   
   db:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:latest
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=YourPassword

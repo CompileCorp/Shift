@@ -885,18 +885,7 @@ model User {
 
 ## Future Enhancements
 
-### Planned Data Types
-
-The following SQL Server types are planned for future implementation:
-
-- **`date`** - Date only (maps to SQL `date`)
-- **`time`** - Time only (maps to SQL `time`) 
-- **`datetime2`** - Enhanced datetime with precision (maps to SQL `datetime2`)
-- **`binary(n)`** - Fixed-length binary data
-- **`varbinary(n)`** - Variable-length binary data
-- **`varbinary(max)`** - Large binary data
-
-These types are currently not supported but may be added in future versions.
+For planned data types and language features, see the [Feature Development Backlog](../development/backlog-features.md).
 
 ## Troubleshooting
 
