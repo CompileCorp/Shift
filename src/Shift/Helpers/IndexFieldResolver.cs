@@ -17,7 +17,7 @@ public static class IndexFieldResolver
     /// <param name="fields">The list of field names from the index definition</param>
     /// <param name="table">The table model containing foreign key definitions</param>
     /// <returns>A new list with resolved field names</returns>
-    public static List<string> ResolveIndexFieldNames(IEnumerable<string> fields, TableModel table)
+    public static List<string> ResolveIndexFieldNames(IEnumerable<string> fields, TableModel? table)
     {
         if (table == null)
         {

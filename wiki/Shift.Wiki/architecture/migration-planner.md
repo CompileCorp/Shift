@@ -72,6 +72,8 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 **Purpose**: Identify indexes that exist in the target model but not in the actual model.
 
 **Detection Logic**:
+- Normalizes target index field names by resolving model names (e.g., `ClientStatus`) to their actual
+  foreign key column names (e.g., `ClientStatusID`) before comparison
 - Compares index definitions between target and actual tables
 - Uses case-insensitive matching for field names
 - Distinguishes between unique and non-unique indexes
@@ -80,7 +82,7 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 - Reports extra indexes (indexes in actual but not in target) via `ExtraIndexReport`
 
 **Index Matching Rules**:
-- Field names are compared case-insensitively
+- Field names are compared case-insensitively (after normalization)
 - Field order matters for multi-column indexes
 - Unique vs non-unique indexes are treated as different
 - Extra indexes are reported but not included in migration steps

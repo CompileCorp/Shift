@@ -108,14 +108,18 @@ ALTER TABLE [dbo].[TableName] CHECK CONSTRAINT [FK_TableName_ColumnName]
 - Two-step process (add constraint, then check)
 
 ### ✅ AddIndex
-Creates indexes on tables (single or multi-column).
+Creates indexes on tables (single or multi-column) with defensive duplicate handling.
 
 **SQL Generation**:
 ```sql
-CREATE [UNIQUE] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Field1], [Field2], ...)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_TableName_Field1_Field2...' AND object_id = OBJECT_ID('dbo.TableName'))
+BEGIN
+    CREATE [UNIQUE] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Field1], [Field2], ...)
+END
 ```
 
 **Features**:
+- **Defensive duplicate handling**: Uses `IF NOT EXISTS` to prevent errors when index already exists
 - Automatic index naming (`IX_TableName_Field1_Field2...`)
 - Support for unique and non-unique indexes
 - Multi-column index support
@@ -125,17 +129,29 @@ CREATE [UNIQUE] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Fiel
 
 **Examples**:
 ```sql
--- Single column index
-CREATE INDEX [IX_User_Email] ON [dbo].[User]([Email])
+-- Single column index (defensive)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_User_Email' AND object_id = OBJECT_ID('dbo.User'))
+BEGIN
+    CREATE INDEX [IX_User_Email] ON [dbo].[User]([Email])
+END
 
--- Unique index
-CREATE UNIQUE INDEX [IX_User_Username] ON [dbo].[User]([Username])
+-- Unique index (defensive)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_User_Username' AND object_id = OBJECT_ID('dbo.User'))
+BEGIN
+    CREATE UNIQUE INDEX [IX_User_Username] ON [dbo].[User]([Username])
+END
 
--- Multi-column index
-CREATE INDEX [IX_Order_CustomerID_OrderDate] ON [dbo].[Order]([CustomerID], [OrderDate])
+-- Multi-column index (defensive)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Order_CustomerID_OrderDate' AND object_id = OBJECT_ID('dbo.Order'))
+BEGIN
+    CREATE INDEX [IX_Order_CustomerID_OrderDate] ON [dbo].[Order]([CustomerID], [OrderDate])
+END
 
--- Unique multi-column index
-CREATE UNIQUE INDEX [IX_Product_SKU_Category] ON [dbo].[Product]([SKU], [Category])
+-- Unique multi-column index (defensive)
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Product_SKU_Category' AND object_id = OBJECT_ID('dbo.Product'))
+BEGIN
+    CREATE UNIQUE INDEX [IX_Product_SKU_Category] ON [dbo].[Product]([SKU], [Category])
+END
 ```
 
 **Model Name Resolution**:
@@ -262,6 +278,7 @@ else
 - **Non-Transactional**: Each step executes independently
 - **Continue on Error**: Failed steps don't stop subsequent steps
 - **Detailed Reporting**: Returns specific failure information
+- **Defensive Operations**: Index creation uses `IF NOT EXISTS` to prevent duplicate errors
 
 ### Return Format
 ```csharp

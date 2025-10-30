@@ -281,9 +281,14 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         // Generate column list: [Column1], [Column2]
         var columnList = string.Join(", ", resolvedFields.Select(f => $"[{f}]"));
         
-        // Generate CREATE INDEX statement
+        // Generate CREATE INDEX statement with IF NOT EXISTS to prevent duplicate index errors
         var uniqueKeyword = index.IsUnique ? "UNIQUE " : "";
-        yield return $"CREATE {uniqueKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})";
+
+        yield return
+$@"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('dbo.{tableName}'))
+BEGIN
+    CREATE {uniqueKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})
+END";
     }
 
 }
