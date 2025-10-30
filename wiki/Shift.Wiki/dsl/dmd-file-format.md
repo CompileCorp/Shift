@@ -488,7 +488,7 @@ CREATE UNIQUE INDEX [IX_Client_ClientTypeID_Email] ON [dbo].[Client]([ClientType
 
 1. **Model Name Detection**: When parsing index definitions, Shift identifies field names that match the `TargetTable` names of foreign key relationships
 2. **Column Name Resolution**: These model names are automatically resolved to their corresponding foreign key column names
-3. **SQL Generation**: The resolved column names are used in the generated `CREATE INDEX` statements
+3. **Planning and SQL Generation**: Resolution is applied during migration planning (to avoid emitting redundant AddIndex steps) and again during SQL generation
 
 #### Examples of Field Resolution
 

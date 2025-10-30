@@ -1,4 +1,5 @@
 using Compile.Shift.Model;
+using Compile.Shift.Helpers;
 
 namespace Compile.Shift;
 
@@ -160,11 +161,22 @@ public class MigrationPlanner
 
             if (actualTable != null)
             {
-                // Add missing indexes
-                var missingIndexes = targetTable.Indexes
-                    .Where(ti => !actualTable.Indexes.Any(ai =>
-                        ai.Fields.SequenceEqual(ti.Fields, StringComparer.OrdinalIgnoreCase) &&
-                        ai.IsUnique == ti.IsUnique))
+                // Normalize target index fields to actual column names before comparing
+                var normalizedTargetIndexes = targetTable.Indexes
+                    .Select(ti => new
+                    {
+                        ResolvedFields = IndexFieldResolver.ResolveIndexFieldNames(ti.Fields, targetTable),
+                        ti.IsUnique,
+                        Index = ti
+                    })
+                    .ToList();
+
+                // Add missing indexes (compare against actual using resolved field names)
+                var missingIndexes = normalizedTargetIndexes
+                    .Where(nt => !actualTable.Indexes.Any(ai =>
+                        ai.IsUnique == nt.IsUnique &&
+                        ai.Fields.SequenceEqual(nt.ResolvedFields, StringComparer.OrdinalIgnoreCase)))
+                    .Select(nt => nt.Index)
                     .ToList();
 
                 foreach (var index in missingIndexes)
@@ -178,11 +190,11 @@ public class MigrationPlanner
                     });
                 }
 
-                // Report extra indexes (indexes in actual but not in target)
+                // Report extra indexes (indexes in actual but not in normalized target)
                 var extraIndexes = actualTable.Indexes
-                    .Where(ai => !targetTable.Indexes.Any(ti =>
-                        ti.Fields.SequenceEqual(ai.Fields, StringComparer.OrdinalIgnoreCase) &&
-                        ti.IsUnique == ai.IsUnique))
+                    .Where(ai => !normalizedTargetIndexes.Any(nt =>
+                        nt.IsUnique == ai.IsUnique &&
+                        ai.Fields.SequenceEqual(nt.ResolvedFields, StringComparer.OrdinalIgnoreCase)))
                     .Select(f => new ExtraIndexReport
                     {
                         TableName = actualTable.Name,

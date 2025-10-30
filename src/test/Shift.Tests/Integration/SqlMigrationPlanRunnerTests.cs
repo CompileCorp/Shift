@@ -846,11 +846,12 @@ public class SqlMigrationPlanRunnerTests
     }
 
     /// <summary>
-    /// Tests that SqlMigrationPlanRunner correctly resolves model names to FK column names in index definitions.
-    /// This test reproduces the bug where DMD files use model names in indexes but SQL Server expects column names.
+    /// Verifies that model names in index definitions are normalized to FK column names:
+    /// 1) Planner detects the existing index after normalization (no AddIndex step).
+    /// 2) Runner SQL generation resolves model names to actual column names.
     /// </summary>
     [Fact]
-    public async Task Run_WithIndexUsingModelNames_ShouldResolveToColumnNames()
+    public async Task Run_WithIndexUsingModelNames_ShouldNormalizeAndResolveColumns()
     {
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
@@ -885,9 +886,9 @@ public class SqlMigrationPlanRunnerTests
             var migrationPlanner = new MigrationPlanner();
             var plan = migrationPlanner.GeneratePlan(targetModel, actualModel);
 
-            // The plan should contain one AddIndex step because the indexes are different (model name vs column name)
-            plan.Steps.Should().HaveCount(1, "Migration plan should contain one AddIndex step");
-            plan.Steps.Should().Contain(step => step.Action == MigrationAction.AddIndex);
+            // With normalization in MigrationPlanner, no AddIndex step should be emitted
+            plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AddIndex,
+                "Planner should normalize model names to column names and detect existing index");
 
             // Test the SQL generation directly to verify column name resolution
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -921,8 +922,66 @@ public class SqlMigrationPlanRunnerTests
             sql.Should().Contain("[Email]", "Should include Email column");
             sql.Should().Contain("[ClientStatusID]", "Should resolve ClientStatus model name to ClientStatusID column name");
             sql.Should().NotContain("[ClientStatus]", "Should not use the model name ClientStatus");
+            sql.Should().Contain("IF NOT EXISTS", "Should use defensive IF NOT EXISTS check");
+            sql.Should().Contain("CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])", "Should contain the CREATE INDEX statement");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
 
-            sql.Should().Be("CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])");
+    /// <summary>
+    /// Tests that SqlMigrationPlanRunner handles duplicate index creation gracefully.
+    /// Verifies that attempting to create an index that already exists does not cause an error.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithDuplicateIndex_ShouldNotFail()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        
+        try
+        {
+            // Create table first
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var createTableCmd = new SqlCommand("CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, [Email] nvarchar(256) NOT NULL)", connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            // Create the index manually first
+            await using var createIndexCmd = new SqlCommand("CREATE INDEX [IX_User_Email] ON [dbo].[User]([Email])", connection);
+            await createIndexCmd.ExecuteNonQueryAsync();
+
+            // Create migration plan that tries to create the same index
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndex("User", "Email", "Email", isUnique: false)
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act - This should not fail even though the index already exists
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors even with duplicate index");
+
+            // Verify index still exists (should not have been affected)
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name = 'IX_User_Email'";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            indexCount.Should().Be(1, "Index should still exist");
         }
         finally
         {
