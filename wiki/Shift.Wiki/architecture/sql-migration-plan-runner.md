@@ -92,20 +92,48 @@ ALTER TABLE [dbo].[TableName] ALTER COLUMN [FieldName] FieldType [CONSTRAINTS]
 - `varbinary(n)` → `varbinary(m)` where m > n
 
 ### ✅ AddForeignKey
-Creates foreign key constraints between tables.
+Creates foreign key constraints between tables and automatically creates an index on the foreign key column.
 
 **SQL Generation**:
 ```sql
+-- Foreign key constraint
 ALTER TABLE [dbo].[TableName] WITH NOCHECK ADD CONSTRAINT [FK_TableName_ColumnName] 
     FOREIGN KEY ([ColumnName]) REFERENCES [dbo].[TargetTable]([TargetColumnName])
 
 ALTER TABLE [dbo].[TableName] CHECK CONSTRAINT [FK_TableName_ColumnName]
+
+-- Automatic index on FK column
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_TableName_ColumnName' AND object_id = OBJECT_ID('dbo.TableName'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_TableName_ColumnName] ON [dbo].[TableName]([ColumnName])
+END
 ```
 
 **Features**:
 - Automatic constraint naming (`FK_TableName_ColumnName`)
 - NOCHECK for existing data compatibility
 - Two-step process (add constraint, then check)
+- **Automatic index creation**: A non-clustered, non-unique index is automatically created on every foreign key column
+- Index naming follows pattern `IX_TableName_ColumnName`
+- Defensive index creation using `IF NOT EXISTS` to prevent duplicate index errors
+
+**Example**:
+```sql
+-- Adding FK: Order.UserID -> User.UserID
+-- Creates both the constraint and an index:
+
+ALTER TABLE [dbo].[Order] WITH NOCHECK ADD CONSTRAINT [FK_Order_UserID] 
+    FOREIGN KEY ([UserID]) REFERENCES [dbo].[User]([UserID])
+
+ALTER TABLE [dbo].[Order] CHECK CONSTRAINT [FK_Order_UserID]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Order_UserID' AND object_id = OBJECT_ID('dbo.Order'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_Order_UserID] ON [dbo].[Order]([UserID])
+END
+```
+
+**Rationale**: Foreign key columns are frequently used in JOIN operations and WHERE clauses. Automatically creating indexes on FK columns improves query performance by optimizing these common access patterns.
 
 ### ✅ AddIndex
 Creates indexes on tables (single or multi-column) with defensive duplicate handling.
