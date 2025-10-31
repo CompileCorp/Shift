@@ -14,6 +14,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
         
+    # Send Slack notification immediately when PR is opened
+    - name: Notify PR opened
+      if: github.event.action == 'opened'
+      run: |
+        curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"🔔 New Pull Request: <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}> by ${{ github.event.pull_request.user.login }}"}' \
+          ${{ secrets.SLACK_WEBHOOK_URL }}
+
     # Setup .NET 9.0.x 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -27,7 +35,7 @@ jobs:
     # Build the entire solution in Release configuration
     - name: Build solution
       run: dotnet build src/Shift.slnx --configuration Release --no-restore
-      
+
     # Run all tests in the solution with TRX logger for test reporting
     # This will automatically discover and run all test projects
     - name: Run tests
