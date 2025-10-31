@@ -37,10 +37,10 @@ public class SqlMigrationPlanRunnerTests
         var plan = new MigrationPlan(); // Empty plan
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         // Create test database
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -53,7 +53,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Empty migration plan should complete without failures");
-            
+
             // This establishes the pattern for testing SqlMigrationPlanRunner with Docker:
             // 1. Use SqlServerContainerFixture for database connection
             // 2. Create unique test databases per test
@@ -85,9 +85,9 @@ public class SqlMigrationPlanRunnerTests
 
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
@@ -100,15 +100,15 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Table creation should complete without failures");
-            
+
             // Verify table was created by checking if it exists
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             var checkTableQuery = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'TestUser'";
             await using var command = new SqlCommand(checkTableQuery, connection);
             var tableCount = (int)await command.ExecuteScalarAsync();
-            
+
             tableCount.Should().Be(1, "TestUser table should exist after creation");
         }
         finally
@@ -126,9 +126,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create initial table
@@ -152,12 +152,12 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Column addition should complete without failures");
-            
+
             // Verify column was added
             var checkColumnQuery = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'TestUser' AND COLUMN_NAME = 'Username'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var columnCount = (int)await command.ExecuteScalarAsync();
-            
+
             columnCount.Should().Be(1, "Username column should exist after addition");
         }
         finally
@@ -175,18 +175,18 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create tables
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             await using var createUserTableCmd = new SqlCommand("CREATE TABLE [User] (UserID int IDENTITY(1,1) PRIMARY KEY, Username nvarchar(100) NOT NULL)", connection);
             await createUserTableCmd.ExecuteNonQueryAsync();
-            
+
             await using var createOrderTableCmd = new SqlCommand("CREATE TABLE [Order] (OrderID int IDENTITY(1,1) PRIMARY KEY, UserID int NOT NULL)", connection);
             await createOrderTableCmd.ExecuteNonQueryAsync();
 
@@ -205,29 +205,29 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Foreign key addition should complete without failures");
-            
+
             // Verify foreign key was added
             var checkFkQuery = @"
                 SELECT COUNT(*) 
                 FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
                 INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
                 WHERE kcu.TABLE_NAME = 'Order' AND kcu.COLUMN_NAME = 'UserID'";
-            
+
             await using var command = new SqlCommand(checkFkQuery, connection);
             var fkCount = (int)await command.ExecuteScalarAsync();
-            
+
             fkCount.Should().Be(1, "Foreign key constraint should exist after addition");
-            
+
             // Verify index was created for the FK column
             var checkIndexQuery = @"
                 SELECT COUNT(*) 
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'Order' AND i.name = 'IX_Order_UserID' AND i.is_unique = 0";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
-            
+
             indexCount.Should().Be(1, "Non-clustered index should exist for FK column UserID");
         }
         finally
@@ -245,9 +245,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             var plan = MigrationPlanBuilder.Create()
@@ -273,36 +273,36 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("All migration steps should complete without failures");
-            
+
             // Verify all tables and constraints were created
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             var checkTablesQuery = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('User', 'Order')";
             await using var tablesCmd = new SqlCommand(checkTablesQuery, connection);
             var tableCount = (int)await tablesCmd.ExecuteScalarAsync();
             tableCount.Should().Be(2, "Both User and Order tables should exist");
-            
+
             var checkFkQuery = @"
                 SELECT COUNT(*) 
                 FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
                 INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
                 WHERE kcu.TABLE_NAME = 'Order' AND kcu.COLUMN_NAME = 'UserID'";
-            
+
             await using var fkCmd = new SqlCommand(checkFkQuery, connection);
             var fkCount = (int)await fkCmd.ExecuteScalarAsync();
             fkCount.Should().Be(1, "Foreign key constraint should exist");
-            
+
             // Verify index was created for the FK column
             var checkIndexQuery = @"
                 SELECT COUNT(*) 
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'Order' AND i.name = 'IX_Order_UserID' AND i.is_unique = 0";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
-            
+
             indexCount.Should().Be(1, "Non-clustered index should exist for FK column UserID");
         }
         finally
@@ -320,9 +320,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create initial table with smaller precision
@@ -346,7 +346,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Column alteration should complete without failures");
-            
+
             // Verify column was altered by checking the new precision
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -354,7 +354,7 @@ public class SqlMigrationPlanRunnerTests
                 WHERE TABLE_NAME = 'TestUser' AND COLUMN_NAME = 'Username'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(200, "Username column should have precision 200 after alteration");
         }
         finally
@@ -372,9 +372,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create initial table with smaller decimal precision
@@ -387,7 +387,7 @@ public class SqlMigrationPlanRunnerTests
             var plan = MigrationPlanBuilder.Create()
                 .WithAlterColumn("TestProduct", "Price", "decimal", f => f.Precision(18, 4).Nullable(false))
                 .Build();
-            
+
             var runner = new SqlMigrationPlanRunner(connectionString, plan)
             {
                 Logger = _logger
@@ -398,7 +398,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Decimal column alteration should complete without failures");
-            
+
             // Verify decimal column was altered by checking precision and scale
             var checkColumnQuery = @"
                 SELECT NUMERIC_PRECISION, NUMERIC_SCALE 
@@ -407,10 +407,10 @@ public class SqlMigrationPlanRunnerTests
             await using var command = new SqlCommand(checkColumnQuery, connection);
             await using var reader = await command.ExecuteReaderAsync();
             await reader.ReadAsync();
-            
+
             var precision = Convert.ToInt32(reader.GetValue(0));
             var scale = Convert.ToInt32(reader.GetValue(1));
-            
+
             precision.Should().Be(18, "Price column should have precision 18 after alteration");
             scale.Should().Be(4, "Price column should have scale 4 after alteration");
         }
@@ -429,9 +429,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table and insert data that would be truncated
@@ -439,7 +439,7 @@ public class SqlMigrationPlanRunnerTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestUser (UserID int IDENTITY(1,1) PRIMARY KEY, Username nvarchar(200) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert data that exceeds the target precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestUser (Username) VALUES ('This is a very long username that exceeds the target precision of 50 characters and would cause data loss')", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -459,7 +459,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Unsafe alteration should be skipped without failures");
-            
+
             // Verify column was NOT altered (still has original precision)
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -467,7 +467,7 @@ public class SqlMigrationPlanRunnerTests
                 WHERE TABLE_NAME = 'TestUser' AND COLUMN_NAME = 'Username'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(200, "Username column should retain original precision 200 since alteration was skipped");
         }
         finally
@@ -485,9 +485,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table and insert data that would be truncated
@@ -495,7 +495,7 @@ public class SqlMigrationPlanRunnerTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestProduct (ProductID int IDENTITY(1,1) PRIMARY KEY, Price decimal(18,4) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert data that exceeds the target precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestProduct (Price) VALUES (1234567890.1234)", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -515,7 +515,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Unsafe decimal alteration should be skipped without failures");
-            
+
             // Verify decimal column was NOT altered (still has original precision/scale)
             var checkColumnQuery = @"
                 SELECT NUMERIC_PRECISION, NUMERIC_SCALE 
@@ -524,10 +524,10 @@ public class SqlMigrationPlanRunnerTests
             await using var command = new SqlCommand(checkColumnQuery, connection);
             await using var reader = await command.ExecuteReaderAsync();
             await reader.ReadAsync();
-            
+
             var precision = Convert.ToInt32(reader.GetValue(0));
             var scale = Convert.ToInt32(reader.GetValue(1));
-            
+
             precision.Should().Be(18, "Price column should retain original precision 18 since alteration was skipped");
             scale.Should().Be(4, "Price column should retain original scale 4 since alteration was skipped");
         }
@@ -546,9 +546,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create initial table with smaller binary precision
@@ -572,7 +572,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Binary column alteration should complete without failures");
-            
+
             // Verify binary column was altered by checking the new precision
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -580,7 +580,7 @@ public class SqlMigrationPlanRunnerTests
                 WHERE TABLE_NAME = 'TestData' AND COLUMN_NAME = 'BinaryData'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(200, "BinaryData column should have precision 200 after alteration");
         }
         finally
@@ -598,9 +598,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create initial table with smaller char precision
@@ -624,7 +624,7 @@ public class SqlMigrationPlanRunnerTests
 
             // Assert
             result.Should().BeEmpty("Char column alteration should complete without failures");
-            
+
             // Verify char column was altered by checking the new precision
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -632,7 +632,7 @@ public class SqlMigrationPlanRunnerTests
                 WHERE TABLE_NAME = 'TestCode' AND COLUMN_NAME = 'StatusCode'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(10, "StatusCode column should have precision 10 after alteration");
         }
         finally
@@ -653,9 +653,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table first
@@ -686,7 +686,7 @@ public class SqlMigrationPlanRunnerTests
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.is_unique = 0";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
             indexCount.Should().Be(1, "Non-unique index should exist");
@@ -707,9 +707,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table first
@@ -740,12 +740,12 @@ public class SqlMigrationPlanRunnerTests
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.is_unique = 1";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
             indexCount.Should().Be(1, "Unique index should exist");
         }
-       finally
+        finally
         {
             await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
         }
@@ -761,9 +761,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table first
@@ -794,7 +794,7 @@ public class SqlMigrationPlanRunnerTests
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'User' AND i.name LIKE 'IX_User_%'";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
             indexCount.Should().Be(1, "Multi-column index should exist");
@@ -815,9 +815,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create migration plan with multiple step types
@@ -846,7 +846,7 @@ public class SqlMigrationPlanRunnerTests
             // Verify table exists
             using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             var checkTableQuery = "SELECT COUNT(*) FROM sys.tables WHERE name = 'User'";
             await using var tableCmd = new SqlCommand(checkTableQuery, connection);
             var tableCount = (int)await tableCmd.ExecuteScalarAsync();
@@ -858,7 +858,7 @@ public class SqlMigrationPlanRunnerTests
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.is_unique = 1";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
             indexCount.Should().Be(1, "Unique index should exist");
@@ -880,10 +880,10 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         // Create test database
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create target model with index using model names (like in DMD files)
@@ -938,10 +938,10 @@ public class SqlMigrationPlanRunnerTests
             var method = typeof(SqlMigrationPlanRunner).GetMethod("GenerateIndexSql", BindingFlags.NonPublic | BindingFlags.Instance);
 
             var sqls = (IEnumerable<string>)method!.Invoke(runner, [testStep.TableName, testStep.Index, testStep.Table])!;
-            
+
             var sqlList = sqls.ToList();
             sqlList.Should().HaveCount(1, "Should generate one SQL statement");
-            
+
             var sql = sqlList[0];
 
             sql.Should().Contain("[Email]", "Should include Email column");
@@ -966,9 +966,9 @@ public class SqlMigrationPlanRunnerTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table first
@@ -1003,7 +1003,7 @@ public class SqlMigrationPlanRunnerTests
                 FROM sys.indexes i 
                 INNER JOIN sys.tables t ON i.object_id = t.object_id 
                 WHERE t.name = 'User' AND i.name = 'IX_User_Email'";
-            
+
             await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
             var indexCount = (int)await indexCmd.ExecuteScalarAsync();
             indexCount.Should().Be(1, "Index should still exist");

@@ -53,5 +53,3 @@ public class SqlMigrationRunner_Mixins_Tests
         }
     }
 }
-
-

@@ -27,14 +27,14 @@ public class AssemblyLoadingTests
 
         // Assert
         Assert.NotNull(model);
-        
+
         // Should have loaded the Auditable mixin
         Assert.True(model.Mixins.ContainsKey("Auditable"));
         var auditableMixin = model.Mixins["Auditable"];
         Assert.Equal("Auditable", auditableMixin.Name);
         Assert.Contains(auditableMixin.Fields, f => f.Name == "CreatedDateTime");
         Assert.Contains(auditableMixin.Fields, f => f.Name == "LastModifiedDateTime");
-        
+
         // Should have loaded the User model
         Assert.True(model.Tables.ContainsKey("User"));
         var userTable = model.Tables["User"];
@@ -51,8 +51,8 @@ public class AssemblyLoadingTests
         Assert.Contains(taskTable.Fields, f => f.Name == "Description");
         Assert.True(taskTable.Fields.Where(x => x.IsPrimaryKey).All(x => x.Type == "int"));
 
-		// Should have mixin fields applied
-		Assert.Contains(taskTable.Fields, f => f.Name == "CreatedDateTime");
+        // Should have mixin fields applied
+        Assert.Contains(taskTable.Fields, f => f.Name == "CreatedDateTime");
         Assert.Contains(taskTable.Fields, f => f.Name == "LastModifiedDateTime");
         Assert.Contains(taskTable.Mixins, m => m == "Auditable");
     }
@@ -70,7 +70,7 @@ public class AssemblyLoadingTests
 
         // Assert
         Assert.NotNull(model);
-        
+
         // Mixins and tables should be loaded only once (first assembly wins)
         Assert.Single(model.Mixins, m => m.Key == "Auditable");
         Assert.Single(model.Tables, t => t.Key == "User");
@@ -120,7 +120,7 @@ public class AssemblyLoadingTests
         // The Task model should have the Auditable mixin properly applied
         Assert.True(model.Tables.ContainsKey("Task"));
         var taskTable = model.Tables["Task"];
-        
+
         // Verify mixin was applied (mixin fields should be present)
         Assert.Contains(taskTable.Fields, f => f.Name == "CreatedDateTime");
         Assert.Contains(taskTable.Fields, f => f.Name == "LastModifiedDateTime");

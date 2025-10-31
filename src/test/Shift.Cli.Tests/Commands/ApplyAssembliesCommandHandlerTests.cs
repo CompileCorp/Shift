@@ -24,7 +24,7 @@ public class ApplyAssembliesCommandHandlerTests : UnitTestContext<ApplyAssemblie
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<FileNotFoundException>(() => Sut.Handle(command, CancellationToken.None));
-        
+
         exception.Message.Should().Contain("Assembly file not found");
     }
 }

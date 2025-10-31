@@ -73,5 +73,3 @@ public class SqlServerContainerFixture : IAsyncLifetime
 
 [CollectionDefinition("SqlServer")]
 public class SqlServerCollection : ICollectionFixture<SqlServerContainerFixture> { }
-
-

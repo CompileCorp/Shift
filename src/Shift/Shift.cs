@@ -36,7 +36,7 @@ public class Shift : IShift
         foreach (var assembly in assemblies)
         {
             var resourceNames = assembly.GetManifestResourceNames();
-            
+
             // Load mixin files first (.dmdx)
             var mixinResources = resourceNames
                 .Where(name => name.EndsWith(MixinFileExtension, StringComparison.OrdinalIgnoreCase))
@@ -52,7 +52,7 @@ public class Shift : IShift
                         using var reader = new StreamReader(stream);
                         var content = await reader.ReadToEndAsync();
                         var mixin = _parser.ParseMixin(content);
-                        
+
                         // Only add if not already present (first assembly wins)
                         if (!model.Mixins.ContainsKey(mixin.Name))
                         {
@@ -85,7 +85,7 @@ public class Shift : IShift
                     {
                         using var reader = new StreamReader(stream);
                         var content = await reader.ReadToEndAsync();
-                        
+
                         // Create a temporary model with current mixins to properly apply them
                         var tempModel = new DatabaseModel();
                         // Copy existing mixins to temp model
@@ -93,9 +93,9 @@ public class Shift : IShift
                         {
                             tempModel.Mixins.Add(mixin.Key, mixin.Value);
                         }
-                        
+
                         _parser.ParseTable(tempModel, content);
-                        
+
                         // Only add tables that don't already exist (first assembly wins)
                         foreach (var table in tempModel.Tables)
                         {

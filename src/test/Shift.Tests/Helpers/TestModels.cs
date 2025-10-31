@@ -13,7 +13,7 @@ public static class TestModels
                 .WithField("Username", "nvarchar", f => f.Precision(50).Nullable(false))
                 .WithField("Email", "nvarchar", f => f.Precision(100).Nullable(true))
                 .WithField("CreatedAt", "datetime2", f => f.Nullable(false)))
-            
+
             // Product table with comprehensive type coverage
             .WithTable("Product", product => product
                 .WithField("ProductID", "int", f => f.PrimaryKey().Identity())
@@ -39,14 +39,14 @@ public static class TestModels
                 .WithField("BinaryVar", "varbinary", f => f.Precision(-1).Nullable(true)) // MAX
                 .WithField("ExternalId", "uniqueidentifier", f => f.Nullable(true))
                 .WithField("Metadata", "xml", f => f.Nullable(true)))
-            
+
             // Order table with foreign key to User
             .WithTable("Order", order => order
                 .WithField("OrderID", "bigint", f => f.PrimaryKey().Identity())
                 .WithField("OrderDate", "datetime2", f => f.Nullable(false))
                 .WithField("UserID", "uniqueidentifier", f => f.Nullable(false))
                 .WithForeignKey("UserID", "User", "UserID", RelationshipType.OneToMany))
-            
+
             // OrderItem table with foreign keys to Order and Product
             .WithTable("OrderItem", item => item
                 .WithField("OrderItemID", "int", f => f.PrimaryKey().Identity())
@@ -93,5 +93,3 @@ public static class TestModels
         return (model, string.Empty, string.Empty);
     }
 }
-
-

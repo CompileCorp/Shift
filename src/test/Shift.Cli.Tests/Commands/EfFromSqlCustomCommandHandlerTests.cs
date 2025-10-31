@@ -37,8 +37,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -71,8 +71,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -82,8 +82,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            expectedModel, 
-            command.OutputDirectoryPath, 
+            expectedModel,
+            command.OutputDirectoryPath,
             options), Times.Once);
     }
 
@@ -107,8 +107,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -140,8 +140,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -150,14 +150,14 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         // Assert
         result.Should().Be(Unit.Value);
-        
+
         // Verify LoadFromSqlAsync is called first
         mockShift.Verify(x => x.LoadFromSqlAsync(command.ConnectionString, command.Schema), Times.Once);
-        
+
         // Verify GenerateEfCodeAsync is called with the model returned from LoadFromSqlAsync
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            expectedModel, 
-            command.OutputDirectoryPath, 
+            expectedModel,
+            command.OutputDirectoryPath,
             options), Times.Once);
     }
 
@@ -179,7 +179,7 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
             InterfaceName = "IMyDbContext",
             BaseClassName = "BaseDbContext"
         };
-        
+
         var command = new EfFromSqlCustomCommand(
             ConnectionString: "Server=.;Database=Test;",
             Schema: "dbo",
@@ -192,8 +192,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -203,8 +203,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            "./Output", 
+            It.IsAny<DatabaseModel>(),
+            "./Output",
             options), Times.Once);
     }
 
@@ -219,7 +219,7 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         {
             NamespaceName = "CustomNamespace.Data"
         };
-        
+
         var command = new EfFromSqlCustomCommand(
             ConnectionString: "Server=.;Database=Test;",
             Schema: "dbo",
@@ -232,8 +232,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -243,8 +243,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            "./Output", 
+            It.IsAny<DatabaseModel>(),
+            "./Output",
             options), Times.Once);
     }
 
@@ -259,7 +259,7 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         {
             ContextClassName = "CustomDbContext"
         };
-        
+
         var command = new EfFromSqlCustomCommand(
             ConnectionString: "Server=.;Database=Test;",
             Schema: "dbo",
@@ -272,8 +272,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -283,8 +283,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            "./Output", 
+            It.IsAny<DatabaseModel>(),
+            "./Output",
             options), Times.Once);
     }
 
@@ -299,7 +299,7 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         {
             InterfaceName = "ICustomDbContext"
         };
-        
+
         var command = new EfFromSqlCustomCommand(
             ConnectionString: "Server=.;Database=Test;",
             Schema: "dbo",
@@ -312,8 +312,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -323,8 +323,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            "./Output", 
+            It.IsAny<DatabaseModel>(),
+            "./Output",
             options), Times.Once);
     }
 
@@ -339,7 +339,7 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         {
             BaseClassName = "CustomBaseDbContext"
         };
-        
+
         var command = new EfFromSqlCustomCommand(
             ConnectionString: "Server=.;Database=Test;",
             Schema: "dbo",
@@ -352,8 +352,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -363,8 +363,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            "./Output", 
+            It.IsAny<DatabaseModel>(),
+            "./Output",
             options), Times.Once);
     }
 
@@ -392,8 +392,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -430,8 +430,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<EfCodeGenerationOptions>()))
             .Returns(Task.CompletedTask);
 
@@ -441,8 +441,8 @@ public class EfFromSqlCustomCommandHandlerTests : UnitTestContext<EfFromSqlCusto
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            expectedModel, 
-            command.OutputDirectoryPath, 
+            expectedModel,
+            command.OutputDirectoryPath,
             options), Times.Once);
     }
 

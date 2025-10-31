@@ -281,13 +281,13 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
     {
         // Resolve field names to actual column names
         var resolvedFields = IndexFieldResolver.ResolveIndexFieldNames(index.Fields, table);
-        
+
         // Generate index name: IX_TableName_Field1_Field2...
         var indexName = $"IX_{tableName}_{string.Join("_", resolvedFields)}";
-        
+
         // Generate column list: [Column1], [Column2]
         var columnList = string.Join(", ", resolvedFields.Select(f => $"[{f}]"));
-        
+
         // Generate CREATE INDEX statement with IF NOT EXISTS to prevent duplicate index errors
         var uniqueKeyword = index.IsUnique ? "UNIQUE " : "";
         var kindKeyword = index.Kind switch

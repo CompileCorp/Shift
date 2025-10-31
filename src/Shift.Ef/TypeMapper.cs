@@ -53,7 +53,7 @@ public class TypeMapper
     public string MapToCSharpType(FieldModel field)
     {
         var baseType = GetBaseType(field.Type);
-        
+
         // Handle nullable types
         if (field.IsNullable || field.IsOptional)
         {
@@ -84,8 +84,8 @@ public class TypeMapper
     {
         return csharpType switch
         {
-            "bool" or "byte" or "short" or "int" or "long" or 
-            "decimal" or "double" or "float" or "DateTime" or 
+            "bool" or "byte" or "short" or "int" or "long" or
+            "decimal" or "double" or "float" or "DateTime" or
             "TimeSpan" or "DateTimeOffset" or "Guid" => true,
             _ => false
         };

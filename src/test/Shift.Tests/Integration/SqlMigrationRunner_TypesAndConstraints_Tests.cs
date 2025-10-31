@@ -120,7 +120,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             Assert.Empty(failures1);
 
             var modelAfterFirstApply = await shift.LoadFromSqlAsync(connectionString);
-            var productAfterFirst = modelAfterFirstApply.Tables["Product"];            
+            var productAfterFirst = modelAfterFirstApply.Tables["Product"];
             var unicodeNameFirst = productAfterFirst.Fields.First(f => f.Name == "UnicodeName");
             Assert.Equal(50, unicodeNameFirst.Precision);
 
@@ -137,7 +137,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
 
             // 3) Reload and EXPECT width is 200 (this will currently FAIL until alter column is implemented)
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
-            var productReloaded = reloaded.Tables["Product"];            
+            var productReloaded = reloaded.Tables["Product"];
             var unicodeNameReloaded = productReloaded.Fields.First(f => f.Name == "UnicodeName");
             Assert.Equal(200, unicodeNameReloaded.Precision);
         }
@@ -147,5 +147,3 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
         }
     }
 }
-
-

@@ -56,7 +56,7 @@ public class EfCodeGenerator
             ContextClassName = "GeneratedDbContext",
             InterfaceName = "IGeneratedDbContext"
         };
-        
+
         await GenerateEfCodeAsync(model, outputPath, options);
     }
 

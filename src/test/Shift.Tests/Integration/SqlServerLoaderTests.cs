@@ -8,7 +8,7 @@ namespace Compile.Shift.Integration;
 
 [Collection("SqlServer")]
 public class SqlServerLoaderTests
-{    
+{
     private readonly SqlServerContainerFixture _fixture;
     private readonly ILogger<SqlServerLoader> _logger;
 
@@ -31,12 +31,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -64,12 +64,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -95,7 +95,7 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Don't create any tables - keep database empty
@@ -129,12 +129,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -143,7 +143,7 @@ public class SqlServerLoaderTests
             // Assert
             var userTable = result.Tables["TestUser"];
             userTable.Should().NotBeNull();
-            
+
             // Check for specific columns
             userTable.Fields.Should().Contain(f => f.Name == "UserID" && f.Type == "int");
             userTable.Fields.Should().Contain(f => f.Name == "Username" && f.Type == "nvarchar");
@@ -166,12 +166,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -180,12 +180,12 @@ public class SqlServerLoaderTests
             // Assert
             var productTable = result.Tables["TestProduct"];
             productTable.Should().NotBeNull();
-            
+
             // Check nullable columns
             var descriptionField = productTable.Fields.FirstOrDefault(f => f.Name == "Description");
             descriptionField.Should().NotBeNull();
             descriptionField!.IsNullable.Should().BeTrue();
-            
+
             var priceField = productTable.Fields.FirstOrDefault(f => f.Name == "Price");
             priceField.Should().NotBeNull();
             priceField!.IsNullable.Should().BeTrue();
@@ -206,12 +206,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -220,14 +220,14 @@ public class SqlServerLoaderTests
             // Assert
             var productTable = result.Tables["TestProduct"];
             productTable.Should().NotBeNull();
-            
+
             // Check precision and scale for decimal fields
             var priceField = productTable.Fields.FirstOrDefault(f => f.Name == "Price");
             priceField.Should().NotBeNull();
             priceField!.Type.Should().Be("decimal");
             priceField.Precision.Should().Be(18);
             priceField.Scale.Should().Be(2);
-            
+
             // Check precision for string fields
             var nameField = productTable.Fields.FirstOrDefault(f => f.Name == "Name");
             nameField.Should().NotBeNull();
@@ -254,12 +254,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -269,10 +269,10 @@ public class SqlServerLoaderTests
             var orderTable = result.Tables["TestOrder"];
             orderTable.Should().NotBeNull();
             orderTable.ForeignKeys.Should().NotBeEmpty();
-            
+
             // Check for foreign key to User table
-            orderTable.ForeignKeys.Should().Contain(fk => 
-                fk.TargetTable == "TestUser" && 
+            orderTable.ForeignKeys.Should().Contain(fk =>
+                fk.TargetTable == "TestUser" &&
                 fk.ColumnName == "UserID");
         }
         finally
@@ -291,12 +291,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -305,7 +305,7 @@ public class SqlServerLoaderTests
             // Assert
             var orderTable = result.Tables["TestOrder"];
             var userForeignKey = orderTable.ForeignKeys.FirstOrDefault(fk => fk.TargetTable == "TestUser");
-            
+
             userForeignKey.Should().NotBeNull();
             userForeignKey!.ColumnName.Should().Be("UserID");
             userForeignKey.TargetTable.Should().Be("TestUser");
@@ -336,12 +336,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -350,7 +350,7 @@ public class SqlServerLoaderTests
             // Assert
             var userTable = result.Tables["TestUser"];
             userTable.Should().NotBeNull();
-            
+
             // Should have indexes (excluding primary key)
             userTable.Indexes.Should().NotBeEmpty();
         }
@@ -370,12 +370,12 @@ public class SqlServerLoaderTests
         var dbName = SqlServerTestHelper.GenerateDatabaseName();
         await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
-        
+
         try
         {
             // Create test tables
             await CreateTestTablesAsync(connectionString);
-            
+
             var loader = new SqlServerLoader(connectionString) { Logger = _logger };
 
             // Act
@@ -384,7 +384,7 @@ public class SqlServerLoaderTests
             // Assert
             var userTable = result.Tables["TestUser"];
             userTable.Should().NotBeNull();
-            
+
             // Check for unique index on Email
             var emailIndex = userTable.Indexes.FirstOrDefault(i => i.Fields.Contains("Email"));
             emailIndex.Should().NotBeNull();

@@ -26,7 +26,7 @@ public static class IndexFieldResolver
 
         // Build a mapping from model names to foreign key column names
         var modelToColumnMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var fk in table.ForeignKeys)
         {
             // Map by TargetTable (model name) to ColumnName (foreign key column name)

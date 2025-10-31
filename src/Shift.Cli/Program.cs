@@ -36,7 +36,7 @@ internal class Program
                 services.AddMediatR(typeof(Program).Assembly);
 
                 // Register Shift services
-                services.AddScoped<IShift, Shift>(sp => 
+                services.AddScoped<IShift, Shift>(sp =>
                 {
                     var logger = sp.GetRequiredService<ILogger<Shift>>();
                     return new Shift { Logger = logger };

@@ -24,11 +24,11 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
         // Assert
         plan.Steps.Should().NotBeEmpty();
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.CreateTable && 
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.CreateTable &&
             step.TableName == "User");
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.CreateTable && 
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.CreateTable &&
             step.TableName == "Product");
     }
 
@@ -84,12 +84,12 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
         var plan = Sut.GeneratePlan(targetModel, actualModel);
 
         // Assert
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.AddColumn && 
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.AddColumn &&
             step.TableName == "User" &&
             step.Fields.Any(f => f.Name == "Email"));
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.AddColumn && 
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.AddColumn &&
             step.TableName == "User" &&
             step.Fields.Any(f => f.Name == "IsActive"));
     }
@@ -146,8 +146,8 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
         var plan = Sut.GeneratePlan(targetModel, actualModel);
 
         // Assert
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.AddForeignKey && 
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.AddForeignKey &&
             step.TableName == "Order" &&
             step.ForeignKey != null &&
             step.ForeignKey.TargetTable == "User");
@@ -292,13 +292,13 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
         // Assert
         plan.Steps.Should().BeEmpty();
         plan.ExtrasInSqlServer.ExtraIndexes.Should().HaveCount(2);
-        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra => 
-            extra.TableName == "User" && 
-            extra.Fields.SequenceEqual(new[] { "Email" }) && 
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra =>
+            extra.TableName == "User" &&
+            extra.Fields.SequenceEqual(new[] { "Email" }) &&
             extra.IsUnique == true);
-        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra => 
-            extra.TableName == "User" && 
-            extra.Fields.SequenceEqual(new[] { "Username" }) && 
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra =>
+            extra.TableName == "User" &&
+            extra.Fields.SequenceEqual(new[] { "Username" }) &&
             extra.IsUnique == false);
     }
 
@@ -346,9 +346,9 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
         // Assert
         plan.Steps.Should().HaveCount(2);
-        plan.Steps.Should().Contain(step => 
+        plan.Steps.Should().Contain(step =>
             step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Email", "Username" }));
-        plan.Steps.Should().Contain(step => 
+        plan.Steps.Should().Contain(step =>
             step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Username", "Email" }));
     }
 
@@ -364,11 +364,11 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 
         // Assert
         plan.Steps.Should().HaveCount(1);
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.AddIndex && 
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.AddIndex &&
             step.Index != null && step.Index.Fields.SequenceEqual(new[] { "Email" }));
         plan.ExtrasInSqlServer.ExtraIndexes.Should().HaveCount(1);
-        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra => 
+        plan.ExtrasInSqlServer.ExtraIndexes.Should().Contain(extra =>
             extra.Fields.SequenceEqual(new[] { "Username" }));
     }
 

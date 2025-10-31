@@ -372,5 +372,3 @@ public class SqlMigrationRunner_SafeShrink_Tests
         }
     }
 }
-
-
