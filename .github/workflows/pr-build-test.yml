@@ -32,6 +32,16 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore src/Shift.slnx
       
+    # Check code formatting - fail if there are pending formatting changes
+    - name: Check code formatting
+      run: |
+        dotnet format src/Shift.slnx
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "::error::Code formatting check failed. Please run 'dotnet format' and commit the changes."
+          git diff
+          exit 1
+        fi
+      
     # Build the entire solution in Release configuration
     - name: Build solution
       run: dotnet build src/Shift.slnx --configuration Release --no-restore
