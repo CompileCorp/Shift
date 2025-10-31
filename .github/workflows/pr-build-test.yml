@@ -8,41 +8,39 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
     steps:
-    # Checkout the repository code
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    # Configure Git to handle line endings properly for cross-platform compatibility
-    - name: Configure Git line endings
-      run: |
-        git config --global core.autocrlf false
-        git config --global core.eol crlf
-      
     # Send Slack notification immediately when PR is opened
-    - name: Notify PR opened
+    - name: Notify on PR opened
       if: github.event.action == 'opened'
       run: |
         curl -X POST -H 'Content-type: application/json' \
           --data '{"text":"🔔 New Pull Request: <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}> by ${{ github.event.pull_request.user.login }}"}' \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
+    # Configure Git line endings so files are checked out with CRLF per .editorconfig
+    - name: Configure Git line endings
+      run: |
+        git config --global core.autocrlf false
+        git config --global core.eol crlf
+
+    # Checkout the repository code
+    - name: Checkout code
+      uses: actions/checkout@v4
+
     # Setup .NET 9.0.x 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
-        
+
     # Restore all NuGet packages for the solution
     - name: Restore dependencies
       run: dotnet restore src/Shift.slnx
-      
+
     # Check code formatting - fail if there are pending formatting changes
     - name: Check code formatting
-      run: |
-        dotnet format src/Shift.slnx --verify-no-changes --verbosity diagnostic
-      
+      run: dotnet format src/Shift.slnx --verify-no-changes --verbosity diagnostic
+    
     # Build the entire solution in Release configuration
     - name: Build solution
       run: dotnet build src/Shift.slnx --configuration Release --no-restore
