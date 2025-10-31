@@ -4,6 +4,9 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="../.editorconfig" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="Shift.Cli/Shift.Cli.csproj" />
     <Project Path="Shift.Ef/Shift.Ef.csproj" />
