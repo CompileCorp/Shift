@@ -217,6 +217,18 @@ public class SqlMigrationPlanRunnerTests
             var fkCount = (int)await command.ExecuteScalarAsync();
             
             fkCount.Should().Be(1, "Foreign key constraint should exist after addition");
+            
+            // Verify index was created for the FK column
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'Order' AND i.name = 'IX_Order_UserID' AND i.is_unique = 0";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            
+            indexCount.Should().Be(1, "Non-clustered index should exist for FK column UserID");
         }
         finally
         {
@@ -280,6 +292,18 @@ public class SqlMigrationPlanRunnerTests
             await using var fkCmd = new SqlCommand(checkFkQuery, connection);
             var fkCount = (int)await fkCmd.ExecuteScalarAsync();
             fkCount.Should().Be(1, "Foreign key constraint should exist");
+            
+            // Verify index was created for the FK column
+            var checkIndexQuery = @"
+                SELECT COUNT(*) 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'Order' AND i.name = 'IX_Order_UserID' AND i.is_unique = 0";
+            
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexCount = (int)await indexCmd.ExecuteScalarAsync();
+            
+            indexCount.Should().Be(1, "Non-clustered index should exist for FK column UserID");
         }
         finally
         {
@@ -904,7 +928,8 @@ public class SqlMigrationPlanRunnerTests
                 Index = new IndexModel
                 {
                     Fields = new List<string> { "Email", "ClientStatus" }, // Model names
-                    IsUnique = false
+                    IsUnique = false,
+                    Kind = IndexKind.NonClustered
                 },
                 Table = targetModel.Tables["Client"] // Include table model for resolution
             };
@@ -923,7 +948,7 @@ public class SqlMigrationPlanRunnerTests
             sql.Should().Contain("[ClientStatusID]", "Should resolve ClientStatus model name to ClientStatusID column name");
             sql.Should().NotContain("[ClientStatus]", "Should not use the model name ClientStatus");
             sql.Should().Contain("IF NOT EXISTS", "Should use defensive IF NOT EXISTS check");
-            sql.Should().Contain("CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])", "Should contain the CREATE INDEX statement");
+            sql.Should().Contain("CREATE NONCLUSTERED INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])", "Should contain the CREATE INDEX statement");
         }
         finally
         {

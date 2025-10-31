@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Compile.Shift.Helpers;
 using Compile.Shift.Model;
 using Compile.Shift.Model.Helpers;
@@ -66,6 +67,12 @@ public class SqlMigrationPlanRunner
                 {
                     Logger.LogInformation($"{step.Action} {step.TableName} {step.ForeignKey.ColumnName}");
                     sqls.AddRange(CreateForeignKeySql(step.TableName, step.ForeignKey));
+                    sqls.AddRange(GenerateIndexSql(step.TableName, new IndexModel()
+                    {
+                        Fields = [step.ForeignKey.ColumnName],
+                        IsUnique = false,
+                        Kind = IndexKind.NonClustered
+                    }, step.Table));
                 }
                 else if (step is { Action: MigrationAction.AddIndex, Index: not null })
                 {
@@ -283,11 +290,17 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         
         // Generate CREATE INDEX statement with IF NOT EXISTS to prevent duplicate index errors
         var uniqueKeyword = index.IsUnique ? "UNIQUE " : "";
+        var kindKeyword = index.Kind switch
+        {
+            IndexKind.NonClustered => "NONCLUSTERED ",
+            IndexKind.Clustered => "CLUSTERED ",
+            _ => throw new NotImplementedException($"Index kind '{index.Kind}' is not supported.")
+        };
 
         yield return
 $@"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('dbo.{tableName}'))
 BEGIN
-    CREATE {uniqueKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})
+    CREATE {uniqueKeyword}{kindKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})
 END";
     }
 

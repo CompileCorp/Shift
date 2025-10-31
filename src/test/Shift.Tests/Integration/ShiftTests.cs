@@ -394,7 +394,7 @@ public class ShiftTests
     public async Task LoadFromSqlAsync_WithInvalidConnectionString_ShouldThrowException()
     {
         // Arrange
-        var invalidConnectionString = "Server=InvalidServer;Database=NonExistent;Trusted_Connection=true;";
+        var invalidConnectionString = "Server=InvalidServer;Database=NonExistent;Trusted_Connection=true;Connection Timeout=1;";
         var shift = new Shift { Logger = _logger };
 
         // Act & Assert

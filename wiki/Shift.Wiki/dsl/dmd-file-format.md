@@ -712,7 +712,7 @@ mixin Auditable {
 
 1. **Unique constraints** - Use `@unique` for business keys and natural identifiers
 2. **Query optimization** - Create indexes for frequently queried column combinations
-3. **Foreign key indexes** - Consider indexes on foreign key columns for join performance
+3. **Foreign key indexes** - Indexes are automatically created on foreign key columns for join performance (no manual index definition needed)
 
 ## Advanced Features
 
@@ -766,8 +766,9 @@ model Product {
 
 1. **Primary key generation** - Automatic `{TableName}ID` field with specified type
 2. **Foreign key constraints** - Automatic FK constraint creation
-3. **Index creation** - Separate index creation statements
-4. **Column ordering** - Primary key first, then foreign keys, then other fields
+3. **Automatic FK indexes** - Non-clustered indexes are automatically created on all foreign key columns
+4. **Index creation** - Separate index creation statements for explicitly defined indexes
+5. **Column ordering** - Primary key first, then foreign keys, then other fields
 
 ### Constraint Naming
 

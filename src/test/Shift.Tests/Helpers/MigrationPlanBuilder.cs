@@ -92,7 +92,7 @@ public class MigrationPlanBuilder
     /// <summary>
     /// Adds an AddIndex step to the plan.
     /// </summary>
-    public MigrationPlanBuilder WithAddIndex(string tableName, string indexName, string columnName, bool isUnique = false)
+    public MigrationPlanBuilder WithAddIndex(string tableName, string indexName, string columnName, bool isUnique = false, IndexKind kind = IndexKind.NonClustered)
     {
         _plan.Steps.Add(new MigrationStep
         {
@@ -101,7 +101,8 @@ public class MigrationPlanBuilder
             Index = new IndexModel
             {
                 Fields = new List<string> { columnName },
-                IsUnique = isUnique
+                IsUnique = isUnique,
+                Kind = kind
             }
         });
         return this;
@@ -110,7 +111,7 @@ public class MigrationPlanBuilder
     /// <summary>
     /// Adds an AddIndex step to the plan with multiple columns.
     /// </summary>
-    public MigrationPlanBuilder WithAddIndex(string tableName, string indexName, IEnumerable<string> columnNames, bool isUnique = false)
+    public MigrationPlanBuilder WithAddIndex(string tableName, string indexName, IEnumerable<string> columnNames, bool isUnique = false, IndexKind kind = IndexKind.NonClustered)
     {
         _plan.Steps.Add(new MigrationStep
         {
@@ -119,7 +120,8 @@ public class MigrationPlanBuilder
             Index = new IndexModel
             {
                 Fields = columnNames.ToList(),
-                IsUnique = isUnique
+                IsUnique = isUnique,
+                Kind = kind
             }
         });
         return this;

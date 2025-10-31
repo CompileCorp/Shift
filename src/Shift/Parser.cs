@@ -327,7 +327,8 @@ public class Parser
         return new IndexModel
         {
             Fields = fields,
-            IsUnique = isUnique
+            IsUnique = isUnique,
+            Kind = IndexKind.NonClustered
         };
     }
 
