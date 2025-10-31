@@ -64,16 +64,16 @@ public class Parser
             if (line.StartsWith("model ") && string.IsNullOrEmpty(table.Name))
             {
                 var parts = line.Substring(6)
-	                .Split(' ')
-	                .Where(x => x != "{")
-	                .ToArray();
+                    .Split(' ')
+                    .Where(x => x != "{")
+                    .ToArray();
 
                 table.Name = parts[0].Trim();
 
                 var containsWith = line.Contains(" with ");
 
-               // model name type with model 4
-               // model name type 2
+                // model name type with model 4
+                // model name type 2
 
                 // Check for mixin usage
                 if (containsWith)
@@ -85,17 +85,17 @@ public class Parser
 
                 var fieldModel = new FieldModel
                 {
-	                Name = $"{table.Name}ID",
-	                Type = "int",
-	                IsNullable = false,
-	                IsPrimaryKey = true,
-	                IsIdentity = true
+                    Name = $"{table.Name}ID",
+                    Type = "int",
+                    IsNullable = false,
+                    IsPrimaryKey = true,
+                    IsIdentity = true
                 };
 
-				if ((containsWith && parts.Length == 4) || (!containsWith && parts.Length == 2))
-				{
-					fieldModel.Type = parts[1].Trim();
-				}
+                if ((containsWith && parts.Length == 4) || (!containsWith && parts.Length == 2))
+                {
+                    fieldModel.Type = parts[1].Trim();
+                }
 
                 // Normalize DSL type to SQL type for primary key and adjust identity if needed
                 fieldModel.Type =
@@ -104,11 +104,11 @@ public class Parser
                         : fieldModel.Type;
 
                 if (fieldModel.Type.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase))
-				{
-					fieldModel.IsIdentity = false;
-				}
+                {
+                    fieldModel.IsIdentity = false;
+                }
 
-				table.Fields.Add(fieldModel);
+                table.Fields.Add(fieldModel);
 
                 model.Tables.Add(table.Name, table);
             }

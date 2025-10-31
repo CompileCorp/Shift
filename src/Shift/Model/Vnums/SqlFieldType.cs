@@ -93,7 +93,7 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
             precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255,
             supportsMaxLength: true,
-            maxLengthMarker: -1); 
+            maxLengthMarker: -1);
 
     public static readonly SqlFieldType TEXT =
         new(id: SqlFieldTypeId.TEXT,
@@ -116,7 +116,7 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
             precisionType: PrecisionType.PrecisionOnlyRequired,
             defaultPrecision: 255,
             supportsMaxLength: true,
-            maxLengthMarker: -1); 
+            maxLengthMarker: -1);
 
     public static readonly SqlFieldType NTEXT =
         new(id: SqlFieldTypeId.NTEXT,
@@ -149,7 +149,7 @@ public class SqlFieldType : Vnum<SqlFieldTypeId>
             mapToDmd: DmdFieldTypeId.DECIMAL, // Convert to DMD decimal(p,s) data type
             precisionType: PrecisionType.PrecisionWithScaleRequired,
             defaultPrecision: 18,
-            defaultScale: 0); 
+            defaultScale: 0);
 
     public static readonly SqlFieldType FLOAT =
         new(id: SqlFieldTypeId.FLOAT,

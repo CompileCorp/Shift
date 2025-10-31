@@ -86,7 +86,7 @@ model Product {
         var dateField = table.Fields.First(f => f.Name == "CreatedDate");
         dateField.IsNullable.Should().BeTrue();
 
-        
+
     }
 
     /// <summary>
@@ -114,7 +114,7 @@ model Order {
 
         // Assert
         var table = model.Tables["Order"];
-        
+
         var totalField = table.Fields.First(f => f.Name == "TotalAmount");
         totalField.Type.Should().Be("decimal");
         totalField.Precision.Should().Be(18);
@@ -162,7 +162,7 @@ model Document {
 
         // Assert
         var table = model.Tables["Document"];
-        
+
         var contentField = table.Fields.First(f => f.Name == "Content");
         contentField.Type.Should().Be("nvarchar");
         contentField.Precision.Should().Be(-1);
@@ -171,7 +171,7 @@ model Document {
         asciiField.Type.Should().Be("varchar");
         asciiField.Precision.Should().Be(-1);
 
-        
+
     }
 
     #endregion
@@ -205,7 +205,7 @@ model User guid {
         pkField.IsIdentity.Should().BeFalse();
         pkField.IsNullable.Should().BeFalse();
 
-        
+
     }
 
     /// <summary>
@@ -236,7 +236,7 @@ model User {
         pkField.IsIdentity.Should().BeFalse();
         table.Attributes.Should().ContainKey("NoIdentity");
 
-        
+
     }
 
     /// <summary>
@@ -265,7 +265,7 @@ model Category {
         pkField.IsIdentity.Should().BeTrue();
         pkField.IsNullable.Should().BeFalse();
 
-        
+
     }
 
     #endregion
@@ -295,7 +295,7 @@ mixin Auditable {
         // Assert
         mixin.Name.Should().Be("Auditable");
         mixin.Fields.Should().HaveCount(5);
-        
+
         mixin.Fields.Should().Contain(f => f.Name == "CreatedBy" && f.Type == "nvarchar" && f.Precision == 50);
         mixin.Fields.Should().Contain(f => f.Name == "CreatedDateTime" && f.Type == "datetime");
         mixin.Fields.Should().Contain(f => f.Name == "LastModifiedBy" && f.Type == "nvarchar" && f.Precision == 50);
@@ -312,7 +312,7 @@ mixin Auditable {
     {
         // Arrange
         var model = new DatabaseModel();
-        
+
         // Add mixin to model first
         var mixinContent = @"
 mixin Auditable {
@@ -335,17 +335,17 @@ model Task with Auditable {
         // Assert
         var table = model.Tables["Task"];
         table.Mixins.Should().Contain("Auditable");
-        
+
         // Should have mixin fields
         table.Fields.Should().Contain(f => f.Name == "CreatedBy");
         table.Fields.Should().Contain(f => f.Name == "CreatedDateTime");
         table.Fields.Should().Contain(f => f.Name == "LockNumber");
-        
+
         // Should have model fields
         table.Fields.Should().Contain(f => f.Name == "Title");
         table.Fields.Should().Contain(f => f.Name == "Description");
 
-        
+
     }
 
     #endregion
@@ -373,18 +373,18 @@ model Order {
 
         // Assert
         var table = model.Tables["Order"];
-        
+
         // Should have foreign key field
         table.Fields.Should().Contain(f => f.Name == "CustomerUserID" && f.Type == "int");
-        
+
         // Should have foreign key relationship
-        table.ForeignKeys.Should().Contain(fk => 
-            fk.ColumnName == "CustomerUserID" && 
-            fk.TargetTable == "User" && 
+        table.ForeignKeys.Should().Contain(fk =>
+            fk.ColumnName == "CustomerUserID" &&
+            fk.TargetTable == "User" &&
             fk.TargetColumnName == "UserID" &&
             fk.RelationshipType == RelationshipType.OneToOne);
 
-        
+
     }
 
     /// <summary>
@@ -408,18 +408,18 @@ model OrderItem {
 
         // Assert
         var table = model.Tables["OrderItem"];
-        
+
         // Should have foreign key field
         table.Fields.Should().Contain(f => f.Name == "ProductID" && f.Type == "int");
-        
+
         // Should have foreign key relationship
-        table.ForeignKeys.Should().Contain(fk => 
-            fk.ColumnName == "ProductID" && 
-            fk.TargetTable == "Product" && 
+        table.ForeignKeys.Should().Contain(fk =>
+            fk.ColumnName == "ProductID" &&
+            fk.TargetTable == "Product" &&
             fk.TargetColumnName == "ProductID" &&
             fk.RelationshipType == RelationshipType.OneToMany);
 
-        
+
     }
 
     /// <summary>
@@ -443,16 +443,16 @@ model Order {
 
         // Assert
         var table = model.Tables["Order"];
-        
+
         // Should have nullable foreign key field
         var fkField = table.Fields.First(f => f.Name == "AssignedUserUserID");
         fkField.IsNullable.Should().BeTrue();
-        
+
         // Should have foreign key relationship
         var fk = table.ForeignKeys.First(fk => fk.ColumnName == "AssignedUserUserID");
         fk.IsNullable.Should().BeTrue();
 
-        
+
     }
 
     #endregion
@@ -482,14 +482,14 @@ model User {
         // Assert
         var table = model.Tables["User"];
         table.Indexes.Should().HaveCount(1);
-        
+
         var index = table.Indexes.First();
         index.Fields.Should().HaveCount(2);
         index.Fields.Should().Contain("Username");
         index.Fields.Should().Contain("Email");
         index.IsUnique.Should().BeFalse();
 
-        
+
     }
 
     /// <summary>
@@ -515,13 +515,13 @@ model User {
         // Assert
         var table = model.Tables["User"];
         table.Indexes.Should().HaveCount(1);
-        
+
         var index = table.Indexes.First();
         index.Fields.Should().HaveCount(1);
         index.Fields.Should().Contain("Email");
         index.IsUnique.Should().BeTrue();
 
-        
+
     }
 
     #endregion
@@ -580,7 +580,7 @@ model User {
         table.Fields.Should().Contain(f => f.Name == "Username");
         table.Fields.Should().Contain(f => f.Name == "Email");
 
-        
+
     }
 
     /// <summary>
@@ -610,7 +610,7 @@ model User {
         table.Fields.Should().Contain(f => f.Name == "Username");
         table.Fields.Should().Contain(f => f.Name == "Email");
 
-        
+
     }
 
     #endregion
@@ -642,7 +642,7 @@ model TestTypes {
 
         // Assert
         var table = model.Tables["TestTypes"];
-        
+
         table.Fields.Should().Contain(f => f.Name == "IsActive" && f.Type == "bit");
         table.Fields.Should().Contain(f => f.Name == "UnicodeString" && f.Type == "nvarchar" && f.Precision == 100);
         table.Fields.Should().Contain(f => f.Name == "AsciiString" && f.Type == "varchar" && f.Precision == 50);
@@ -650,7 +650,7 @@ model TestTypes {
         table.Fields.Should().Contain(f => f.Name == "UniqueId" && f.Type == "uniqueidentifier");
         table.Fields.Should().Contain(f => f.Name == "Money" && f.Type == "decimal" && f.Precision == 10 && f.Scale == 2);
 
-        
+
     }
 
     /// <summary>
@@ -696,7 +696,7 @@ model TestAllTypes {
 
         // Assert
         var table = model.Tables["TestAllTypes"];
-        
+
         // Simple types
         table.Fields.Should().Contain(f => f.Name == "IsActive" && f.Type == "bit");
         table.Fields.Should().Contain(f => f.Name == "UserId" && f.Type == "int");
@@ -705,19 +705,19 @@ model TestAllTypes {
         table.Fields.Should().Contain(f => f.Name == "Price" && f.Type == "float");
         table.Fields.Should().Contain(f => f.Name == "UniqueId" && f.Type == "uniqueidentifier");
         table.Fields.Should().Contain(f => f.Name == "CreatedAt" && f.Type == "datetime");
-        
+
         // Unicode string types
         table.Fields.Should().Contain(f => f.Name == "UnicodeString" && f.Type == "nvarchar" && f.Precision == 100);
         table.Fields.Should().Contain(f => f.Name == "UnicodeMaxString" && f.Type == "nvarchar" && f.Precision == -1);
         table.Fields.Should().Contain(f => f.Name == "UnicodeCode" && f.Type == "nchar" && f.Precision == 10);
         table.Fields.Should().Contain(f => f.Name == "SingleUnicodeChar" && f.Type == "nchar" && f.Precision == 1);
-        
+
         // ASCII string types
         table.Fields.Should().Contain(f => f.Name == "AsciiString" && f.Type == "varchar" && f.Precision == 50);
         table.Fields.Should().Contain(f => f.Name == "AsciiMaxString" && f.Type == "varchar" && f.Precision == -1);
         table.Fields.Should().Contain(f => f.Name == "AsciiCode" && f.Type == "char" && f.Precision == 5);
         table.Fields.Should().Contain(f => f.Name == "SingleAsciiChar" && f.Type == "char" && f.Precision == 1);
-        
+
         // Deprecated types (should still work for backward compatibility)
         table.Fields.Should().Contain(f => f.Name == "DeprecatedUnicodeString" && f.Type == "nvarchar" && f.Precision == 200);
         table.Fields.Should().Contain(f => f.Name == "DeprecatedUnicodeFixedWidth" && f.Type == "nchar" && f.Precision == 10);

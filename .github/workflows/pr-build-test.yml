@@ -13,7 +13,13 @@ jobs:
     # Checkout the repository code
     - name: Checkout code
       uses: actions/checkout@v4
-        
+      
+    # Configure Git to handle line endings properly for cross-platform compatibility
+    - name: Configure Git line endings
+      run: |
+        git config --global core.autocrlf false
+        git config --global core.eol crlf
+      
     # Send Slack notification immediately when PR is opened
     - name: Notify PR opened
       if: github.event.action == 'opened'
@@ -35,12 +41,7 @@ jobs:
     # Check code formatting - fail if there are pending formatting changes
     - name: Check code formatting
       run: |
-        dotnet format src/Shift.slnx
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "::error::Code formatting check failed. Please run 'dotnet format' and commit the changes."
-          git diff
-          exit 1
-        fi
+        dotnet format src/Shift.slnx --verify-no-changes --verbosity diagnostic
       
     # Build the entire solution in Release configuration
     - name: Build solution

@@ -33,9 +33,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table and insert data that would be truncated
@@ -43,7 +43,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestUser (UserID int IDENTITY(1,1) PRIMARY KEY, Username nvarchar(200) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert data that exceeds the target precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestUser (Username) VALUES ('This is a very long username that exceeds the target precision of 50 characters and would cause data loss')", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -71,7 +71,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
-            
+
             // Verify the column was NOT altered (still has original precision)
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -79,7 +79,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
                 WHERE TABLE_NAME = 'TestUser' AND COLUMN_NAME = 'Username'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(200, "Username column should retain original precision 200 since unsafe alteration was skipped");
         }
         finally
@@ -97,9 +97,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table and insert data that would be truncated
@@ -107,7 +107,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestProduct (ProductID int IDENTITY(1,1) PRIMARY KEY, Price decimal(18,4) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert data that exceeds the target precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestProduct (Price) VALUES (1234567890.1234)", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -135,7 +135,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
-            
+
             // Verify the decimal column was NOT altered (still has original precision/scale)
             var checkColumnQuery = @"
                 SELECT NUMERIC_PRECISION, NUMERIC_SCALE 
@@ -144,10 +144,10 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await using var command = new SqlCommand(checkColumnQuery, connection);
             await using var reader = await command.ExecuteReaderAsync();
             await reader.ReadAsync();
-            
+
             var precision = Convert.ToInt32(reader.GetValue(0));
             var scale = Convert.ToInt32(reader.GetValue(1));
-            
+
             precision.Should().Be(18, "Price column should retain original precision 18 since unsafe alteration was skipped");
             scale.Should().Be(4, "Price column should retain original scale 4 since unsafe alteration was skipped");
         }
@@ -166,9 +166,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table with existing data
@@ -176,7 +176,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestUser (UserID int IDENTITY(1,1) PRIMARY KEY, Username nvarchar(50) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert data that fits within the new precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestUser (Username) VALUES ('ShortName')", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -204,7 +204,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Safe migration should complete without failures");
-            
+
             // Verify the column WAS altered (has new precision)
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -212,7 +212,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
                 WHERE TABLE_NAME = 'TestUser' AND COLUMN_NAME = 'Username'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(200, "Username column should have new precision 200 after safe alteration");
         }
         finally
@@ -230,9 +230,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table with existing data
@@ -240,7 +240,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestProduct (ProductID int IDENTITY(1,1) PRIMARY KEY, Price decimal(10,2) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert data that fits within the new precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestProduct (Price) VALUES (123.45)", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -268,7 +268,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Safe decimal migration should complete without failures");
-            
+
             // Verify the decimal column WAS altered (has new precision/scale)
             var checkColumnQuery = @"
                 SELECT NUMERIC_PRECISION, NUMERIC_SCALE 
@@ -277,10 +277,10 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await using var command = new SqlCommand(checkColumnQuery, connection);
             await using var reader = await command.ExecuteReaderAsync();
             await reader.ReadAsync();
-            
+
             var precision = Convert.ToInt32(reader.GetValue(0));
             var scale = Convert.ToInt32(reader.GetValue(1));
-            
+
             precision.Should().Be(18, "Price column should have new precision 18 after safe alteration");
             scale.Should().Be(4, "Price column should have new scale 4 after safe alteration");
         }
@@ -299,9 +299,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table and insert binary data that would be truncated
@@ -309,14 +309,14 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestData (DataID int IDENTITY(1,1) PRIMARY KEY, BinaryData varbinary(200) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert binary data that exceeds the target precision
             var longBinaryData = new byte[150]; // 150 bytes, exceeds target of 50
             for (int i = 0; i < longBinaryData.Length; i++)
             {
                 longBinaryData[i] = (byte)(i % 256);
             }
-            
+
             await using var insertCmd = new SqlCommand("INSERT INTO TestData (BinaryData) VALUES (@data)", connection);
             insertCmd.Parameters.AddWithValue("@data", longBinaryData);
             await insertCmd.ExecuteNonQueryAsync();
@@ -344,7 +344,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
-            
+
             // Verify the binary column was NOT altered (still has original precision)
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -352,7 +352,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
                 WHERE TABLE_NAME = 'TestData' AND COLUMN_NAME = 'BinaryData'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(200, "BinaryData column should retain original precision 200 since unsafe alteration was skipped");
         }
         finally
@@ -370,9 +370,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create table and insert char data that would be truncated
@@ -380,7 +380,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await connection.OpenAsync();
             await using var createTableCmd = new SqlCommand("CREATE TABLE TestCode (CodeID int IDENTITY(1,1) PRIMARY KEY, StatusCode char(20) NOT NULL)", connection);
             await createTableCmd.ExecuteNonQueryAsync();
-            
+
             // Insert char data that exceeds the target precision
             await using var insertCmd = new SqlCommand("INSERT INTO TestCode (StatusCode) VALUES ('LONG_STATUS_CODE')", connection);
             await insertCmd.ExecuteNonQueryAsync();
@@ -408,7 +408,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
-            
+
             // Verify the char column was NOT altered (still has original precision)
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -416,7 +416,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
                 WHERE TABLE_NAME = 'TestCode' AND COLUMN_NAME = 'StatusCode'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(20, "StatusCode column should retain original precision 20 since unsafe alteration was skipped");
         }
         finally
@@ -434,9 +434,9 @@ public class SqlMigrationPlanRunnerDataSafetyTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create empty table
@@ -468,7 +468,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures on empty table");
-            
+
             // Verify the column WAS altered (has new precision)
             var checkColumnQuery = @"
                 SELECT CHARACTER_MAXIMUM_LENGTH 
@@ -476,7 +476,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
                 WHERE TABLE_NAME = 'TestUser' AND COLUMN_NAME = 'Username'";
             await using var command = new SqlCommand(checkColumnQuery, connection);
             var precision = (int)await command.ExecuteScalarAsync();
-            
+
             precision.Should().Be(50, "Username column should have new precision 50 after alteration on empty table");
         }
         finally

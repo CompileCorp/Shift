@@ -51,8 +51,8 @@ public class IndexFieldResolverTests
     {
         // Arrange
         var fields = new List<string> { "Email", "ClientStatus" };
-        var table = new TableModel 
-        { 
+        var table = new TableModel
+        {
             Name = "Client",
             ForeignKeys = new List<ForeignKeyModel>()
         };

@@ -10,4 +10,3 @@ public class ForeignKeyModel
 
     public override string ToString() => $"{ColumnName} {TargetTable} {TargetColumnName}";
 }
-

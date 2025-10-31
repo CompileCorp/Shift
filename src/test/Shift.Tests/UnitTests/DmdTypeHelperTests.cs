@@ -507,7 +507,7 @@ public class DmdTypeHelperTests
             var result = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
 
             // Assert
-            result.Should().Be(expectedResult, 
+            result.Should().Be(expectedResult,
                 $"SQL field type '{sqlFieldType.Code}' with precision {precision} and scale {scale} should return '{expectedResult}'");
         }
     }

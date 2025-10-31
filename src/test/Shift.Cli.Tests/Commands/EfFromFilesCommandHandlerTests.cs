@@ -35,8 +35,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -66,8 +66,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -77,8 +77,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            expectedModel, 
-            command.OutputDirectoryPath, 
+            expectedModel,
+            command.OutputDirectoryPath,
             It.IsAny<string>()), Times.Once);
     }
 
@@ -99,8 +99,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -129,8 +129,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -139,14 +139,14 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         // Assert
         result.Should().Be(Unit.Value);
-        
+
         // Verify LoadFromPathAsync is called first
         mockShift.Verify(x => x.LoadFromPathAsync(command.DmdLocationPaths), Times.Once);
-        
+
         // Verify GenerateEfCodeAsync is called with the model returned from LoadFromPathAsync
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            expectedModel, 
-            command.OutputDirectoryPath, 
+            expectedModel,
+            command.OutputDirectoryPath,
             It.IsAny<string>()), Times.Once);
     }
 
@@ -172,8 +172,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -203,8 +203,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -238,8 +238,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -249,8 +249,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            expectedModel, 
-            command.OutputDirectoryPath, 
+            expectedModel,
+            command.OutputDirectoryPath,
             It.IsAny<string>()), Times.Once);
     }
 
@@ -272,8 +272,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -283,8 +283,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
         // Assert
         result.Should().Be(Unit.Value);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            outputPath, 
+            It.IsAny<DatabaseModel>(),
+            outputPath,
             It.IsAny<string>()), Times.Once);
     }
 
@@ -301,7 +301,7 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
         // Arrange
         var dmdPaths = new[] { "./Models/User.dmd", "./Models/Product.dmd" };
         var outputPath = "./GeneratedCode";
-        
+
         var command = new EfFromFilesCommand(
             DmdLocationPaths: dmdPaths,
             OutputDirectoryPath: outputPath);
@@ -312,8 +312,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
 
         var mockEfGenerator = GetMockFor<IEfCodeGenerator>();
         mockEfGenerator.Setup(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            It.IsAny<string>(), 
+            It.IsAny<DatabaseModel>(),
+            It.IsAny<string>(),
             It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
@@ -324,8 +324,8 @@ public class EfFromFilesCommandHandlerTests : UnitTestContext<EfFromFilesCommand
         result.Should().Be(Unit.Value);
         mockShift.Verify(x => x.LoadFromPathAsync(dmdPaths), Times.Once);
         mockEfGenerator.Verify(x => x.GenerateEfCodeAsync(
-            It.IsAny<DatabaseModel>(), 
-            outputPath, 
+            It.IsAny<DatabaseModel>(),
+            outputPath,
             It.IsAny<string>()), Times.Once);
     }
 

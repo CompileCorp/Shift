@@ -24,7 +24,7 @@ internal static class RequestHelper
     internal static IRequest<Unit> GetCommand(string[] args)
     {
         var cliCmd = GetCliCmd(args);
-        
+
         return cliCmd.Id switch
         {
             CliCmdId.Apply => GetApplyCommand(args[1..]),

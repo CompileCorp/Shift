@@ -112,7 +112,7 @@ public class ExportCommandHandlerTests : UnitTestContext<ExportCommandHandler>
 
         // Assert
         result.Should().Be(Unit.Value);
-        
+
         // Verify LoadFromSqlAsync is called first
         mockShift.Verify(x => x.LoadFromSqlAsync(command.ConnectionString, command.Schema), Times.Once);
     }
@@ -214,7 +214,7 @@ public class ExportCommandHandlerTests : UnitTestContext<ExportCommandHandler>
         var connectionString = "Server=localhost;Database=MyDatabase;Trusted_Connection=true;";
         var schema = "production";
         var outputPath = "./GeneratedModels";
-        
+
         var command = new ExportCommand(
             ConnectionString: connectionString,
             Schema: schema,

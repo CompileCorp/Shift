@@ -28,7 +28,7 @@ public class ApplyAssembliesCommandHandler : IRequestHandler<ApplyAssembliesComm
                 _logger.LogError("Assembly file does not exist: {DllPath}", fullPath);
                 throw new FileNotFoundException($"Assembly file not found: {fullPath}");
             }
-            
+
             var assembly = Assembly.LoadFrom(fullPath);
             assemblies.Add(assembly);
             _logger.LogInformation("Loaded assembly: {AssemblyName} from {DllPath}", assembly.GetName().Name, fullPath);

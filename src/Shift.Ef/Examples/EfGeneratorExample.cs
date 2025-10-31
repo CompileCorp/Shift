@@ -109,13 +109,13 @@ public class EfGeneratorExample
         {
             // Load the model first
             var model = await shift.LoadFromSqlAsync(connectionString, schema: "dbo");
-            
+
             _logger.LogInformation("Loaded {TableCount} tables from database", model.Tables.Count);
 
             // You can inspect or modify the model here if needed
             foreach (var table in model.Tables.Values)
             {
-                _logger.LogDebug("Table: {TableName} with {FieldCount} fields", 
+                _logger.LogDebug("Table: {TableName} with {FieldCount} fields",
                     table.Name, table.Fields.Count);
             }
 
@@ -145,11 +145,11 @@ public class EfGeneratorExample
     {
         var sources = new[]
         {
-            (ConnectionString: "Server=localhost;Database=Db1;Integrated Security=true;TrustServerCertificate=true;", 
-             Schema: "dbo", 
+            (ConnectionString: "Server=localhost;Database=Db1;Integrated Security=true;TrustServerCertificate=true;",
+             Schema: "dbo",
              Namespace: "App.Data.Db1"),
-            (ConnectionString: "Server=localhost;Database=Db2;Integrated Security=true;TrustServerCertificate=true;", 
-             Schema: "sales", 
+            (ConnectionString: "Server=localhost;Database=Db2;Integrated Security=true;TrustServerCertificate=true;",
+             Schema: "sales",
              Namespace: "App.Data.Db2")
         };
 
@@ -160,7 +160,7 @@ public class EfGeneratorExample
             try
             {
                 var outputPath = $"./Generated/{namespaceName.Split('.').Last()}";
-                
+
                 var options = new EfCodeGenerationOptions
                 {
                     NamespaceName = namespaceName,
@@ -176,7 +176,7 @@ public class EfGeneratorExample
                     schema: schema
                 );
 
-                _logger.LogInformation("Generated EF code for {Schema} schema in {Namespace}", 
+                _logger.LogInformation("Generated EF code for {Schema} schema in {Namespace}",
                     schema, namespaceName);
             }
             catch (Exception ex)

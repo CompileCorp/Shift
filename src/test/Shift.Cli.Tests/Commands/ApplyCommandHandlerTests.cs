@@ -65,8 +65,8 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         // Assert
         result.Should().Be(Unit.Value);
         mockShift.Verify(x => x.ApplyToSqlAsync(
-            expectedModel, 
-            command.ConnectionString, 
+            expectedModel,
+            command.ConnectionString,
             "dbo"), Times.Once);
     }
 
@@ -117,14 +117,14 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
 
         // Assert
         result.Should().Be(Unit.Value);
-        
+
         // Verify LoadFromPathAsync is called first
         mockShift.Verify(x => x.LoadFromPathAsync(command.ModelLocationPaths), Times.Once);
-        
+
         // Verify ApplyToSqlAsync is called with the model returned from LoadFromPathAsync
         mockShift.Verify(x => x.ApplyToSqlAsync(
-            expectedModel, 
-            command.ConnectionString, 
+            expectedModel,
+            command.ConnectionString,
             "dbo"), Times.Once);
     }
 
@@ -181,8 +181,8 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         // Assert
         result.Should().Be(Unit.Value);
         mockShift.Verify(x => x.ApplyToSqlAsync(
-            It.IsAny<DatabaseModel>(), 
-            command.ConnectionString, 
+            It.IsAny<DatabaseModel>(),
+            command.ConnectionString,
             "dbo"), Times.Once);
     }
 

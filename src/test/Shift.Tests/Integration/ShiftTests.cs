@@ -53,8 +53,8 @@ public class ShiftTests
     public async Task LoadFromAssembliesAsync_WithMultipleAssemblies_ShouldLoadModelsWithPriority()
     {
         // Arrange
-        var assemblies = new[] 
-        { 
+        var assemblies = new[]
+        {
             Assembly.GetExecutingAssembly(),
             typeof(Shift).Assembly // Main Shift assembly
         };
@@ -105,15 +105,15 @@ public class ShiftTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create test tables
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             await using var createUserTableCmd = new SqlCommand(@"
                 CREATE TABLE [User] (
                     UserID int IDENTITY(1,1) PRIMARY KEY,
@@ -122,7 +122,7 @@ public class ShiftTests
                     IsActive bit NOT NULL DEFAULT 1
                 )", connection);
             await createUserTableCmd.ExecuteNonQueryAsync();
-            
+
             await using var createProductTableCmd = new SqlCommand(@"
                 CREATE TABLE Product (
                     ProductID int IDENTITY(1,1) PRIMARY KEY,
@@ -141,7 +141,7 @@ public class ShiftTests
             result.Tables.Should().HaveCount(2, "Should load both User and Product tables");
             result.Tables.Keys.Should().Contain("User");
             result.Tables.Keys.Should().Contain("Product");
-            
+
             // Verify table structure
             var userTable = result.Tables["User"];
             userTable.Fields.Should().HaveCount(4, "User table should have 4 fields");
@@ -163,18 +163,18 @@ public class ShiftTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create custom schema and table
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             await using var createSchemaCmd = new SqlCommand("CREATE SCHEMA [CustomSchema]", connection);
             await createSchemaCmd.ExecuteNonQueryAsync();
-            
+
             await using var createTableCmd = new SqlCommand(@"
                 CREATE TABLE [CustomSchema].[TestTable] (
                     ID int IDENTITY(1,1) PRIMARY KEY,
@@ -211,9 +211,9 @@ public class ShiftTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create target model
@@ -238,18 +238,18 @@ public class ShiftTests
             // Assert - Verify table was created
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             var checkTableQuery = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'User'";
             await using var command = new SqlCommand(checkTableQuery, connection);
             var tableCount = (int)await command.ExecuteScalarAsync()!;
-            
+
             tableCount.Should().Be(1, "User table should be created");
-            
+
             // Verify columns exist
             var checkColumnsQuery = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'User'";
             await using var columnsCmd = new SqlCommand(checkColumnsQuery, connection);
             var columnCount = (int)await columnsCmd.ExecuteScalarAsync()!;
-            
+
             columnCount.Should().Be(3, "User table should have 3 columns");
         }
         finally
@@ -267,9 +267,9 @@ public class ShiftTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create target model
@@ -289,7 +289,7 @@ public class ShiftTests
 
             // First apply to create the table
             await shift.ApplyToSqlAsync(targetModel, connectionString);
-            
+
             // Second apply should be up-to-date
             await shift.ApplyToSqlAsync(targetModel, connectionString);
 
@@ -311,14 +311,14 @@ public class ShiftTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create target model with foreign key relationship
             var targetModel = new DatabaseModel();
-            
+
             var userTable = new TableModel
             {
                 Name = "User",
@@ -329,7 +329,7 @@ public class ShiftTests
                 }
             };
             targetModel.Tables.Add("User", userTable);
-            
+
             var orderTable = new TableModel
             {
                 Name = "Order",
@@ -359,20 +359,20 @@ public class ShiftTests
             // Assert - Verify both tables and foreign key were created
             await using var connection = new SqlConnection(connectionString);
             await connection.OpenAsync();
-            
+
             // Check tables exist
             var checkTablesQuery = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('User', 'Order')";
             await using var tablesCmd = new SqlCommand(checkTablesQuery, connection);
             var tableCount = (int)await tablesCmd.ExecuteScalarAsync()!;
             tableCount.Should().Be(2, "Both User and Order tables should exist");
-            
+
             // Check foreign key exists
             var checkFkQuery = @"
                 SELECT COUNT(*) 
                 FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
                 INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu ON rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
                 WHERE kcu.TABLE_NAME = 'Order' AND kcu.COLUMN_NAME = 'UserID'";
-            
+
             await using var fkCmd = new SqlCommand(checkFkQuery, connection);
             var fkCount = (int)await fkCmd.ExecuteScalarAsync()!;
             fkCount.Should().Be(1, "Foreign key constraint should exist");
@@ -446,9 +446,9 @@ public class ShiftTests
         // Arrange
         var databaseName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
-        
+
         try
         {
             // Create target model
@@ -473,7 +473,7 @@ public class ShiftTests
             var actualModel = await shift.LoadFromSqlAsync(connectionString);
             actualModel.Should().NotBeNull();
             actualModel.Tables.Should().NotBeEmpty();
-            
+
             // Verify that the table was created
             actualModel.Tables.Keys.Should().Contain("User");
         }

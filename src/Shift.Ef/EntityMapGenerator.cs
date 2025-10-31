@@ -94,7 +94,7 @@ public class EntityMapGenerator
         if (field.IsPrimaryKey)
         {
             sb.AppendLine($"        builder.HasKey(e => e.{field.Name});");
-            
+
             // Configure identity
             if (field.IsIdentity)
             {
@@ -110,7 +110,7 @@ public class EntityMapGenerator
         sb.AppendLine($"        builder.HasOne(e => e.{fk.TargetTable})");
         sb.AppendLine($"            .WithMany()");
         sb.AppendLine($"            .HasForeignKey(e => e.{fk.ColumnName})");
-        
+
         if (fk.IsNullable)
         {
             sb.AppendLine("            .IsRequired(false)");
@@ -119,7 +119,7 @@ public class EntityMapGenerator
         {
             sb.AppendLine("            .IsRequired()");
         }
-        
+
         sb.AppendLine($"            .HasConstraintName(\"FK_{tableName}_{fk.TargetTable}_{fk.ColumnName}\");");
         sb.AppendLine();
     }
@@ -148,16 +148,16 @@ public class EntityMapGenerator
     private string GetColumnTypeDefinition(FieldModel field)
     {
         var type = field.Type.ToLower();
-        
+
         return type switch
         {
-            "decimal" or "numeric" when field.Precision.HasValue && field.Scale.HasValue => 
+            "decimal" or "numeric" when field.Precision.HasValue && field.Scale.HasValue =>
                 $"decimal({field.Precision},{field.Scale})",
-            "decimal" or "numeric" when field.Precision.HasValue => 
+            "decimal" or "numeric" when field.Precision.HasValue =>
                 $"decimal({field.Precision})",
-            "varchar" or "nvarchar" or "char" or "nchar" when field.Precision.HasValue => 
+            "varchar" or "nvarchar" or "char" or "nchar" when field.Precision.HasValue =>
                 $"{field.Type}({field.Precision})",
-            "varchar" or "nvarchar" when !field.Precision.HasValue => 
+            "varchar" or "nvarchar" when !field.Precision.HasValue =>
                 $"{field.Type}(max)",
             _ => field.Type
         };

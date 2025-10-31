@@ -465,7 +465,7 @@ public class SqlDataType_RoundTrip_Tests
             dmdContent.Should().Contain("# date DateValue");
             dmdContent.Should().Contain("# time TimeValue");
             dmdContent.Should().Contain("# geometry GeometryValue");
-            
+
             // Verify that supported types appear correctly in DMD content
             dmdContent.Should().Contain("guid? GuidValue");
             dmdContent.Should().Contain("decimal(18,2)? NumericValue");

@@ -387,10 +387,10 @@ public class RequestHelperTests
     public void GetCommand_WithEfSqlCustomCommandMultipleOptions_ShouldParseAllOptions()
     {
         // Arrange
-        var args = new[] 
-        { 
-            "ef", "sql-custom", 
-            "Server=.;Database=Test;", 
+        var args = new[]
+        {
+            "ef", "sql-custom",
+            "Server=.;Database=Test;",
             "./Output",
             "--namespace", "MyApp.Data",
             "--context", "MyDbContext",
