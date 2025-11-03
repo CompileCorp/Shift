@@ -1,12 +1,12 @@
-﻿using Compile.Shift.Cli.Commands;
+﻿using Compile.Shift.Cli;
+using Compile.Shift.Cli.Commands;
 using Compile.Shift.Ef;
 using Compile.Shift.Vnums;
-using Compile.VnumEnumeration;
 using MediatR;
 
 namespace Compile.Shift.Commands;
 
-internal static class RequestHelper
+internal static class CommandHelper
 {
     /// <summary>
     /// Creates and returns an <see cref="IRequest{T}"/> representing the command to execute based on the provided arguments.
@@ -23,47 +23,44 @@ internal static class RequestHelper
     /// </list></returns>
     internal static IRequest<Unit> GetCommand(string[] args)
     {
-        var cliCmd = GetCliCmd(args);
+        var userInput = new UserInput(args);
 
-        return cliCmd.Id switch
+        // Handle simple commands (non-EF)
+        if (userInput.Command != CliCmd.EfGenerate)
         {
-            CliCmdId.Apply => GetApplyCommand(args[1..]),
-            CliCmdId.Export => GetExportCommand(args[1..]),
-            CliCmdId.EfGenerate => GetEfCommand(args[1..]),
-            CliCmdId.ApplyAssemblies => GetApplyAssembliesCommand(args[1..]),
-            _ => new PrintHelpCommand()
-        };
-    }
-
-    /// <summary>
-    /// Parses the first argument to determine the CLI command.
-    /// </summary>
-    private static CliCmd GetCliCmd(string[] args)
-    {
-        if (args == null || args.Length == 0)
-        {
-            return CliCmd.Help;
-        }
-
-        var firstArg = args[0];
-
-        if (!Vnum.TryFromCode<CliCmd>(firstArg, ignoreCase: true, out var parsedCmd))
-        {
-            if (Vnum.TryFromCode<CliCmdAlias>(firstArg, ignoreCase: true, out var parsedAlias))
+            return userInput.Command.Id switch
             {
-                parsedCmd = parsedAlias.CliCmdType;
-            }
+                CliCmdId.Help => new PrintHelpCommand(),
+                CliCmdId.Apply => GetApplyCommand(userInput),
+                CliCmdId.Export => GetExportCommand(userInput),
+                CliCmdId.ApplyAssemblies => GetApplyAssembliesCommand(userInput),
+                _ => new PrintHelpCommand(["Error: Unknown command"])
+            };
         }
 
-        return parsedCmd ?? CliCmd.Help;
+        if (userInput.SubCommand == null)
+        {
+            return new PrintHelpCommand(["Error: EF sub-command required"]);
+        }
+
+        // Handle EF commands
+        return userInput.SubCommand.Id switch
+        {
+            CliSubCmdId.Help => new PrintHelpCommand(),
+            CliSubCmdId.Sql => GetEfFromSqlCommand(userInput),
+            CliSubCmdId.Files => GetEfFromFilesCommand(userInput),
+            CliSubCmdId.SqlCustom => GetEfFromSqlCustomCommand(userInput),
+            _ => new PrintHelpCommand(["Error: Unknown EF sub-command"])
+        };
+
     }
 
-    private static IRequest<Unit> GetApplyCommand(string[] args)
+    private static IRequest<Unit> GetApplyCommand(UserInput userInput)
     {
+        var args = userInput.RemainingArgs;
         if (args.Length < 2)
         {
-            Console.WriteLine("Error: Command requires a connection string and at least one dmd model location path");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand(["Error: Command requires a connection string and at least one dmd model location path"]);
         }
 
         return new ApplyCommand(
@@ -71,12 +68,12 @@ internal static class RequestHelper
             ModelLocationPaths: args[1..]);
     }
 
-    private static IRequest<Unit> GetApplyAssembliesCommand(string[] args)
+    private static IRequest<Unit> GetApplyAssembliesCommand(UserInput userInput)
     {
+        var args = userInput.RemainingArgs;
         if (args.Length < 2)
         {
-            Console.WriteLine($"Error: Command requires a connection string and at least one DLL path");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand([$"Error: Command requires a connection string and at least one DLL path"]);
         }
 
         var connectionString = args[0];
@@ -106,8 +103,7 @@ internal static class RequestHelper
         // Validation: must have at least one DLL
         if (dllPaths.Count == 0)
         {
-            Console.WriteLine($"Error: Command requires at least one DLL path (file ending with .dll)");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand([$"Error: Command requires at least one DLL path (file ending with .dll)"]);
         }
 
         return new ApplyAssembliesCommand(
@@ -116,12 +112,12 @@ internal static class RequestHelper
             Namespaces: allNamespaces.Count > 0 ? allNamespaces.ToArray() : null);
     }
 
-    private static IRequest<Unit> GetExportCommand(string[] args)
+    private static IRequest<Unit> GetExportCommand(UserInput userInput)
     {
+        var args = userInput.RemainingArgs;
         if (args.Length < 3)
         {
-            Console.WriteLine($"Error: Command requires a connection string, schema and output directory path");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand([$"Error: Command requires a connection string, schema and output directory path"]);
         }
 
         return new ExportCommand(
@@ -130,35 +126,12 @@ internal static class RequestHelper
             OutputDirectoryPath: args[2]);
     }
 
-    private static IRequest<Unit> GetEfCommand(string[] args)
+    private static IRequest<Unit> GetEfFromSqlCommand(UserInput userInput)
     {
-        if (args.Length == 0)
-        {
-            Console.WriteLine("Error: EF subcommand required");
-            return new PrintHelpCommand();
-        }
-
-        var subCommand = CliEfSubCmd.Help;
-        if (Vnum.TryFromCode<CliEfSubCmd>(args[0], ignoreCase: true, out var parsedSubCmd))
-        {
-            subCommand = parsedSubCmd ?? CliEfSubCmd.Help;
-        }
-
-        return subCommand.Id switch
-        {
-            CliEfSubCmdId.Sql => GetEfFromSqlCommand(args[1..]),
-            CliEfSubCmdId.Files => GetEfFromFilesCommand(args[1..]),
-            CliEfSubCmdId.SqlCustom => GetEfFromSqlCustomCommand(args[1..]),
-            _ => new PrintHelpCommand()
-        };
-    }
-
-    private static IRequest<Unit> GetEfFromSqlCommand(string[] args)
-    {
+        var args = userInput.RemainingArgs;
         if (args.Length < 2)
         {
-            Console.WriteLine("Error: ef sql requires <connection-string> <output-path>");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand(["Error: ef sql requires <connection-string> <output-path>"]);
         }
 
         var connectionString = args[0];
@@ -176,13 +149,16 @@ internal static class RequestHelper
             OutputDirectoryPath: outputPath);
     }
 
-    private static IRequest<Unit> GetEfFromFilesCommand(string[] args)
+    private static IRequest<Unit> GetEfFromFilesCommand(UserInput userInput)
     {
+        var args = userInput.RemainingArgs;
         if (args.Length < 2)
         {
-            Console.WriteLine("Error: ef files requires <path1> [path2] [...] <output-path>");
-            Console.WriteLine("       Last argument is the output path, all others are input model files");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand(
+            [
+                "Error: ef files requires <path1> [path2] [...] <output-path>",
+                "       Last argument is the output path, all others are input model files"
+            ]);
         }
 
         var outputPath = args[^1]; // Last argument is output path
@@ -197,12 +173,12 @@ internal static class RequestHelper
             OutputDirectoryPath: outputPath);
     }
 
-    private static IRequest<Unit> GetEfFromSqlCustomCommand(string[] args)
+    private static IRequest<Unit> GetEfFromSqlCustomCommand(UserInput userInput)
     {
+        var args = userInput.RemainingArgs;
         if (args.Length < 2)
         {
-            Console.WriteLine("Error: ef sql-custom requires <connection-string> <output-path> [options]");
-            return new PrintHelpCommand();
+            return new PrintHelpCommand(["Error: ef sql-custom requires <connection-string> <output-path> [options]"]);
         }
 
         var connectionString = args[0];

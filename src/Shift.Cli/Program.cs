@@ -22,7 +22,7 @@ internal class Program
             return;
         }
 
-        var command = RequestHelper.GetCommand(args);
+        var command = CommandHelper.GetCommand(args);
 
         await ExecuteCommandAsync(mediator, command);
     }
