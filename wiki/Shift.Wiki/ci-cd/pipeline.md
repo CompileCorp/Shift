@@ -126,6 +126,34 @@ Publish to NuGet.org
 - ✅ Secure API key management
 - ✅ NuGet.org publishing for pre-release packages
 
+## Version Management Strategy
+
+> **Important**: The version in `src/Shift/Shift.csproj` must be manually updated to be ahead of the latest tag version.
+
+Our pipeline uses two different version sources:
+
+1. **Pre-release versions** (from `csproj` file):
+   - When code is merged to `main`, pre-release packages are published using the version from `Shift.csproj`
+   - Format: `{csproj_version}-rc-{PR_NUMBER}.{REVISION}` (e.g., `0.0.12-rc-42.5`)
+   - Example: If `csproj` has `<Version>0.0.12</Version>`, merging PR #42 creates package version `0.0.12-rc-42.5`
+
+2. **Production/stable versions** (from git tags):
+   - When a version tag (e.g., `v1.0.0`) is created, production packages are published using the tag version
+   - Format: `{tag_version}` (e.g., `1.0.0` from tag `v1.0.0`)
+
+**Version Update Workflow**:
+- After creating a production release tag (e.g., `v1.0.0`), update the `<Version>` in `Shift.csproj` to the next planned version (e.g., `1.0.1` or `1.1.0`)
+- This ensures future pre-release packages will use the incremented version number
+- Pre-release versions will always be based on the csproj version, regardless of existing tags
+
+**Example Scenario**:
+1. Latest tag: `v1.0.0` (production release)
+2. Update `Shift.csproj` to `<Version>1.0.1</Version>` 
+3. Merge PR #50 → publishes `1.0.1-rc-50.1` (pre-release)
+4. Merge PR #51 → publishes `1.0.1-rc-51.2` (pre-release)
+5. Create tag `v1.0.1` → publishes `1.0.1` (production)
+6. Update `Shift.csproj` to `<Version>1.1.0</Version>` for next cycle
+
 ## Industry Best Practices Comparison
 
 ### ✅ What We're Doing Well
