@@ -113,13 +113,15 @@ Apply embedded DMD resources from .NET assemblies to a database.
 
 #### Syntax
 ```bash
-shift apply-assemblies <connection_string> <dll1> [dll2] ...
+shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ...
 ```
 
 #### Parameters
 - **`connection_string`** - SQL Server connection string
-- **`dll1`** - Path to assembly containing embedded DMD resources
-- **`dll2`** - Additional assemblies (optional)
+- **`dll1`, `dll2`, ...** - Paths to assemblies containing embedded DMD resources (files ending with `.dll`)
+- **`filter1`, `filter2`, ...** - Optional namespace filters to limit which resources are loaded (any argument not ending with `.dll`)
+
+**Note:** DLLs and filters can be specified in any order. Arguments ending with `.dll` are treated as assembly paths, all other arguments are treated as namespace filters. All filters apply to all assemblies.
 
 #### Examples
 
@@ -133,11 +135,42 @@ shift apply-assemblies "Server=.;Database=MyDb;" ./MyApp.Models.dll
 shift apply-assemblies "Server=.;Database=MyDb;" ./Core.Models.dll ./Auth.Models.dll
 ```
 
+**With namespace filtering:**
+```bash
+# Load only models from specific namespaces
+shift apply-assemblies "Server=.;Database=MyDb;" ./MyApp.Models.dll MyApp.Models MyApp.Mixins
+```
+
+**Multiple assemblies with filters:**
+```bash
+# All filters apply to all assemblies
+shift apply-assemblies "Server=.;Database=MyDb;" ./Core.Models.dll ./Auth.Models.dll Core.Models Domain.Models
+```
+
+**Mixed order (DLLs and filters can be interleaved):**
+```bash
+shift apply-assemblies "Server=.;Database=MyDb;" ./Lib1.dll Namespace1 ./Lib2.dll Namespace2 Namespace3
+```
+
+#### Namespace Filtering
+
+Namespace filters allow you to load only specific subsets of models from assemblies. A resource matches a filter if its manifest resource name:
+- Starts with the namespace followed by a dot (e.g., `MyNamespace.File.dmd` matches `MyNamespace`)
+- Or exactly equals the namespace (e.g., `MyNamespace.dmd` matches `MyNamespace`)
+
+**Example:**
+```bash
+# Assembly contains: MyApp.Models.User.dmd, MyApp.Legacy.OldModel.dmd, MyApp.Mixins.Auditable.dmdx
+# Filter loads only: MyApp.Models.User.dmd and MyApp.Mixins.Auditable.dmdx
+shift apply-assemblies "Server=.;Database=MyDb;" ./MyApp.dll MyApp.Models MyApp.Mixins
+```
+
 #### Use Cases
 - **Distributed deployments** - Deploy models with application assemblies
 - **Embedded resources** - Include DMD files as assembly resources
 - **Version control** - Model versions tied to application versions
 - **Microservices** - Each service includes its own models
+- **Selective loading** - Load only specific namespaces from large assemblies
 
 ### Export Command
 
@@ -376,8 +409,11 @@ Deploy models as embedded resources in assemblies.
 dotnet build MyApp.Models
 
 # 2. Deploy DLL to target environment
-# 3. Apply from assembly
+# 3. Apply from assembly (loads all resources)
 shift apply-assemblies "Server=.;Database=MyDb;" ./MyApp.Models.dll
+
+# 4. Or apply with namespace filtering (loads only specific namespaces)
+shift apply-assemblies "Server=.;Database=MyDb;" ./MyApp.Models.dll MyApp.Models MyApp.Mixins
 ```
 
 ### Multi-Environment Workflow
@@ -450,6 +486,10 @@ shift apply-assemblies "Server=.;Database=OrderService;" ./OrderService.Models.d
 
 # Product Service
 shift apply-assemblies "Server=.;Database=ProductService;" ./ProductService.Models.dll
+
+# Shared library with selective loading (multiple services share same DLL)
+shift apply-assemblies "Server=.;Database=UserService;" ./Shared.Models.dll UserService.Models
+shift apply-assemblies "Server=.;Database=OrderService;" ./Shared.Models.dll OrderService.Models
 ```
 
 ## Logging and Output

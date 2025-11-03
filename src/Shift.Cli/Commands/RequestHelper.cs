@@ -79,9 +79,41 @@ internal static class RequestHelper
             return new PrintHelpCommand();
         }
 
+        var connectionString = args[0];
+        var remainingArgs = args[1..];
+        var dllPaths = new List<string>();
+        var allNamespaces = new HashSet<string>(StringComparer.Ordinal);
+
+        // Parse arguments: anything ending with .dll is a DLL, anything else is a filter
+        foreach (var arg in remainingArgs)
+        {
+            if (string.IsNullOrWhiteSpace(arg))
+            {
+                continue; // Skip empty arguments
+            }
+
+            // Case-insensitive check for .dll extension
+            if (arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            {
+                dllPaths.Add(arg);
+            }
+            else
+            {
+                allNamespaces.Add(arg);
+            }
+        }
+
+        // Validation: must have at least one DLL
+        if (dllPaths.Count == 0)
+        {
+            Console.WriteLine($"Error: Command requires at least one DLL path (file ending with .dll)");
+            return new PrintHelpCommand();
+        }
+
         return new ApplyAssembliesCommand(
-            ConnectionString: args[0],
-            DllPaths: args[1..]);
+            ConnectionString: connectionString,
+            DllPaths: dllPaths.ToArray(),
+            Namespaces: allNamespaces.Count > 0 ? allNamespaces.ToArray() : null);
     }
 
     private static IRequest<Unit> GetExportCommand(string[] args)

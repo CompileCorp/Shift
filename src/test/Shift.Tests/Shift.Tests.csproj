@@ -36,6 +36,8 @@
     <ItemGroup>
         <EmbeddedResource Include="TestResources\*.dmd" />
         <EmbeddedResource Include="TestResources\*.dmdx" />
+        <EmbeddedResource Include="OtherNamespace\*.dmd" />
+        <EmbeddedResource Include="OtherNamespace\*.dmdx" />
     </ItemGroup>
 
 </Project>

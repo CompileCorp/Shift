@@ -220,7 +220,10 @@ public class ShiftTests
             var shift = new Shift { Logger = _logger };
             
             // 1. Load from assembly
-            var targetModel = await shift.LoadFromAssemblyAsync(assembly);
+            var targetModel = await shift.LoadFromAssembly(assembly);
+            
+            // Or with namespace filtering
+            // var targetModel = await shift.LoadFromAssembly(assembly, new[] { "Test.Models" });
             
             // 2. Apply to database
             await shift.ApplyToSqlAsync(targetModel, connectionString);

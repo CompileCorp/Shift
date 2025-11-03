@@ -107,6 +107,120 @@ public class RequestHelperTests
         var applyAssembliesCommand = (ApplyAssembliesCommand)result;
         applyAssembliesCommand.ConnectionString.Should().Be("Server=.;Database=Test;");
         applyAssembliesCommand.DllPaths.Should().Equal("./TestLibrary.dll", "./AnotherLibrary.dll");
+        applyAssembliesCommand.Namespaces.Should().BeNull();
+    }
+
+    /// <summary>
+    /// Tests that StringCommandParser parses namespace filters from separate arguments.
+    /// </summary>
+    [Fact]
+    public void GetCommand_WithApplyAssembliesCommandWithNamespaceFilters_ShouldParseNamespaceFilters()
+    {
+        // Arrange
+        var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "./AnotherLibrary.dll", "Namespace1", "Namespace2", "Namespace3" };
+
+        // Act
+        var result = RequestHelper.GetCommand(args);
+
+        // Assert
+        result.Should().BeOfType<ApplyAssembliesCommand>();
+        var applyAssembliesCommand = (ApplyAssembliesCommand)result;
+        applyAssembliesCommand.ConnectionString.Should().Be("Server=.;Database=Test;");
+        applyAssembliesCommand.DllPaths.Should().Equal("./TestLibrary.dll", "./AnotherLibrary.dll");
+        applyAssembliesCommand.Namespaces.Should().NotBeNull();
+        applyAssembliesCommand.Namespaces.Should().HaveCount(3);
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace1");
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace2");
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace3");
+    }
+
+    /// <summary>
+    /// Tests that StringCommandParser handles DLL arguments with mixed order (DLL, filter, DLL).
+    /// </summary>
+    [Fact]
+    public void GetCommand_WithApplyAssembliesCommandMixedFilters_ShouldParseCorrectly()
+    {
+        // Arrange
+        var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "Namespace1", "./AnotherLibrary.dll" };
+
+        // Act
+        var result = RequestHelper.GetCommand(args);
+
+        // Assert
+        result.Should().BeOfType<ApplyAssembliesCommand>();
+        var applyAssembliesCommand = (ApplyAssembliesCommand)result;
+        applyAssembliesCommand.ConnectionString.Should().Be("Server=.;Database=Test;");
+        applyAssembliesCommand.DllPaths.Should().Equal("./TestLibrary.dll", "./AnotherLibrary.dll");
+        applyAssembliesCommand.Namespaces.Should().NotBeNull();
+        applyAssembliesCommand.Namespaces.Should().Equal("Namespace1");
+    }
+
+    /// <summary>
+    /// Tests that StringCommandParser handles duplicate namespace filters correctly.
+    /// </summary>
+    [Fact]
+    public void GetCommand_WithApplyAssembliesCommandDuplicateFilters_ShouldDeduplicateNamespaces()
+    {
+        // Arrange
+        var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "./AnotherLibrary.dll", "Namespace1", "Namespace2", "Namespace1" };
+
+        // Act
+        var result = RequestHelper.GetCommand(args);
+
+        // Assert
+        result.Should().BeOfType<ApplyAssembliesCommand>();
+        var applyAssembliesCommand = (ApplyAssembliesCommand)result;
+        applyAssembliesCommand.Namespaces.Should().NotBeNull();
+        applyAssembliesCommand.Namespaces.Should().HaveCount(2);
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace1");
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace2");
+    }
+
+    /// <summary>
+    /// Tests that StringCommandParser handles filters before DLLs.
+    /// </summary>
+    [Fact]
+    public void GetCommand_WithApplyAssembliesCommandFiltersBeforeDlls_ShouldParseCorrectly()
+    {
+        // Arrange
+        var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "Namespace1", "Namespace2", "./TestLibrary.dll", "./AnotherLibrary.dll" };
+
+        // Act
+        var result = RequestHelper.GetCommand(args);
+
+        // Assert
+        result.Should().BeOfType<ApplyAssembliesCommand>();
+        var applyAssembliesCommand = (ApplyAssembliesCommand)result;
+        applyAssembliesCommand.ConnectionString.Should().Be("Server=.;Database=Test;");
+        applyAssembliesCommand.DllPaths.Should().Equal("./TestLibrary.dll", "./AnotherLibrary.dll");
+        applyAssembliesCommand.Namespaces.Should().NotBeNull();
+        applyAssembliesCommand.Namespaces.Should().HaveCount(2);
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace1");
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace2");
+    }
+
+    /// <summary>
+    /// Tests that StringCommandParser handles completely mixed order (DLL, filter, DLL, filter, filter).
+    /// </summary>
+    [Fact]
+    public void GetCommand_WithApplyAssembliesCommandCompletelyMixed_ShouldParseCorrectly()
+    {
+        // Arrange
+        var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "Namespace1", "./AnotherLibrary.dll", "Namespace2", "Namespace3" };
+
+        // Act
+        var result = RequestHelper.GetCommand(args);
+
+        // Assert
+        result.Should().BeOfType<ApplyAssembliesCommand>();
+        var applyAssembliesCommand = (ApplyAssembliesCommand)result;
+        applyAssembliesCommand.ConnectionString.Should().Be("Server=.;Database=Test;");
+        applyAssembliesCommand.DllPaths.Should().Equal("./TestLibrary.dll", "./AnotherLibrary.dll");
+        applyAssembliesCommand.Namespaces.Should().NotBeNull();
+        applyAssembliesCommand.Namespaces.Should().HaveCount(3);
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace1");
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace2");
+        applyAssembliesCommand.Namespaces.Should().Contain("Namespace3");
     }
 
     /// <summary>
@@ -117,6 +231,22 @@ public class RequestHelperTests
     {
         // Arrange
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;" }; // Missing DLL paths
+
+        // Act
+        var result = RequestHelper.GetCommand(args);
+
+        // Assert
+        result.Should().BeOfType<PrintHelpCommand>();
+    }
+
+    /// <summary>
+    /// Tests that StringCommandParser returns PrintHelpCommand when only filters are provided without DLLs.
+    /// </summary>
+    [Fact]
+    public void GetCommand_WithApplyAssembliesCommandOnlyFilters_ShouldReturnPrintHelpCommand()
+    {
+        // Arrange
+        var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "Namespace1", "Namespace2" }; // Only filters, no DLLs
 
         // Act
         var result = RequestHelper.GetCommand(args);

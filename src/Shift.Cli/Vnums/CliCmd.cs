@@ -69,5 +69,5 @@ public class CliCmd : Vnum<CliCmdId>
         new(id: CliCmdId.ApplyAssemblies,
             code: "apply-assemblies",
             description: "Apply DMD/DMDX files from assembly resources to database",
-            usageFormat: "apply-assemblies <connection_string> <dll1> [dll2] ...");
+            usageFormat: "apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ...");
 }

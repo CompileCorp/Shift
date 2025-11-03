@@ -1,0 +1,7 @@
+model Product int {
+  string(100) Name
+  string(500)? Description
+  decimal(18,2) Price
+  int StockQuantity
+}
+

@@ -12,6 +12,7 @@ Shift supports loading DMD (Domain Model Definition) and DMDX (Domain Model Defi
 - **Embedded Resources**: Access DMD/DMDX files embedded as assembly resources
 - **Priority-based Loading**: First assembly wins when duplicate mixins/tables are found
 - **Proper Mixin Application**: Mixins are loaded first and available when parsing tables
+- **Namespace Filtering**: Optionally filter resources by namespace to load only specific subsets of models
 
 ### CLI Integration
 
@@ -27,118 +28,86 @@ Shift supports loading DMD (Domain Model Definition) and DMDX (Domain Model Defi
 #### LoadFromAssembly
 
 ```csharp
-public async Task<DatabaseModel> LoadFromAssembly(Assembly assembly)
-{
-    var resourceNames = assembly.GetManifestResourceNames()
-        .Where(name => name.EndsWith(".dmd") || name.EndsWith(".dmdx"))
-        .ToList();
+public async Task<DatabaseModel> LoadFromAssembly(
+    Assembly assembly, 
+    IEnumerable<string>? namespaces = null)
+```
 
-    var mixins = new Dictionary<string, MixinModel>();
-    var tables = new Dictionary<string, TableModel>();
+Loads models from a single assembly. The optional `namespaces` parameter filters which resources are loaded based on their namespace.
 
-    // Load mixins first
-    foreach (var resourceName in resourceNames.Where(name => name.EndsWith(".dmdx")))
-    {
-        using var stream = assembly.GetManifestResourceStream(resourceName);
-        using var reader = new StreamReader(stream);
-        var content = await reader.ReadToEndAsync();
-        
-        var mixin = _parser.ParseMixin(content);
-        mixins[mixin.Name] = mixin;
-    }
+**Parameters:**
+- `assembly`: The assembly to load models from
+- `namespaces`: Optional list of namespaces to filter resources. If provided, only resources whose manifest resource name starts with one of the specified namespaces (followed by a dot) or matches exactly will be loaded. If `null` or empty, all matching resources are loaded.
 
-    // Load tables with mixin application
-    foreach (var resourceName in resourceNames.Where(name => name.EndsWith(".dmd")))
-    {
-        using var stream = assembly.GetManifestResourceStream(resourceName);
-        using var reader = new StreamReader(stream);
-        var content = await reader.ReadToEndAsync();
-        
-        var table = _parser.ParseTable(content, mixins);
-        tables[table.Name] = table;
-    }
+**Example:**
+```csharp
+// Load all models from assembly
+var model = await shift.LoadFromAssembly(assembly);
 
-    return new DatabaseModel { Mixins = mixins, Tables = tables };
-}
+// Load only models from specific namespaces
+var model = await shift.LoadFromAssembly(
+    assembly, 
+    new[] { "MyNamespace.Models", "MyNamespace.Mixins" });
 ```
 
 #### LoadFromAssembliesAsync
 
 ```csharp
-public async Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies)
-{
-    var combinedModel = new DatabaseModel();
-    
-    foreach (var assembly in assemblies)
-    {
-        var assemblyModel = await LoadFromAssembly(assembly);
-        
-        // Merge with priority: first assembly wins
-        foreach (var mixin in assemblyModel.Mixins)
-        {
-            if (!combinedModel.Mixins.ContainsKey(mixin.Key))
-            {
-                combinedModel.Mixins[mixin.Key] = mixin.Value;
-            }
-        }
-        
-        foreach (var table in assemblyModel.Tables)
-        {
-            if (!combinedModel.Tables.ContainsKey(table.Key))
-            {
-                combinedModel.Tables[table.Key] = table.Value;
-            }
-        }
-    }
-    
-    return combinedModel;
-}
+public async Task<DatabaseModel> LoadFromAssembliesAsync(
+    IEnumerable<Assembly> assemblies, 
+    IEnumerable<string>? namespaces = null)
+```
+
+Loads models from multiple assemblies with priority-based merging. The optional `namespaces` parameter filters resources across all assemblies.
+
+**Parameters:**
+- `assemblies`: The assemblies to load models from, processed in order
+- `namespaces`: Optional list of namespaces to filter resources (same behavior as `LoadFromAssembly`)
+
+**Example:**
+```csharp
+// Load all models from multiple assemblies
+var model = await shift.LoadFromAssembliesAsync(assemblies);
+
+// Load only models from specific namespaces across all assemblies
+var model = await shift.LoadFromAssembliesAsync(
+    assemblies,
+    new[] { "Core.Models", "Domain.Models" });
 ```
 
 ### CLI Command Implementation
 
 #### apply-assemblies Command
 
-```csharp
-private static async Task CommandApplyAssembliesAsync(string[] args, ILoggerFactory loggerFactory)
-{
-    if (args.Length < 2)
-    {
-        Console.WriteLine("Usage: shift apply-assemblies <connection_string> <dll1> [dll2] ...");
-        return;
-    }
+The CLI command supports loading from multiple assemblies with optional namespace filtering.
 
-    var connectionString = args[0];
-    var dllPaths = args[1..];
-    
-    var logger = loggerFactory.CreateLogger("ApplyAssemblies");
-    var shift = new Shift { Logger = logger };
-    
-    try
-    {
-        // Load assemblies
-        var assemblies = new List<Assembly>();
-        foreach (var dllPath in dllPaths)
-        {
-            var assembly = Assembly.LoadFrom(dllPath);
-            assemblies.Add(assembly);
-        }
-        
-        // Load models from assemblies
-        var model = await shift.LoadFromAssembliesAsync(assemblies);
-        
-        // Apply to database
-        var runner = new SqlMigrationPlanRunner(connectionString, model);
-        await runner.RunAsync();
-        
-        logger.LogInformation("Successfully applied models from {AssemblyCount} assemblies", assemblies.Count);
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to apply models from assemblies");
-        throw;
-    }
-}
+**Syntax:**
+```bash
+shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ...
+```
+
+**Parsing Logic:**
+- Arguments ending with `.dll` (case-insensitive) are treated as assembly paths
+- All other arguments are treated as namespace filters
+- DLLs and filters can be specified in any order
+- All filters apply to all assemblies
+- At least one DLL must be provided
+
+**Example Implementation Flow:**
+1. Parse connection string and remaining arguments
+2. Separate arguments into DLLs (ending with `.dll`) and filters (everything else)
+3. Load assemblies from DLL paths
+4. Load models with namespace filtering if filters are provided
+5. Apply migration plan to database
+
+```csharp
+// Simplified parsing logic
+var dllPaths = args.Where(arg => arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+var namespaces = args.Where(arg => !arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+
+var assemblies = dllPaths.Select(Assembly.LoadFrom).ToList();
+var model = await shift.LoadFromAssembliesAsync(assemblies, namespaces.Count > 0 ? namespaces : null);
+await shift.ApplyToSqlAsync(model, connectionString);
 ```
 
 ## Resource Embedding
@@ -189,6 +158,27 @@ var shift = new Shift { Logger = logger };
 var model = await shift.LoadFromAssembly(assembly);
 ```
 
+### Namespace Filtering
+
+Filter which models are loaded based on their namespace. This is useful when an assembly contains models from multiple namespaces and you only want to load a subset.
+
+```csharp
+var assembly = Assembly.GetExecutingAssembly();
+var shift = new Shift { Logger = logger };
+
+// Load only models from specific namespaces
+// Resources like "MyApp.Models.User.dmd" and "MyApp.Mixins.Auditable.dmdx" will be included
+// Resources like "MyApp.Legacy.OldModel.dmd" will be excluded
+var model = await shift.LoadFromAssembly(
+    assembly,
+    new[] { "MyApp.Models", "MyApp.Mixins" });
+```
+
+**Namespace Matching Rules:**
+- A resource matches if its manifest resource name starts with the namespace followed by a dot (e.g., `MyNamespace.File.dmd`)
+- A resource also matches if it exactly equals the namespace (e.g., `MyNamespace.dmd`)
+- Matching is case-sensitive and uses ordinal comparison
+
 ### Multiple Assembly Loading
 
 ```csharp
@@ -200,7 +190,14 @@ var assemblies = new[]
 };
 
 var shift = new Shift { Logger = logger };
+
+// Load all models
 var model = await shift.LoadFromAssembliesAsync(assemblies);
+
+// Or filter by namespace across all assemblies
+var filteredModel = await shift.LoadFromAssembliesAsync(
+    assemblies,
+    new[] { "Core.Models", "Domain.Entities" });
 ```
 
 ### CLI Usage
@@ -211,6 +208,15 @@ shift apply-assemblies "Server=localhost;Database=MyDb;" ./MyModels.dll
 
 # Load from multiple assemblies
 shift apply-assemblies "Server=localhost;Database=MyDb;" ./CoreModels.dll ./DomainModels.dll ./Extensions.dll
+
+# Load with namespace filtering
+shift apply-assemblies "Server=localhost;Database=MyDb;" ./MyModels.dll MyApp.Models MyApp.Mixins
+
+# Multiple assemblies with filters (all filters apply to all assemblies)
+shift apply-assemblies "Server=localhost;Database=MyDb;" ./CoreModels.dll ./DomainModels.dll Core.Models Domain.Models
+
+# Mixed order - DLLs and filters can be interleaved
+shift apply-assemblies "Server=localhost;Database=MyDb;" ./Lib1.dll Namespace1 ./Lib2.dll Namespace2
 ```
 
 ## Priority and Conflict Resolution
@@ -327,8 +333,9 @@ public async Task LoadFromAssembliesAsync_ShouldRespectOrderAndPriority()
 
 1. **Selective Loading**: Only load necessary assemblies
 2. **Resource Filtering**: Filter resources by extension before processing
-3. **Async Operations**: Use async/await for I/O operations
-4. **Error Boundaries**: Handle errors gracefully without stopping entire process
+3. **Namespace Filtering**: Use namespace filtering to load only the models you need, reducing memory usage and processing time
+4. **Async Operations**: Use async/await for I/O operations
+5. **Error Boundaries**: Handle errors gracefully without stopping entire process
 
 ## Future Enhancements
 

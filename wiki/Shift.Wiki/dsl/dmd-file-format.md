@@ -791,7 +791,12 @@ model Product {
 var model = await shift.LoadFromPathAsync("Models/");
 
 // Load from assemblies
-var model = await shift.LoadFromAssemblyAsync(typeof(User).Assembly);
+var model = await shift.LoadFromAssembly(typeof(User).Assembly);
+
+// Load from assemblies with namespace filtering
+var model = await shift.LoadFromAssembly(
+    typeof(User).Assembly,
+    new[] { "MyNamespace.Models", "MyNamespace.Mixins" });
 
 // Load from SQL Server
 var model = await shift.LoadFromSqlAsync(connectionString);

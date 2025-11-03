@@ -6,8 +6,8 @@ namespace Compile.Shift;
 
 public interface IShift
 {
-    Task<DatabaseModel> LoadFromAssembly(Assembly assembly);
-    Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies);
+    Task<DatabaseModel> LoadFromAssembly(Assembly assembly, IEnumerable<string>? namespaces = null);
+    Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies, IEnumerable<string>? namespaces = null);
     Task<DatabaseModel> LoadFromPathAsync(IEnumerable<string> paths);
     Task<DatabaseModel> LoadFromSqlAsync(string connectionString, string schema = "dbo");
     Task ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo");
@@ -23,19 +23,29 @@ public class Shift : IShift
 
     public required ILogger Logger { private get; init; }
 
-    public async Task<DatabaseModel> LoadFromAssembly(Assembly assembly)
+    public async Task<DatabaseModel> LoadFromAssembly(Assembly assembly, IEnumerable<string>? namespaces = null)
     {
-        return await LoadFromAssembliesAsync(new[] { assembly });
+        return await LoadFromAssembliesAsync(new[] { assembly }, namespaces);
     }
 
-    public async Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies)
+    public async Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies, IEnumerable<string>? namespaces = null)
     {
         var model = new DatabaseModel();
 
         // Process assemblies in order to respect priority
         foreach (var assembly in assemblies)
         {
-            var resourceNames = assembly.GetManifestResourceNames();
+            IEnumerable<string> resourceNames = assembly.GetManifestResourceNames();
+
+            // Filter by namespace if provided
+            if (namespaces != null)
+            {
+                var namespaceList = namespaces.ToList();
+                if (namespaceList.Count > 0)
+                {
+                    resourceNames = resourceNames.Where(name => IsResourceInNamespace(name, namespaceList)).ToList();
+                }
+            }
 
             // Load mixin files first (.dmdx)
             var mixinResources = resourceNames
@@ -204,6 +214,21 @@ public class Shift : IShift
     public void SaveToPathAsync()
     {
         throw new NotImplementedException();
+    }
+
+    private static bool IsResourceInNamespace(string resourceName, IEnumerable<string> namespaces)
+    {
+        foreach (var ns in namespaces)
+        {
+            // Check if resource name starts with namespace followed by a dot (namespace.file.dmd)
+            // or matches exactly (namespace.dmd)
+            if (resourceName.StartsWith(ns + ".", StringComparison.Ordinal) ||
+                resourceName.Equals(ns, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void NormalizeForeignKeyTypes(DatabaseModel model)
