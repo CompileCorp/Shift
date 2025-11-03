@@ -5,7 +5,7 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Compile.Shift</RootNamespace>
+        <RootNamespace>Compile.Shift.Cli</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -14,7 +14,6 @@
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.6" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.6" />
         <PackageReference Include="MediatR" Version="12.5.0" />
-        <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
     </ItemGroup>
 
     <ItemGroup>

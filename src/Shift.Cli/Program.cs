@@ -33,7 +33,7 @@ internal class Program
             .ConfigureServices((context, services) =>
             {
                 // Register MediatR
-                services.AddMediatR(typeof(Program).Assembly);
+                services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
                 // Register Shift services
                 services.AddScoped<IShift, Shift>(sp =>
