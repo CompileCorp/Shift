@@ -2,7 +2,7 @@ using Compile.Shift.Helpers;
 using Compile.Shift.Model;
 using FluentAssertions;
 
-namespace Compile.Shift.Tests.UnitTests;
+namespace Compile.Shift.UnitTests;
 
 /// <summary>
 /// Unit tests for IndexFieldResolver utility class.

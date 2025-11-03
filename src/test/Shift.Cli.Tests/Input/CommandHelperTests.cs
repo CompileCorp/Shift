@@ -2,18 +2,18 @@ using Compile.Shift.Cli.Commands;
 using Compile.Shift.Commands;
 using FluentAssertions;
 
-namespace Compile.Shift.Cli.Tests.UserInput;
+namespace Compile.Shift.Cli.Tests.Input;
 
 /// <summary>
-/// Unit tests for StringCommandParser.
+/// Unit tests for CommandHelper.
 /// Tests the command-line argument parsing logic for all supported commands.
 /// </summary>
-public class RequestHelperTests
+public class CommandHelperTests
 {
     #region Empty Args Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when no arguments are provided.
+    /// Tests that CommandHelper returns PrintHelpCommand when no arguments are provided.
     /// </summary>
     [Fact]
     public void GetCommand_WithEmptyArgs_ShouldReturnPrintHelpCommand()
@@ -22,7 +22,7 @@ public class RequestHelperTests
         var args = Array.Empty<string>();
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -33,7 +33,7 @@ public class RequestHelperTests
     #region Apply Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns ApplyCommand with correct parameters.
+    /// Tests that CommandHelper returns ApplyCommand with correct parameters.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyCommand_ShouldReturnApplyCommandWithCorrectParameters()
@@ -42,7 +42,7 @@ public class RequestHelperTests
         var args = new[] { "apply", "Server=.;Database=Test;", "./Models", "./Models2" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyCommand>();
@@ -52,7 +52,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns ApplyCommand with single model path.
+    /// Tests that CommandHelper returns ApplyCommand with single model path.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyCommandSinglePath_ShouldReturnApplyCommandWithSinglePath()
@@ -61,7 +61,7 @@ public class RequestHelperTests
         var args = new[] { "apply", "Server=.;Database=Test;", "./Models" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyCommand>();
@@ -71,7 +71,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when apply command has insufficient arguments.
+    /// Tests that CommandHelper returns PrintHelpCommand when apply command has insufficient arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithInsufficientApplyArgs_ShouldReturnPrintHelpCommand()
@@ -80,7 +80,7 @@ public class RequestHelperTests
         var args = new[] { "apply", "Server=.;Database=Test;" }; // Missing paths
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -91,7 +91,7 @@ public class RequestHelperTests
     #region ApplyAssemblies Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns ApplyAssembliesCommand with correct parameters.
+    /// Tests that CommandHelper returns ApplyAssembliesCommand with correct parameters.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommand_ShouldReturnApplyAssembliesCommandWithCorrectParameters()
@@ -100,7 +100,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "./AnotherLibrary.dll" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyAssembliesCommand>();
@@ -111,7 +111,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser parses namespace filters from separate arguments.
+    /// Tests that CommandHelper parses namespace filters from separate arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommandWithNamespaceFilters_ShouldParseNamespaceFilters()
@@ -120,7 +120,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "./AnotherLibrary.dll", "Namespace1", "Namespace2", "Namespace3" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyAssembliesCommand>();
@@ -135,7 +135,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser handles DLL arguments with mixed order (DLL, filter, DLL).
+    /// Tests that CommandHelper handles DLL arguments with mixed order (DLL, filter, DLL).
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommandMixedFilters_ShouldParseCorrectly()
@@ -144,7 +144,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "Namespace1", "./AnotherLibrary.dll" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyAssembliesCommand>();
@@ -156,7 +156,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser handles duplicate namespace filters correctly.
+    /// Tests that CommandHelper handles duplicate namespace filters correctly.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommandDuplicateFilters_ShouldDeduplicateNamespaces()
@@ -165,7 +165,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "./AnotherLibrary.dll", "Namespace1", "Namespace2", "Namespace1" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyAssembliesCommand>();
@@ -177,7 +177,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser handles filters before DLLs.
+    /// Tests that CommandHelper handles filters before DLLs.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommandFiltersBeforeDlls_ShouldParseCorrectly()
@@ -186,7 +186,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "Namespace1", "Namespace2", "./TestLibrary.dll", "./AnotherLibrary.dll" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyAssembliesCommand>();
@@ -200,7 +200,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser handles completely mixed order (DLL, filter, DLL, filter, filter).
+    /// Tests that CommandHelper handles completely mixed order (DLL, filter, DLL, filter, filter).
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommandCompletelyMixed_ShouldParseCorrectly()
@@ -209,7 +209,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "./TestLibrary.dll", "Namespace1", "./AnotherLibrary.dll", "Namespace2", "Namespace3" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyAssembliesCommand>();
@@ -224,7 +224,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when apply-assemblies command has insufficient arguments.
+    /// Tests that CommandHelper returns PrintHelpCommand when apply-assemblies command has insufficient arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithInsufficientApplyAssembliesArgs_ShouldReturnPrintHelpCommand()
@@ -233,14 +233,14 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;" }; // Missing DLL paths
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when only filters are provided without DLLs.
+    /// Tests that CommandHelper returns PrintHelpCommand when only filters are provided without DLLs.
     /// </summary>
     [Fact]
     public void GetCommand_WithApplyAssembliesCommandOnlyFilters_ShouldReturnPrintHelpCommand()
@@ -249,7 +249,7 @@ public class RequestHelperTests
         var args = new[] { "apply-assemblies", "Server=.;Database=Test;", "Namespace1", "Namespace2" }; // Only filters, no DLLs
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -260,7 +260,7 @@ public class RequestHelperTests
     #region Export Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns ExportCommand with correct parameters.
+    /// Tests that CommandHelper returns ExportCommand with correct parameters.
     /// </summary>
     [Fact]
     public void GetCommand_WithExportCommand_ShouldReturnExportCommandWithCorrectParameters()
@@ -269,7 +269,7 @@ public class RequestHelperTests
         var args = new[] { "export", "Server=.;Database=Test;", "dbo", "./Output" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ExportCommand>();
@@ -280,7 +280,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when export command has insufficient arguments.
+    /// Tests that CommandHelper returns PrintHelpCommand when export command has insufficient arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithInsufficientExportArgs_ShouldReturnPrintHelpCommand()
@@ -289,7 +289,7 @@ public class RequestHelperTests
         var args = new[] { "export", "Server=.;Database=Test;", "dbo" }; // Missing output path
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -300,7 +300,7 @@ public class RequestHelperTests
     #region EF Sql Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCommand with correct parameters.
+    /// Tests that CommandHelper returns EfFromSqlCommand with correct parameters.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCommand_ShouldReturnEfFromSqlCommandWithCorrectParameters()
@@ -309,7 +309,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql", "Server=.;Database=Test;", "./Output" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCommand>();
@@ -320,7 +320,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCommand with custom schema.
+    /// Tests that CommandHelper returns EfFromSqlCommand with custom schema.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCommandCustomSchema_ShouldReturnEfFromSqlCommandWithCustomSchema()
@@ -329,7 +329,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql", "Server=.;Database=Test;", "./Output", "custom" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCommand>();
@@ -340,7 +340,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when ef sql command has insufficient arguments.
+    /// Tests that CommandHelper returns PrintHelpCommand when ef sql command has insufficient arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithInsufficientEfSqlArgs_ShouldReturnPrintHelpCommand()
@@ -349,7 +349,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql", "Server=.;Database=Test;" }; // Missing output path
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -360,7 +360,7 @@ public class RequestHelperTests
     #region EF Files Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromFilesCommand with correct parameters.
+    /// Tests that CommandHelper returns EfFromFilesCommand with correct parameters.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfFilesCommand_ShouldReturnEfFromFilesCommandWithCorrectParameters()
@@ -369,7 +369,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "files", "./Models/User.dmd", "./Models/Product.dmd", "./Output" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromFilesCommand>();
@@ -379,7 +379,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromFilesCommand with single file.
+    /// Tests that CommandHelper returns EfFromFilesCommand with single file.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfFilesCommandSingleFile_ShouldReturnEfFromFilesCommandWithSingleFile()
@@ -388,7 +388,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "files", "./Models/User.dmd", "./Output" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromFilesCommand>();
@@ -398,7 +398,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when ef files command has insufficient arguments.
+    /// Tests that CommandHelper returns PrintHelpCommand when ef files command has insufficient arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithInsufficientEfFilesArgs_ShouldReturnPrintHelpCommand()
@@ -407,7 +407,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "files", "./Models/User.dmd" }; // Missing output path
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -418,7 +418,7 @@ public class RequestHelperTests
     #region EF SqlCustom Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCustomCommand with basic parameters.
+    /// Tests that CommandHelper returns EfFromSqlCustomCommand with basic parameters.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCustomCommand_ShouldReturnEfFromSqlCustomCommandWithBasicParameters()
@@ -427,7 +427,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql-custom", "Server=.;Database=Test;", "./Output" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCustomCommand>();
@@ -439,7 +439,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCustomCommand with namespace option.
+    /// Tests that CommandHelper returns EfFromSqlCustomCommand with namespace option.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCustomCommandNamespace_ShouldParseNamespaceOption()
@@ -448,7 +448,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql-custom", "Server=.;Database=Test;", "./Output", "--namespace", "MyApp.Data" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCustomCommand>();
@@ -457,7 +457,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCustomCommand with context option.
+    /// Tests that CommandHelper returns EfFromSqlCustomCommand with context option.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCustomCommandContext_ShouldParseContextOption()
@@ -466,7 +466,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql-custom", "Server=.;Database=Test;", "./Output", "--context", "MyDbContext" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCustomCommand>();
@@ -475,7 +475,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCustomCommand with interface option.
+    /// Tests that CommandHelper returns EfFromSqlCustomCommand with interface option.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCustomCommandInterface_ShouldParseInterfaceOption()
@@ -484,7 +484,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql-custom", "Server=.;Database=Test;", "./Output", "--interface", "IMyDbContext" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCustomCommand>();
@@ -493,7 +493,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCustomCommand with base-class option.
+    /// Tests that CommandHelper returns EfFromSqlCustomCommand with base-class option.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCustomCommandBaseClass_ShouldParseBaseClassOption()
@@ -502,7 +502,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql-custom", "Server=.;Database=Test;", "./Output", "--base-class", "BaseDbContext" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCustomCommand>();
@@ -511,7 +511,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns EfFromSqlCustomCommand with multiple options.
+    /// Tests that CommandHelper returns EfFromSqlCustomCommand with multiple options.
     /// </summary>
     [Fact]
     public void GetCommand_WithEfSqlCustomCommandMultipleOptions_ShouldParseAllOptions()
@@ -529,7 +529,7 @@ public class RequestHelperTests
         };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<EfFromSqlCustomCommand>();
@@ -541,7 +541,7 @@ public class RequestHelperTests
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand when ef sql-custom command has insufficient arguments.
+    /// Tests that CommandHelper returns PrintHelpCommand when ef sql-custom command has insufficient arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithInsufficientEfSqlCustomArgs_ShouldReturnPrintHelpCommand()
@@ -550,7 +550,7 @@ public class RequestHelperTests
         var args = new[] { "ef", "sql-custom", "Server=.;Database=Test;" }; // Missing output path
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -561,7 +561,7 @@ public class RequestHelperTests
     #region Unknown Command Tests
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand for unknown commands.
+    /// Tests that CommandHelper returns PrintHelpCommand for unknown commands.
     /// </summary>
     [Fact]
     public void GetCommand_WithUnknownCommand_ShouldReturnPrintHelpCommand()
@@ -570,23 +570,23 @@ public class RequestHelperTests
         var args = new[] { "unknown", "arg1", "arg2" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
     }
 
     /// <summary>
-    /// Tests that StringCommandParser returns PrintHelpCommand for invalid EF subcommands.
+    /// Tests that CommandHelper returns PrintHelpCommand for invalid EF sub-commands.
     /// </summary>
     [Fact]
-    public void GetCommand_WithInvalidEfSubcommand_ShouldReturnPrintHelpCommand()
+    public void GetCommand_WithInvalidSubCommand_ShouldReturnPrintHelpCommand()
     {
         // Arrange
         var args = new[] { "ef", "invalid", "arg1", "arg2" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
@@ -597,7 +597,7 @@ public class RequestHelperTests
     #region Edge Case Tests
 
     /// <summary>
-    /// Tests that StringCommandParser handles null arguments gracefully.
+    /// Tests that CommandHelper handles null arguments gracefully.
     /// </summary>
     [Fact]
     public void GetCommand_WithNullArgs_ShouldReturnPrintHelpCommand()
@@ -606,14 +606,14 @@ public class RequestHelperTests
         string[]? args = null;
 
         // Act
-        var result = RequestHelper.GetCommand(args!);
+        var result = CommandHelper.GetCommand(args!);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
     }
 
     /// <summary>
-    /// Tests that StringCommandParser handles empty string arguments.
+    /// Tests that CommandHelper handles empty string arguments.
     /// </summary>
     [Fact]
     public void GetCommand_WithEmptyStringArgs_ShouldReturnPrintHelpCommand()
@@ -622,14 +622,14 @@ public class RequestHelperTests
         var args = new[] { "", "", "" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<PrintHelpCommand>();
     }
 
     /// <summary>
-    /// Tests that StringCommandParser handles case-insensitive command matching.
+    /// Tests that CommandHelper handles case-insensitive command matching.
     /// </summary>
     [Fact]
     public void GetCommand_WithCaseInsensitiveCommand_ShouldReturnCorrectCommand()
@@ -638,7 +638,7 @@ public class RequestHelperTests
         var args = new[] { "APPLY", "Server=.;Database=Test;", "./Models" };
 
         // Act
-        var result = RequestHelper.GetCommand(args);
+        var result = CommandHelper.GetCommand(args);
 
         // Assert
         result.Should().BeOfType<ApplyCommand>();

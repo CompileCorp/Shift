@@ -3,7 +3,7 @@ using Shift.Test.Framework.Infrastructure;
 
 namespace Compile.Shift.Cli.Tests.Vnums;
 
-public class CliEfSubCmdVnumTests : UnitTestContext<VnumTestingHelper<CliEfSubCmd, CliEfSubCmdId>>
+public class CliSubCmdVnumTests : UnitTestContext<VnumTestingHelper<CliSubCmd, CliSubCmdId>>
 {
     [Fact]
     public void Run_CliEfSubCmdVnum_Tests()
