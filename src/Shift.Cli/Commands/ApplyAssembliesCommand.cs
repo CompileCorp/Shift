@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Compile.Shift.Cli.Commands;
 
-public record ApplyAssembliesCommand(string ConnectionString, string[] DllPaths) : IRequest<Unit>;
+public record ApplyAssembliesCommand(string ConnectionString, string[] DllPaths, string[]? Namespaces = null) : IRequest<Unit>;
 
 public class ApplyAssembliesCommandHandler : IRequestHandler<ApplyAssembliesCommand, Unit>
 {
@@ -34,7 +34,12 @@ public class ApplyAssembliesCommandHandler : IRequestHandler<ApplyAssembliesComm
             _logger.LogInformation("Loaded assembly: {AssemblyName} from {DllPath}", assembly.GetName().Name, fullPath);
         }
 
-        var targetModel = await _shift.LoadFromAssembliesAsync(assemblies);
+        if (request.Namespaces is { Length: > 0 })
+        {
+            _logger.LogInformation("Loading models with namespace filter: {Namespaces}", string.Join(", ", request.Namespaces));
+        }
+
+        var targetModel = await _shift.LoadFromAssembliesAsync(assemblies, request.Namespaces);
         await _shift.ApplyToSqlAsync(targetModel, request.ConnectionString);
         return Unit.Value;
     }

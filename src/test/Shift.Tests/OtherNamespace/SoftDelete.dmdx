@@ -1,0 +1,6 @@
+mixin SoftDelete {
+  bool IsDeleted
+  datetime? DeletedDateTime
+  model User? as DeletedBy
+}
+

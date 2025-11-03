@@ -55,6 +55,10 @@ public class AssemblyLoadingTests
         Assert.Contains(taskTable.Fields, f => f.Name == "CreatedDateTime");
         Assert.Contains(taskTable.Fields, f => f.Name == "LastModifiedDateTime");
         Assert.Contains(taskTable.Mixins, m => m == "Auditable");
+
+        // Should also have loaded resources from OtherNamespace (when no filter is applied)
+        Assert.True(model.Mixins.ContainsKey("SoftDelete"));
+        Assert.True(model.Tables.ContainsKey("Product"));
     }
 
     [Fact]
@@ -126,5 +130,58 @@ public class AssemblyLoadingTests
         Assert.Contains(taskTable.Fields, f => f.Name == "LastModifiedDateTime");
         Assert.Contains(taskTable.Fields, f => f.Name == "LockNumber");
         Assert.Contains(taskTable.Mixins, m => m == "Auditable");
+    }
+
+    [Fact]
+    public async Task LoadFromAssembly_WithNamespaceFilter_ShouldFilterOutOtherNamespace()
+    {
+        // Arrange
+        var assembly = Assembly.GetExecutingAssembly();
+
+        // First verify both namespaces exist in the assembly
+        var allResourceNames = assembly.GetManifestResourceNames();
+        Assert.Contains(allResourceNames, name => name.Contains("TestResources") && name.EndsWith(".dmd"));
+        Assert.Contains(allResourceNames, name => name.Contains("OtherNamespace") && name.EndsWith(".dmd"));
+
+        // Act - Load only from TestResources namespace
+        var model = await _shift.LoadFromAssembly(
+            assembly,
+            new[] { "Compile.Shift.TestResources" });
+
+        // Assert
+        Assert.NotNull(model);
+
+        // Should have loaded resources from TestResources namespace
+        Assert.True(model.Mixins.ContainsKey("Auditable"));
+        Assert.True(model.Tables.ContainsKey("User"));
+        Assert.True(model.Tables.ContainsKey("Task"));
+
+        // Should NOT have loaded resources from OtherNamespace
+        Assert.False(model.Mixins.ContainsKey("SoftDelete"), "SoftDelete mixin from OtherNamespace should be filtered out");
+        Assert.False(model.Tables.ContainsKey("Product"), "Product table from OtherNamespace should be filtered out");
+    }
+
+    [Fact]
+    public async Task LoadFromAssembly_WithMultipleNamespaces_ShouldLoadFromBoth()
+    {
+        // Arrange
+        var assembly = Assembly.GetExecutingAssembly();
+
+        // Act - Load from both namespaces
+        var model = await _shift.LoadFromAssembly(
+            assembly,
+            new[] { "Compile.Shift.TestResources", "Compile.Shift.OtherNamespace" });
+
+        // Assert
+        Assert.NotNull(model);
+
+        // Should have loaded resources from TestResources namespace
+        Assert.True(model.Mixins.ContainsKey("Auditable"));
+        Assert.True(model.Tables.ContainsKey("User"));
+        Assert.True(model.Tables.ContainsKey("Task"));
+
+        // Should also have loaded resources from OtherNamespace
+        Assert.True(model.Mixins.ContainsKey("SoftDelete"));
+        Assert.True(model.Tables.ContainsKey("Product"));
     }
 }
