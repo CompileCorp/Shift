@@ -10,10 +10,11 @@ The Shift project is a .NET 9 library that provides database migration and Entit
 
 ### Workflow Overview
 
-We currently have two GitHub Actions workflows that handle different aspects of our CI/CD pipeline:
+We currently have three GitHub Actions workflows that handle different aspects of our CI/CD pipeline:
 
 1. **PR Build and Test** (`pr-build-test.yml`) - Validates code quality on pull requests
-2. **Build and Publish** (`build-and-publish.yml`) - Handles NuGet package publishing
+2. **Build and Publish** (`build-and-publish.yml`) - Handles production NuGet package publishing via version tags
+3. **Pre-release Publish** (`pre-release-publish.yml`) - Handles pre-release NuGet package publishing on main branch merges
 
 ### 1. PR Build and Test Workflow
 
@@ -52,11 +53,10 @@ Publish Test Results to GitHub UI
 
 ### 2. Build and Publish Workflow
 
-**Purpose**: Automatically publishes NuGet packages when version tags are created.
+**Purpose**: Automatically publishes production NuGet packages when version tags are created.
 
 **Triggers**:
 - Version tags (e.g., `v1.0.0`, `v2.1.3`)
-- Manual workflow dispatch
 
 **Process Flow**:
 ```
@@ -75,11 +75,56 @@ Pack NuGet Package
 Publish to NuGet.org
 ```
 
+**Version Format**:
+- Version from git tag (e.g., `v1.0.0` → `1.0.0`)
+
 **Key Features**:
 - ✅ Automated version extraction from git tags
 - ✅ Secure API key management
-- ✅ NuGet.org publishing
-- ✅ Manual trigger capability
+- ✅ NuGet.org publishing for production releases
+
+### 3. Pre-release Publish Workflow
+
+**Purpose**: Automatically publishes pre-release NuGet packages when code is merged to the main branch.
+
+**Triggers**:
+- Push to main branch
+
+**Process Flow**:
+```
+Merge to Main
+    ↓
+Extract Base Version from csproj
+    ↓
+Get PR Number via GitHub API
+    ↓
+Determine Version: n.n.n-rc-PR_NUMBER.REVISION
+    ↓
+Restore Dependencies
+    ↓
+Build Solution (Release)
+    ↓
+Run Tests (Shift.Tests only)
+    ↓
+Pack NuGet Package (Pre-release)
+    ↓
+Publish to NuGet.org
+```
+
+**Version Format**:
+- Base version from `Shift.csproj` + `-rc-` + PR number + `.` + GitHub run number (e.g., `0.0.12-rc-42.5`)
+  - Base version (`n.n.n`): Extracted from `<Version>` property in `src/Shift/Shift.csproj`, with any existing pre-release suffix stripped to ensure clean base version
+  - PR number: Retrieved via GitHub API for the merged PR (fails if no PR found, enforcing branch protection)
+  - Revision: GitHub Actions run number (`GITHUB_RUN_NUMBER`)
+
+**Key Features**:
+- ✅ Pre-release publishing on merge to main branch
+- ✅ Pre-release version format: `n.n.n-rc-PR_NUMBER.REVISION`
+- ✅ Automatic PR number detection via GitHub API
+- ✅ Version normalization (strips existing pre-release suffixes from csproj)
+- ✅ Duplicate package protection (`--skip-duplicate` flag prevents failures on re-runs)
+- ✅ Secure API key management
+- ✅ NuGet.org publishing for pre-release packages
 
 ## Industry Best Practices Comparison
 
@@ -91,8 +136,9 @@ Publish to NuGet.org
 | **Automated Testing** | ✅ Implemented | Comprehensive test suite execution |
 | **Test Result Reporting** | ✅ Implemented | Visual test results in GitHub PR interface |
 | **Protected Main Branch** | ✅ Implemented | No direct pushes, PR-only workflow |
-| **Automated Publishing** | ✅ Implemented | Tag-based NuGet publishing |
-| **Version Management** | ✅ Implemented | Semantic versioning with git tags |
+| **Automated Publishing** | ✅ Implemented | Tag-based production releases + pre-release on merge |
+| **Version Management** | ✅ Implemented | Semantic versioning with git tags + pre-release versions |
+| **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on main merges with PR tracking |
 | **Secure Secrets** | ✅ Implemented | GitHub secrets for API keys |
 
 ### Current Gaps
@@ -156,7 +202,8 @@ The current pipeline successfully:
 - Validates all code changes through PR requirements
 - Executes comprehensive test suites on every change
 - Provides visual test results in GitHub PR interface
-- Automatically publishes NuGet packages on version tags
+- Automatically publishes production NuGet packages on version tags
+- Automatically publishes pre-release NuGet packages when code is merged to main
 - Maintains secure API key management
 
 While there are opportunities for enhancement (as documented in the [CI/CD Development Backlog](../development/backlog-ci-cd.md)), the current pipeline effectively supports our development process and ensures code quality.
