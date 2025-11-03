@@ -19,9 +19,25 @@ jobs:
       with:
         dotnet-version: '9.0.x'
         
-    - name: Extract version from tag
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    - name: Determine version
+      id: version
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          # Tagged release: use as-is
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          # Get latest tag and extract base version
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          BASE_VERSION=${LATEST_TAG#v}
+          
+          # Strip any existing pre-release suffix (1.2.3-rc -> 1.2.3)
+          BASE_VERSION=$(echo "$BASE_VERSION" | sed 's/-.*$//')
+          
+          # Create pre-release version
+          VERSION="${BASE_VERSION}-rc-${{ github.run_number }}"
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Publishing version: $VERSION"
         
     - name: Restore dependencies
       run: dotnet restore src/Shift.slnx
