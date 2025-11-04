@@ -260,6 +260,7 @@ foreach (var field in fields)
 | Primary Key | `PK_TableName` | `PK_User` |
 | Foreign Key | `FK_TableName_ColumnName` | `FK_Order_UserID` |
 | Index | `IX_TableName_Field1_Field2` | `IX_User_Email_Username` |
+| Alternate Key | `AK_TableName_Field1_Field2` | `AK_User_Email` |
 
 ### Type Handling
 

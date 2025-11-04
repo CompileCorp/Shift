@@ -1,3 +1,4 @@
+using System;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -17,13 +18,16 @@ public static class IndexNameHelper
     /// Generates a valid SQL Server index name that complies with the 128-character limit.
     /// If the name exceeds the limit, it is trimmed and a hash suffix is appended to ensure uniqueness.
     /// </summary>
+    /// <param name="isAlternateKey">true if the index is an alternate key</param>
     /// <param name="tableName">The name of the table</param>
     /// <param name="resolvedFields">The resolved field names for the index</param>
     /// <returns>A valid index name that is at most 128 characters long</returns>
-    public static string GenerateIndexName(string tableName, IEnumerable<string> resolvedFields)
+    public static string GenerateIndexName(bool isAlternateKey, string tableName, IEnumerable<string> resolvedFields)
     {
+        var prefix = isAlternateKey ? "AK" : "IX";
+
         var fieldsList = resolvedFields.ToList();
-        var baseName = $"IX_{tableName}_{string.Join("_", fieldsList)}";
+        var baseName = $"{prefix}_{tableName}_{string.Join("_", fieldsList)}";
 
         var underLimit = baseName.Length <= MaxIndexNameLength;
         if (underLimit)

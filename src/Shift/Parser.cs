@@ -178,6 +178,9 @@ public class Parser
                 }
                 else if (line.StartsWith("key "))
                 {
+                    var indexModel = ParseKey(line);
+                    if (indexModel != null)
+                        table.Indexes.Add(indexModel);
                 }
 
                 else if (line.StartsWith("index "))
@@ -316,6 +319,22 @@ public class Parser
         return field;
     }
 
+    private IndexModel? ParseKey(string line)
+    {
+        var match = Regex.Match(line, @"key\s*\(([^)]+)\)");
+        if (!match.Success) return null;
+
+        var fields = match.Groups[1].Value.Split(',').Select(f => f.Trim()).ToList();
+
+        return new IndexModel
+        {
+            Fields = fields,
+            IsUnique = true,
+            IsAlternateKey = true,
+            Kind = IndexKind.NonClustered
+        };
+    }
+
     private IndexModel? ParseIndex(string line)
     {
         var match = Regex.Match(line, @"index\s*\(([^)]+)\)");
@@ -328,6 +347,7 @@ public class Parser
         {
             Fields = fields,
             IsUnique = isUnique,
+            IsAlternateKey = false,
             Kind = IndexKind.NonClustered
         };
     }

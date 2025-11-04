@@ -957,6 +957,51 @@ public class SqlMigrationPlanRunnerTests
     }
 
     /// <summary>
+    /// Verifies that alternate keys (key() in DMD files) generate indexes with the "AK_" prefix
+    /// instead of the standard "IX_" prefix used for regular indexes.
+    /// </summary>
+    [Fact]
+    public void GenerateIndexSql_WithAlternateKey_ShouldUseAKPrefix()
+    {
+        // Arrange
+        var tableModel = DatabaseModelBuilder.Create()
+            .WithTable("User", table => table
+                .WithField("UserID", "int", f => f.PrimaryKey().Identity())
+                .WithField("Email", "nvarchar", f => f.Precision(256)))
+            .Build()
+            .Tables["User"];
+
+        var alternateKeyIndex = new IndexModel
+        {
+            Fields = new List<string> { "Email" },
+            IsUnique = true,
+            IsAlternateKey = true,
+            Kind = IndexKind.NonClustered
+        };
+
+        var runner = new SqlMigrationPlanRunner("Server=.;Database=Test;", new MigrationPlan())
+        {
+            Logger = _logger
+        };
+
+        // Use reflection to test the private GenerateIndexSql method
+        var method = typeof(SqlMigrationPlanRunner).GetMethod("GenerateIndexSql", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        // Act
+        var sqls = (IEnumerable<string>)method!.Invoke(runner, ["User", alternateKeyIndex, tableModel])!;
+        var sqlList = sqls.ToList();
+
+        // Assert
+        sqlList.Should().HaveCount(1, "Should generate one SQL statement");
+        var sql = sqlList[0];
+
+        sql.Should().Contain("[AK_User_Email]", "Alternate key should use AK_ prefix");
+        sql.Should().NotContain("[IX_User_Email]", "Alternate key should not use IX_ prefix");
+        sql.Should().Contain("CREATE UNIQUE", "Alternate key should be unique");
+        sql.Should().Contain("CREATE UNIQUE NONCLUSTERED INDEX [AK_User_Email] ON [dbo].[User]([Email])", "Should contain the correct CREATE INDEX statement with AK prefix");
+    }
+
+    /// <summary>
     /// Tests that SqlMigrationPlanRunner handles duplicate index creation gracefully.
     /// Verifies that attempting to create an index that already exists does not cause an error.
     /// </summary>

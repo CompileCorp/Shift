@@ -282,8 +282,8 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         // Resolve field names to actual column names
         var resolvedFields = IndexFieldResolver.ResolveIndexFieldNames(index.Fields, table);
 
-        // Generate index name: IX_TableName_Field1_Field2... (with 128-character limit and hashing)
-        var indexName = IndexNameHelper.GenerateIndexName(tableName, resolvedFields);
+        // Generate index name: IX/AK_TableName_Field1_Field2... (with 128-character limit and hashing)
+        var indexName = IndexNameHelper.GenerateIndexName(index.IsAlternateKey, tableName, resolvedFields);
 
         // Generate column list: [Column1], [Column2]
         var columnList = string.Join(", ", resolvedFields.Select(f => $"[{f}]"));

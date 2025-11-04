@@ -73,13 +73,15 @@
           Fields: [
             OrderDate
           ],
-          IsUnique: false
+          IsUnique: false,
+          IsAlternateKey: false
         },
         {
           Fields: [
             UserID
           ],
-          IsUnique: false
+          IsUnique: false,
+          IsAlternateKey: false
         }
       ]
     },
@@ -144,7 +146,8 @@
           Fields: [
             CategoryID
           ],
-          IsUnique: false
+          IsUnique: false,
+          IsAlternateKey: false
         }
       ]
     },
@@ -207,13 +210,15 @@
           Fields: [
             Email
           ],
-          IsUnique: true
+          IsUnique: true,
+          IsAlternateKey: false
         },
         {
           Fields: [
             Username
           ],
-          IsUnique: false
+          IsUnique: false,
+          IsAlternateKey: false
         }
       ]
     }
