@@ -441,6 +441,67 @@ model User {
 CREATE UNIQUE INDEX [IX_User_Email] ON [dbo].[User]([Email])
 ```
 
+### Alternate Keys
+
+Alternate keys are unique indexes that use the "AK" (Alternate Key) naming prefix instead of "IX". They are functionally equivalent to unique indexes but follow a different naming convention, which can be useful for distinguishing business keys from performance indexes.
+
+```dmd
+model User {
+  string(100) Username
+  string(256) Email
+  key (Email)
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE UNIQUE INDEX [AK_User_Email] ON [dbo].[User]([Email])
+```
+
+#### Multi-Column Alternate Key
+
+```dmd
+model Product {
+  string(100) Name
+  string(50) SKU
+  string(20) VendorCode
+  key (SKU, VendorCode)
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE UNIQUE INDEX [AK_Product_SKU_VendorCode] ON [dbo].[Product]([SKU], [VendorCode])
+```
+
+#### Alternate Keys vs Unique Indexes
+
+Alternate keys (`key()`) and unique indexes (`index() @unique`) are functionally equivalent - both create unique indexes. The difference is purely in naming convention:
+
+| Syntax | Naming Prefix | Use Case |
+|--------|---------------|----------|
+| `key (Field)` | `AK_` | Business keys, alternate identifiers |
+| `index (Field) @unique` | `IX_` | Performance indexes, unique constraints |
+
+**Example:**
+```dmd
+model Customer {
+  string(100) Name
+  string(256) Email
+  string(20) PhoneNumber
+  key (Email)                    // Business key with AK prefix
+  index (PhoneNumber) @unique    // Unique index with IX prefix
+  index (Name)                   // Regular index
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE UNIQUE INDEX [AK_Customer_Email] ON [dbo].[Customer]([Email])
+CREATE UNIQUE INDEX [IX_Customer_PhoneNumber] ON [dbo].[Customer]([PhoneNumber])
+CREATE INDEX [IX_Customer_Name] ON [dbo].[Customer]([Name])
+```
+
 ### Multiple Indexes
 
 ```dmd
@@ -595,7 +656,7 @@ model Customer {
   string(20)? Phone
   string(500)? Address
   bool IsActive
-  index (Email) @unique
+  key (Email)
 }
 ```
 
@@ -632,7 +693,7 @@ model Product {
   string(500)? Description
   decimal(10,2) Price
   bool IsActive
-  index (SKU) @unique
+  key (SKU)
   index (Name, IsActive)
 }
 ```
@@ -647,7 +708,7 @@ model User guid {
   string(255) PasswordHash
   bool IsActive
   datetime? LastLoginDate
-  index (Email) @unique
+  key (Email)
   index (Username)
 }
 ```
@@ -710,9 +771,10 @@ mixin Auditable {
 
 ### Index Strategy
 
-1. **Unique constraints** - Use `@unique` for business keys and natural identifiers
-2. **Query optimization** - Create indexes for frequently queried column combinations
-3. **Foreign key indexes** - Indexes are automatically created on foreign key columns for join performance (no manual index definition needed)
+1. **Alternate keys** - Use `key()` for business keys and alternate identifiers (uses "AK" prefix)
+2. **Unique constraints** - Use `index() @unique` for unique constraints on performance indexes (uses "IX" prefix)
+3. **Query optimization** - Create indexes for frequently queried column combinations
+4. **Foreign key indexes** - Indexes are automatically created on foreign key columns for join performance (no manual index definition needed)
 
 ## Advanced Features
 
@@ -775,6 +837,7 @@ model Product {
 - **Primary keys**: `PK_{TableName}`
 - **Foreign keys**: `FK_{TableName}_{ColumnName}`
 - **Indexes**: `IX_{TableName}_{Field1}_{Field2}`
+- **Alternate keys**: `AK_{TableName}_{Field1}_{Field2}`
 
 ### Default Values
 

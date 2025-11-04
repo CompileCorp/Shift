@@ -20,7 +20,7 @@ public class IndexNameHelperTests
         var fields = new[] { "Email" };
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Should().Be("IX_User_Email");
@@ -42,7 +42,7 @@ public class IndexNameHelperTests
         var expected = $"IX_User_{longField}";
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().Be(128);
@@ -64,7 +64,7 @@ public class IndexNameHelperTests
         var fields = new[] { longField };
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().Be(128);
@@ -89,8 +89,8 @@ public class IndexNameHelperTests
         var fields2 = new[] { longField2 };
 
         // Act
-        var result1 = IndexNameHelper.GenerateIndexName(tableName, fields1);
-        var result2 = IndexNameHelper.GenerateIndexName(tableName, fields2);
+        var result1 = IndexNameHelper.GenerateIndexName(false, tableName, fields1);
+        var result2 = IndexNameHelper.GenerateIndexName(false, tableName, fields2);
 
         // Assert
         result1.Length.Should().Be(128);
@@ -117,8 +117,8 @@ public class IndexNameHelperTests
         var fields = new[] { longField };
 
         // Act
-        var result1 = IndexNameHelper.GenerateIndexName(tableName, fields);
-        var result2 = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result1 = IndexNameHelper.GenerateIndexName(false, tableName, fields);
+        var result2 = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result1.Should().Be(result2, "Same input should produce the same hash (deterministic)");
@@ -135,7 +135,7 @@ public class IndexNameHelperTests
         var fields = new[] { "CustomerID", "OrderDate", "Status", new string('A', 100), new string('B', 50) };
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().Be(128);
@@ -157,7 +157,7 @@ public class IndexNameHelperTests
         var fields = new[] { "Email", "Username" };
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().Be(128);
@@ -179,7 +179,7 @@ public class IndexNameHelperTests
         var fields = new[] { "Name", "Category", "SKU", "Brand", "Price", "Stock", "IsActive", "CreatedDate", "UpdatedDate", "SomeOtherField", "AndSomeMoreToGoOver128InLengthAndMakeSureItsHashed" };
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().BeLessThanOrEqualTo(128);
@@ -198,7 +198,7 @@ public class IndexNameHelperTests
         var fields = new[] { longField };
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().Be(128);
@@ -223,8 +223,8 @@ public class IndexNameHelperTests
         var fields2 = new[] { prefix + "Y987654321" };
 
         // Act
-        var result1 = IndexNameHelper.GenerateIndexName(tableName, fields1);
-        var result2 = IndexNameHelper.GenerateIndexName(tableName, fields2);
+        var result1 = IndexNameHelper.GenerateIndexName(false, tableName, fields1);
+        var result2 = IndexNameHelper.GenerateIndexName(false, tableName, fields2);
 
         // Assert
         result1.Length.Should().Be(128);
@@ -252,7 +252,7 @@ public class IndexNameHelperTests
         var fields = Array.Empty<string>();
 
         // Act
-        var result = IndexNameHelper.GenerateIndexName(tableName, fields);
+        var result = IndexNameHelper.GenerateIndexName(false, tableName, fields);
 
         // Assert
         result.Length.Should().BeLessThanOrEqualTo(128);
