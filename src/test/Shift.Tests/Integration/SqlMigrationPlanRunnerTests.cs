@@ -1015,4 +1015,310 @@ public class SqlMigrationPlanRunnerTests
     }
 
     #endregion
+
+    #region Index Name Length Tests
+
+    /// <summary>
+    /// Tests that index names with exactly 128 characters are created successfully in SQL Server.
+    /// This verifies that the 128-character limit is handled correctly and SQL Server accepts names at the limit.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithIndexNameExactly128Characters_ShouldCreateIndexSuccessfully()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            // Create table first with a column that will result in exactly 128 characters for the index name
+            // "IX_User_" = 8 characters, so we need 120 characters for the column name
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            var longColumnName = new string('A', 120);
+            var createTableSql = $"CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, [{longColumnName}] nvarchar(256) NOT NULL)";
+            await using var createTableCmd = new SqlCommand(createTableSql, connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            var expectedIndexName = $"IX_User_{longColumnName}";
+            expectedIndexName.Length.Should().Be(128, "Test setup: index name should be exactly 128 characters");
+
+            // Create migration plan with AddIndex step (indexName parameter is ignored, but we pass it for clarity)
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndex("User", "TestIndex", longColumnName, isUnique: false)
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify index exists with the exact name (should be unchanged since it's exactly 128 characters)
+            var checkIndexQuery = @"
+                SELECT i.name 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name = @indexName";
+
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            indexCmd.Parameters.AddWithValue("@indexName", expectedIndexName);
+            var actualIndexName = await indexCmd.ExecuteScalarAsync() as string;
+
+            actualIndexName.Should().Be(expectedIndexName, "Index name should be exactly 128 characters and unchanged");
+            actualIndexName!.Length.Should().Be(128, "Index name length should be exactly 128 characters");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that index names exceeding 128 characters are trimmed and hashed when created in SQL Server.
+    /// This verifies that the hashing logic works correctly in a real database environment.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithIndexNameExceeding128Characters_ShouldTrimAndHashIndexName()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            // Create table first with multiple columns that, when combined in an index name, exceed 128 characters
+            // Use multiple shorter columns to work around SQL Server's 128-character column name limit
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Create columns with names that when joined (IX_User_Col1_Col2_Col3...) exceed 128
+            // Each column name is 30 chars, so 5 columns = 150 chars in field names + 8 for "IX_User_" + 4 underscores = 162 total
+            var columns = new[] { "Col1_AAAAAAAAAAAAAAAAAAAA", "Col2_BBBBBBBBBBBBBBBBBBBB", "Col3_CCCCCCCCCCCCCCCCCCCC", "Col4_DDDDDDDDDDDDDDDDDDDD", "Col5_EEEEEEEEEEEEEEEEEEEE" };
+            var createTableSql = $"CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, [{columns[0]}] nvarchar(256) NOT NULL, [{columns[1]}] nvarchar(256) NOT NULL, [{columns[2]}] nvarchar(256) NOT NULL, [{columns[3]}] nvarchar(256) NOT NULL, [{columns[4]}] nvarchar(256) NOT NULL)";
+            await using var createTableCmd = new SqlCommand(createTableSql, connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            var originalIndexName = $"IX_User_{string.Join("_", columns)}";
+            originalIndexName.Length.Should().BeGreaterThan(128, "Test setup: index name should exceed 128 characters");
+
+            // Create migration plan with AddIndex step using all columns (indexName parameter is ignored, but we pass it for clarity)
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndex("User", "TestIndex", columns, isUnique: false)
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify index exists with a trimmed and hashed name
+            var checkIndexQuery = @"
+                SELECT i.name 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name LIKE 'IX_User_%'";
+
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var actualIndexName = await indexCmd.ExecuteScalarAsync() as string;
+
+            actualIndexName.Should().NotBeNull("Index should exist");
+            actualIndexName!.Length.Should().Be(128, "Index name should be exactly 128 characters after trimming and hashing");
+            actualIndexName.Should().StartWith("IX_User_", "Index name should start with the expected prefix");
+            actualIndexName.Should().MatchRegex(@"^IX_User_.+_[0-9a-f]{8}$", "Index name should end with underscore followed by 8-character hex hash");
+            actualIndexName.Should().NotBe(originalIndexName, "Index name should be trimmed and hashed, not the original long name");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that two similar long index names produce different hashed names in SQL Server.
+    /// This verifies that the hashing ensures uniqueness even when the trimmed prefixes are the same.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithTwoSimilarLongIndexNames_ShouldCreateDifferentHashedNames()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            // Create table first with columns that will result in long index names
+            // Use multiple columns to create index names that exceed 128 characters
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Create two sets of columns that, when combined in index names, exceed 128 and have similar prefixes
+            // Each set uses 5 columns of 30 chars each = 150 chars in field names + 8 for "IX_User_" + 4 underscores = 162 total
+            var columns1 = new[] { "Col1_AAAAAAAAAAAAAAAAAAAA", "Col2_BBBBBBBBBBBBBBBBBBBB", "Col3_CCCCCCCCCCCCCCCCCCCC", "Col4_DDDDDDDDDDDDDDDDDDDD", "Col5_EEEEEEEEEEEEEEEEEEEE" };
+            var columns2 = new[] { "Col1_AAAAAAAAAAAAAAAAAAAA", "Col2_BBBBBBBBBBBBBBBBBBBB", "Col3_CCCCCCCCCCCCCCCCCCCC", "Col4_DDDDDDDDDDDDDDDDDDDD", "Col6_FFFFFFFFFFFFFFFFFFFF" }; // Last column differs
+
+            // Create table with all columns
+            var allColumns = columns1.Union(columns2).Distinct().ToList();
+            var createTableSql = $"CREATE TABLE [dbo].[User] ([UserID] int IDENTITY(1,1) PRIMARY KEY, {string.Join(", ", allColumns.Select(c => $"[{c}] nvarchar(256) NOT NULL"))})";
+            await using var createTableCmd = new SqlCommand(createTableSql, connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            var originalIndexName1 = $"IX_User_{string.Join("_", columns1)}";
+            var originalIndexName2 = $"IX_User_{string.Join("_", columns2)}";
+
+            originalIndexName1.Length.Should().BeGreaterThan(128, "Test setup: first index name should exceed 128 characters");
+            originalIndexName2.Length.Should().BeGreaterThan(128, "Test setup: second index name should exceed 128 characters");
+
+            // Create migration plan with two AddIndex steps using multiple columns (indexName parameters are ignored)
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndex("User", "TestIndex1", columns1, isUnique: false)
+                .WithAddIndex("User", "TestIndex2", columns2, isUnique: false)
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify both indexes exist with different hashed names
+            var checkIndexQuery = @"
+                SELECT i.name 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'User' AND i.name LIKE 'IX_User_%' AND i.name != 'PK_User'
+                ORDER BY i.name";
+
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var indexNames = new List<string>();
+            await using var reader = await indexCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                indexNames.Add(reader.GetString(0));
+            }
+
+            indexNames.Should().HaveCount(2, "Both indexes should exist");
+
+            var indexName1 = indexNames[0];
+            var indexName2 = indexNames[1];
+
+            // Both should be exactly 128 characters
+            indexName1.Length.Should().Be(128, "First index name should be exactly 128 characters");
+            indexName2.Length.Should().Be(128, "Second index name should be exactly 128 characters");
+
+            // Both should start with the same prefix (after trimming)
+            indexName1.Should().StartWith("IX_User_", "First index should start with prefix");
+            indexName2.Should().StartWith("IX_User_", "Second index should start with prefix");
+
+            // Extract the hashes (last 8 characters after underscore)
+            var hash1 = indexName1.Substring(indexName1.Length - 8);
+            var hash2 = indexName2.Substring(indexName2.Length - 8);
+
+            hash1.Should().MatchRegex(@"^[0-9a-f]{8}$", "First index should have valid hex hash");
+            hash2.Should().MatchRegex(@"^[0-9a-f]{8}$", "Second index should have valid hex hash");
+            hash1.Should().NotBe(hash2, "Different input names should produce different hashes even with same prefix");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that index names with multiple long fields are handled correctly when they exceed 128 characters.
+    /// This verifies the behavior with composite indexes that have long names.
+    /// </summary>
+    [Fact]
+    public async Task Run_WithCompositeIndexExceeding128Characters_ShouldTrimAndHashIndexName()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            // Create table first with columns that, when combined in an index name, exceed 128 characters
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+
+            // Create field names that, when combined, exceed 128 characters in the index name
+            var longField1 = new string('A', 50);
+            var longField2 = new string('B', 50);
+
+            var createTableSql = $@"
+                CREATE TABLE [dbo].[Order] (
+                    [OrderID] int IDENTITY(1,1) PRIMARY KEY, 
+                    [CustomerID] int NOT NULL,
+                    [OrderDate] datetime2 NOT NULL,
+                    [Status] nvarchar(50) NOT NULL,
+                    [{longField1}] int NOT NULL,
+                    [{longField2}] int NOT NULL
+                )";
+            await using var createTableCmd = new SqlCommand(createTableSql, connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            var fields = new[] { "CustomerID", "OrderDate", "Status", longField1, longField2 };
+
+            // Create migration plan with AddIndex step using multiple fields
+            var plan = MigrationPlanBuilder.Create()
+                .WithAddIndex("Order", "CompositeIndex", fields, isUnique: false)
+                .Build();
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without errors");
+
+            // Verify index exists with a trimmed and hashed name
+            var checkIndexQuery = @"
+                SELECT i.name 
+                FROM sys.indexes i 
+                INNER JOIN sys.tables t ON i.object_id = t.object_id 
+                WHERE t.name = 'Order' AND i.name LIKE 'IX_Order_%'";
+
+            await using var indexCmd = new SqlCommand(checkIndexQuery, connection);
+            var actualIndexName = await indexCmd.ExecuteScalarAsync() as string;
+
+            actualIndexName.Should().NotBeNull("Index should exist");
+            actualIndexName!.Length.Should().Be(128, "Index name should be exactly 128 characters after trimming and hashing");
+            actualIndexName.Should().StartWith("IX_Order_", "Index name should start with the expected prefix");
+            actualIndexName.Should().MatchRegex(@"^IX_Order_.+_[0-9a-f]{8}$", "Index name should end with underscore followed by 8-character hex hash");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    #endregion
 }
