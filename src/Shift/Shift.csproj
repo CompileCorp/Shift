@@ -7,7 +7,7 @@
         <RootNamespace>Compile.Shift</RootNamespace>
         <!-- NuGet Package Metadata -->
         <PackageId>Compile.Shift</PackageId>
-        <Version>0.0.12</Version>
+        <Version>0.0.13</Version>
         <VersionSuffix></VersionSuffix>
         <Authors>Compile Pty Ltd</Authors>
         <Company>Compile Pty Ltd</Company>
