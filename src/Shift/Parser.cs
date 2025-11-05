@@ -156,9 +156,18 @@ public class Parser
                     // Store the ! in the name for mixin matching logic, but not for table FKs
                     var mixinName = isOptionalModel ? "!" + nestedModelName : nestedModelName;
 
+                    // If an alias is provided and ends with "ID", use it directly as the column name
+                    // If an alias is provided but doesn't end with "ID", use {alias}{modelName}ID
+                    // Otherwise, use the standard format: {ModelName}ID
+                    var columnName = aliasName != null
+                        ? (aliasName.EndsWith("ID", StringComparison.OrdinalIgnoreCase)
+                            ? aliasName
+                            : $"{aliasName}{nestedModelName}ID")
+                        : $"{nestedModelName}ID";
+
                     var fkField = new FieldModel
                     {
-                        Name = $"{aliasName ?? ""}{nestedModelName}ID",
+                        Name = columnName,
                         Type = "int",
                         IsNullable = isNullable
                     };
@@ -227,6 +236,7 @@ public class Parser
         var model = "";
         var isOptional = false;
         var alias = "";
+        var isNullable = false;
         int? precision = null;
         int? scale = null;
 
@@ -236,7 +246,8 @@ public class Parser
             type = parts[1];
             name = parts[1];
 
-            if (name.EndsWith("?"))
+            isNullable = name.EndsWith("?");
+            if (isNullable)
             {
                 name = name.Substring(0, name.Length - 1);
             }
@@ -247,20 +258,36 @@ public class Parser
                 isOptional = true;
             }
 
-            if (parts.Length == 4)
+            if (parts.Length == 4 && parts[2] == "as")
             {
                 alias = parts[3];
+                // Also check if alias has nullable marker
+                if (alias.EndsWith("?"))
+                {
+                    isNullable = true;
+                    alias = alias.Substring(0, alias.Length - 1);
+                }
             }
+
+            // If an alias is provided and ends with "ID", use it directly as the column name
+            // If an alias is provided but doesn't end with "ID", use {alias}{modelName}ID
+            // Otherwise, use the standard format: {ModelName}ID
+            var columnName = !string.IsNullOrEmpty(alias)
+                ? (alias.EndsWith("ID", StringComparison.OrdinalIgnoreCase)
+                    ? alias
+                    : $"{alias}{name}ID")
+                : $"{name}ID";
 
             targetModel.ForeignKeys.Add(new ForeignKeyModel()
             {
-                ColumnName = alias + name + "ID",
+                ColumnName = columnName,
                 TargetTable = name,
-                TargetColumnName = name + "ID",
+                TargetColumnName = $"{name}ID",
+                IsNullable = isNullable,
                 RelationshipType = RelationshipType.OneToOne
             });
 
-            name = alias + name + "ID";
+            name = columnName;
             type = "int";
         }
         else
@@ -269,7 +296,7 @@ public class Parser
             name = parts[1];
         }
 
-        var isNullable = false;
+        // Check for nullable type marker (if not already set in model relationship handling above)
         if (type.EndsWith("?"))
         {
             isNullable = true;
