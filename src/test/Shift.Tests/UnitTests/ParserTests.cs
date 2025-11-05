@@ -348,6 +348,50 @@ model Task with Auditable {
 
     }
 
+    /// <summary>
+    /// Tests that mixin parsing with aliased relationships uses the same alias handling logic
+    /// as table parsing. When alias ends with "ID", use it directly; otherwise concatenate {alias}{modelName}ID.
+    /// </summary>
+    [Fact]
+    public void ParseMixin_WithAliasedRelationships_ShouldUseConsistentAliasHandling()
+    {
+        // Arrange
+        var model = new DatabaseModel();
+
+        // Mixin with aliased relationships - one ending in ID, one not
+        var mixinContent = @"
+mixin TestMixin {
+  model User as Customer
+  model Address? as Postal
+  model ExtClient? as ClientID
+}";
+        var mixin = Sut.ParseMixin(mixinContent);
+        model.Mixins.Add(mixin.Name, mixin);
+
+        var tableContent = @"
+model Order with TestMixin {
+  string(50) OrderNumber
+}";
+
+        // Act
+        Sut.ParseTable(model, tableContent);
+
+        // Assert
+        var table = model.Tables["Order"];
+
+        // Alias doesn't end with ID - should concatenate
+        table.Fields.Should().Contain(f => f.Name == "CustomerUserID" && f.Type == "int");
+        table.ForeignKeys.Should().Contain(fk => fk.ColumnName == "CustomerUserID" && fk.TargetTable == "User");
+
+        // Alias doesn't end with ID - should concatenate
+        table.Fields.Should().Contain(f => f.Name == "PostalAddressID" && f.Type == "int");
+        table.ForeignKeys.Should().Contain(fk => fk.ColumnName == "PostalAddressID" && fk.TargetTable == "Address" && fk.IsNullable == true);
+
+        // Alias ends with ID - should use directly
+        table.Fields.Should().Contain(f => f.Name == "ClientID" && f.Type == "int");
+        table.ForeignKeys.Should().Contain(fk => fk.ColumnName == "ClientID" && fk.TargetTable == "ExtClient" && fk.IsNullable == true);
+    }
+
     #endregion
 
     #region Relationship Parsing Tests
@@ -355,6 +399,7 @@ model Task with Auditable {
     /// <summary>
     /// Tests that parsing a model with 'model RelatedModel as AliasName' syntax correctly
     /// creates a foreign key field and relationship with OneToOne type.
+    /// If the alias doesn't end with "ID", it creates {alias}{modelName}ID.
     /// </summary>
     [Fact]
     public void ParseTable_WithOneToOneRelationship_ShouldCreateForeignKey()
@@ -374,7 +419,7 @@ model Order {
         // Assert
         var table = model.Tables["Order"];
 
-        // Should have foreign key field
+        // Should have foreign key field with concatenated alias and model name
         table.Fields.Should().Contain(f => f.Name == "CustomerUserID" && f.Type == "int");
 
         // Should have foreign key relationship
@@ -425,6 +470,7 @@ model OrderItem {
     /// <summary>
     /// Tests that parsing a model with '!model RelatedModel?' syntax correctly
     /// creates a nullable foreign key field and relationship.
+    /// If the alias doesn't end with "ID", it creates {alias}{modelName}ID.
     /// </summary>
     [Fact]
     public void ParseTable_WithOptionalRelationship_ShouldCreateNullableForeignKey()
@@ -444,7 +490,7 @@ model Order {
         // Assert
         var table = model.Tables["Order"];
 
-        // Should have nullable foreign key field
+        // Should have nullable foreign key field with concatenated alias and model name
         var fkField = table.Fields.First(f => f.Name == "AssignedUserUserID");
         fkField.IsNullable.Should().BeTrue();
 
@@ -453,6 +499,76 @@ model Order {
         fk.IsNullable.Should().BeTrue();
 
 
+    }
+
+    /// <summary>
+    /// Tests that parsing a model with an aliased column where the alias is already the complete column name
+    /// (ending in ID) should use just the alias as the column name, not concatenate alias + modelName + ID.
+    /// For example: 'model ExtClient? as ClientID' should create a column named 'ClientID', not 'ClientIDExtClientID'.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithAliasedColumnNameEndingInID_ShouldUseAliasAsColumnName()
+    {
+        // Arrange
+        var content = @"
+model SomeTable {
+  string(50) SomeField
+  model ExtClient? as ClientID
+}";
+
+        var model = new DatabaseModel();
+
+        // Act
+        Sut.ParseTable(model, content);
+
+        // Assert
+        var table = model.Tables["SomeTable"];
+
+        // Should have foreign key field with name exactly matching the alias
+        table.Fields.Should().Contain(f => f.Name == "ClientID" && f.Type == "int");
+
+        // Should have foreign key relationship with column name exactly matching the alias
+        table.ForeignKeys.Should().Contain(fk =>
+            fk.ColumnName == "ClientID" &&
+            fk.TargetTable == "ExtClient" &&
+            fk.TargetColumnName == "ExtClientID" &&
+            fk.RelationshipType == RelationshipType.OneToOne &&
+            fk.IsNullable == true);
+    }
+
+    /// <summary>
+    /// Tests that parsing a model with an aliased column where the alias does NOT end with "ID"
+    /// should concatenate the alias + modelName + ID.
+    /// For example: 'model Address? as Postal' should create a column named 'PostalAddressID', not 'Postal'.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithAliasedColumnNameNotEndingInID_ShouldConcatenateAliasAndModelName()
+    {
+        // Arrange
+        var content = @"
+model Client {
+  string(50) SomeField
+  model Address? as Postal
+}";
+
+        var model = new DatabaseModel();
+
+        // Act
+        Sut.ParseTable(model, content);
+
+        // Assert
+        var table = model.Tables["Client"];
+
+        // Should have foreign key field with concatenated alias + modelName + ID
+        table.Fields.Should().Contain(f => f.Name == "PostalAddressID" && f.Type == "int");
+
+        // Should have foreign key relationship with concatenated column name
+        table.ForeignKeys.Should().Contain(fk =>
+            fk.ColumnName == "PostalAddressID" &&
+            fk.TargetTable == "Address" &&
+            fk.TargetColumnName == "AddressID" &&
+            fk.RelationshipType == RelationshipType.OneToOne &&
+            fk.IsNullable == true);
     }
 
     #endregion
