@@ -1,0 +1,4 @@
+﻿IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Order_UserID' AND object_id = OBJECT_ID('dbo.Order'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_Order_UserID] ON [dbo].[Order]([UserID])
+END

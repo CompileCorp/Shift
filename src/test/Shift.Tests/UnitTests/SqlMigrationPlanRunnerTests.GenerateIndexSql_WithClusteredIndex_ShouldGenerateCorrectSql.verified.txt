@@ -1,0 +1,4 @@
+﻿IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_User_UserID' AND object_id = OBJECT_ID('dbo.User'))
+BEGIN
+    CREATE CLUSTERED INDEX [IX_User_UserID] ON [dbo].[User]([UserID])
+END

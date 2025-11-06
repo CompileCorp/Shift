@@ -1,0 +1,5 @@
+﻿Nullable:
+ALTER TABLE [dbo].[User] ALTER COLUMN [Email] nvarchar(256) NULL
+
+Non-Nullable:
+ALTER TABLE [dbo].[User] ALTER COLUMN [Username] nvarchar(100) NOT NULL

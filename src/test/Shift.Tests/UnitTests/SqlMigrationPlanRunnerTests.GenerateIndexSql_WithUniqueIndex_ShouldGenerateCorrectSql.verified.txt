@@ -1,0 +1,4 @@
+﻿IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_User_Email' AND object_id = OBJECT_ID('dbo.User'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX [IX_User_Email] ON [dbo].[User]([Email])
+END

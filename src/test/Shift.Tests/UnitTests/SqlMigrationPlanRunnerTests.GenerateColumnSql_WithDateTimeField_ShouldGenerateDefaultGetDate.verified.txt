@@ -1,0 +1,1 @@
+﻿ALTER TABLE [User] ADD [CreatedDate] datetime NOT NULL  DEFAULT GETDATE()

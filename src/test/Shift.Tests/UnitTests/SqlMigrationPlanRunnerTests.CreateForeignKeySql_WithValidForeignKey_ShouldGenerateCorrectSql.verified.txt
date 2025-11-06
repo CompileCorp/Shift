@@ -1,0 +1,4 @@
+﻿ALTER TABLE [dbo].[Order] WITH NOCHECK ADD CONSTRAINT [FK_Order_UserID] FOREIGN KEY ([UserID])
+		REFERENCES [dbo].[User]([UserID])
+
+ALTER TABLE[dbo].[Order] CHECK CONSTRAINT[FK_Order_UserID]

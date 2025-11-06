@@ -2,6 +2,8 @@ using Compile.Shift.Model;
 using Compile.Shift.Tests.Helpers;
 using FluentAssertions;
 using Shift.Test.Framework.Infrastructure;
+using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace Compile.Shift.UnitTests;
 
@@ -256,6 +258,102 @@ public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
         // Act & Assert
         Assert.Throws<NullReferenceException>(() => Sut.GeneratePlan(targetModel, null!));
         Assert.Throws<NullReferenceException>(() => Sut.GeneratePlan(null!, new DatabaseModel()));
+    }
+
+    #endregion
+
+    #region Mixin Foreign Key Tests
+
+    /// <summary>
+    /// Tests that MigrationPlanner correctly handles Auditable mixin with foreign key relationships.
+    /// Verifies that !model User? as CreatedBy creates CreatedByUserID (int, nullable) and
+    /// !model User? as LastModifiedBy creates LastModifiedByUserID (int, nullable).
+    /// </summary>
+    [Fact]
+    public void GeneratePlan_WithAuditableMixin_ShouldCreateNullableForeignKeyColumns()
+    {
+        // Arrange
+        var parser = new Parser();
+        var targetModel = new DatabaseModel();
+
+        // Parse the Auditable mixin
+        var mixinContent = @"
+mixin Auditable {
+  !model User? as CreatedBy
+  !model User? as LastModifiedBy
+  datetime CreatedDateTime
+  datetime LastModifiedDateTime
+  int LockNumber
+}";
+        var mixin = parser.ParseMixin(mixinContent);
+        targetModel.Mixins.Add(mixin.Name, mixin);
+
+        // Parse the User table (required for foreign key)
+        var userContent = @"
+model User {
+  string(100) Username
+  string(256) Email
+}";
+        parser.ParseTable(targetModel, userContent);
+
+        // Parse the Document table with Auditable mixin
+        var documentContent = @"
+model Document with Auditable {
+  string(200) Title
+  string(max) Content
+}";
+        parser.ParseTable(targetModel, documentContent);
+
+        var actualModel = new DatabaseModel(); // Empty actual model
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        var createDocumentStep = plan.Steps.FirstOrDefault(step =>
+            step.Action == MigrationAction.CreateTable &&
+            step.TableName == "Document");
+
+        createDocumentStep.Should().NotBeNull("Document table should be created");
+
+        // Get the Document table from the target model to verify its structure
+        var documentTable = targetModel.Tables["Document"];
+        documentTable.Should().NotBeNull();
+
+        // Verify CreatedByUserID field exists with correct type and nullability
+        var createdByUserIDField = documentTable!.Fields.FirstOrDefault(f => f.Name == "CreatedByUserID");
+        createdByUserIDField.Should().NotBeNull("CreatedByUserID field should exist");
+        createdByUserIDField!.Type.Should().Be("int", "CreatedByUserID should be int type");
+        createdByUserIDField.IsNullable.Should().BeTrue("CreatedByUserID should be nullable (User?)");
+        createdByUserIDField.IsOptional.Should().BeTrue("CreatedByUserID should be optional (User?)");
+
+        // Verify LastModifiedByUserID field exists with correct type and nullability
+        var lastModifiedByUserIDField = documentTable.Fields.FirstOrDefault(f => f.Name == "LastModifiedByUserID");
+        lastModifiedByUserIDField.Should().NotBeNull("LastModifiedByUserID field should exist");
+        lastModifiedByUserIDField!.Type.Should().Be("int", "LastModifiedByUserID should be int type");
+        lastModifiedByUserIDField.IsNullable.Should().BeTrue("LastModifiedByUserID should be nullable (User?)");
+
+        // Verify foreign key relationships exist
+        var createdByForeignKey = documentTable.ForeignKeys.FirstOrDefault(fk => fk.ColumnName == "CreatedByUserID");
+        createdByForeignKey.Should().NotBeNull("CreatedByUserID foreign key should exist");
+        createdByForeignKey!.TargetTable.Should().Be("User");
+        createdByForeignKey.TargetColumnName.Should().Be("UserID");
+        createdByForeignKey.IsNullable.Should().BeTrue();
+
+        var lastModifiedByForeignKey = documentTable.ForeignKeys.FirstOrDefault(fk => fk.ColumnName == "LastModifiedByUserID");
+        lastModifiedByForeignKey.Should().NotBeNull("LastModifiedByUserID foreign key should exist");
+        lastModifiedByForeignKey!.TargetTable.Should().Be("User");
+        lastModifiedByForeignKey.TargetColumnName.Should().Be("UserID");
+        lastModifiedByForeignKey.IsNullable.Should().BeTrue();
+
+        // Verify other mixin fields are present
+        documentTable.Fields.Should().Contain(f => f.Name == "CreatedDateTime");
+        documentTable.Fields.Should().Contain(f => f.Name == "LastModifiedDateTime");
+        documentTable.Fields.Should().Contain(f => f.Name == "LockNumber");
+
+        // Verify Document-specific fields are present
+        documentTable.Fields.Should().Contain(f => f.Name == "Title");
+        documentTable.Fields.Should().Contain(f => f.Name == "Content");
     }
 
     #endregion
