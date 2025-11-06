@@ -1,0 +1,1 @@
+﻿ALTER TABLE [dbo].[User] ALTER COLUMN [Email] nvarchar(256) NULL

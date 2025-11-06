@@ -1,0 +1,31 @@
+﻿CREATE TABLE [Document] (
+  [DocumentID] int IDENTITY(1,1) NOT NULL,
+  [Title] nvarchar(200) NOT NULL,
+  [Content] nvarchar(max) NOT NULL,
+  [CreatedByUserID] int NULL,
+  [LastModifiedByUserID] int NULL,
+  [CreatedDateTime] datetime NOT NULL,
+  [LastModifiedDateTime] datetime NOT NULL,
+  [LockNumber] int NOT NULL,
+  CONSTRAINT [PK_Document] PRIMARY KEY ([DocumentID])
+)
+
+ALTER TABLE [dbo].[Document] WITH NOCHECK ADD CONSTRAINT [FK_Document_CreatedByUserID] FOREIGN KEY ([CreatedByUserID])
+		REFERENCES [dbo].[User]([UserID])
+
+ALTER TABLE[dbo].[Document] CHECK CONSTRAINT[FK_Document_CreatedByUserID]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Document_CreatedByUserID' AND object_id = OBJECT_ID('dbo.Document'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_Document_CreatedByUserID] ON [dbo].[Document]([CreatedByUserID])
+END
+
+ALTER TABLE [dbo].[Document] WITH NOCHECK ADD CONSTRAINT [FK_Document_LastModifiedByUserID] FOREIGN KEY ([LastModifiedByUserID])
+		REFERENCES [dbo].[User]([UserID])
+
+ALTER TABLE[dbo].[Document] CHECK CONSTRAINT[FK_Document_LastModifiedByUserID]
+
+IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Document_LastModifiedByUserID' AND object_id = OBJECT_ID('dbo.Document'))
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_Document_LastModifiedByUserID] ON [dbo].[Document]([LastModifiedByUserID])
+END

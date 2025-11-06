@@ -103,7 +103,7 @@ public class SqlMigrationPlanRunner
         return failures;
     }
 
-    private IEnumerable<string> CreateForeignKeySql(string tableName, ForeignKeyModel foreignKey)
+    internal IEnumerable<string> CreateForeignKeySql(string tableName, ForeignKeyModel foreignKey)
     {
         var fkName = $"FK_{tableName}_{foreignKey.ColumnName}";
 
@@ -113,7 +113,7 @@ public class SqlMigrationPlanRunner
         yield return $"ALTER TABLE[dbo].[{tableName}] CHECK CONSTRAINT[{fkName}]";
     }
 
-    private IEnumerable<string> GenerateCreateTableSql(string tableName, List<FieldModel> fields)
+    internal IEnumerable<string> GenerateCreateTableSql(string tableName, List<FieldModel> fields)
     {
         string? pkField = null;
         var tableColSql = new List<string>();
@@ -136,7 +136,7 @@ public class SqlMigrationPlanRunner
         yield return $"CREATE TABLE [{tableName}] (\n  {string.Join(",\n  ", tableColSql)}{pkConstraint}\n)";
     }
 
-    private IEnumerable<string> GenerateColumnSql(string tableName, FieldModel field)
+    internal IEnumerable<string> GenerateColumnSql(string tableName, FieldModel field)
     {
         var typeSql =
             Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType)
@@ -204,7 +204,7 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         }
     }
 
-    private IEnumerable<string> GenerateAlterColumnSql(string tableName, FieldModel field)
+    internal IEnumerable<string> GenerateAlterColumnSql(string tableName, FieldModel field)
     {
         var typeSql =
             Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType)
@@ -215,7 +215,7 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         yield return $"ALTER TABLE [dbo].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
     }
 
-    private bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)
+    internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)
     {
         // Only guard for types where resizing/precision can cause truncation or rounding
         var baseType = field.Type.ToLowerInvariant();
@@ -277,7 +277,7 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         return false;
     }
 
-    private IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index, TableModel? table = null)
+    internal IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index, TableModel? table = null)
     {
         // Resolve field names to actual column names
         var resolvedFields = IndexFieldResolver.ResolveIndexFieldNames(index.Fields, table);
