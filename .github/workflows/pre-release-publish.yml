@@ -18,28 +18,17 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    # Extract base version from tag name
-    - name: Extract base version from tag
-      id: get_base_version
-      run: |
-        # Extract tag name from ref (format: refs/tags/rc-v1.2.3)
-        TAG_NAME="${GITHUB_REF#refs/tags/}"
-        # Extract version by removing 'rc-v' prefix
-        VERSION="${TAG_NAME#rc-v}"
-        echo "BASE_VERSION=$VERSION" >> $GITHUB_OUTPUT
-        echo "Tag name: $TAG_NAME"
-        echo "Base version: $VERSION"
-
-    # Determine final pre-release version
-    - name: Determine pre-release version
+    # Extract base version from tag and determine pre-release version
+    - name: Extract version from tag and set pre-release version
       id: set_version
       run: |
-        BASE_VERSION="${{ steps.get_base_version.outputs.BASE_VERSION }}"
-        # Get short SHA (first 7 characters)
-        SHORT_SHA="${{ github.sha }}"
-        SHORT_SHA="${SHORT_SHA:0:7}"
-        FINAL_VERSION="${BASE_VERSION}-rc-${SHORT_SHA}"
+        # Extract version from tag (e.g., rc-v1.0.0 -> 1.0.0)
+        BASE_VERSION="${GITHUB_REF#refs/tags/rc-v}"
+        REVISION="${{ github.run_number }}"
+        FINAL_VERSION="${BASE_VERSION}-rc.${REVISION}"
+        echo "BASE_VERSION=$BASE_VERSION" >> $GITHUB_OUTPUT
         echo "VERSION=$FINAL_VERSION" >> $GITHUB_OUTPUT
+        echo "Base version: $BASE_VERSION"
         echo "Pre-release version: $FINAL_VERSION"
         
     - name: Restore dependencies

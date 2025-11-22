@@ -94,11 +94,7 @@ Publish to NuGet.org
 ```
 Release Candidate Tag Pushed (rc-v*)
     ↓
-Extract Base Version from Tag Name
-    ↓
-Get Short SHA from Commit
-    ↓
-Determine Version: n.n.n-rc-SHA
+Extract Version from Tag and Set Pre-release Version
     ↓
 Restore Dependencies
     ↓
@@ -112,15 +108,15 @@ Publish to NuGet.org
 ```
 
 **Version Format**:
-- Base version from tag name + `-rc-` + short commit SHA (e.g., `1.2.3-rc-abc1234`)
+- Base version from tag name + `-rc.` + GitHub run number (e.g., `1.2.3-rc.42`)
   - Base version (`n.n.n`): Extracted from tag name by removing `rc-v` prefix (e.g., `rc-v1.2.3` → `1.2.3`)
-  - Short SHA: First 7 characters of the commit SHA (`github.sha`)
+  - Run number: GitHub Actions run number (`github.run_number`)
 
 **Key Features**:
 - ✅ Pre-release publishing on release candidate tag push
-- ✅ Pre-release version format: `n.n.n-rc-{SHORT_SHA}`
+- ✅ Pre-release version format: `n.n.n-rc.{RUN_NUMBER}`
 - ✅ Automatic version extraction from tag name
-- ✅ Commit SHA-based versioning for traceability
+- ✅ Run number-based versioning for unique identification
 - ✅ Duplicate package protection (`--skip-duplicate` flag prevents failures on re-runs)
 - ✅ Secure API key management
 - ✅ NuGet.org publishing for pre-release packages
@@ -131,8 +127,8 @@ Our pipeline uses two different version sources:
 
 1. **Pre-release versions** (from release candidate tags):
    - When a release candidate tag (e.g., `rc-v1.2.3`) is pushed, pre-release packages are published
-   - Format: `{tag_version}-rc-{SHORT_SHA}` (e.g., `1.2.3-rc-abc1234`)
-   - Example: Pushing tag `rc-v1.2.3` with commit SHA `abc1234567890...` creates package version `1.2.3-rc-abc1234`
+   - Format: `{tag_version}-rc.{RUN_NUMBER}` (e.g., `1.2.3-rc.42`)
+   - Example: Pushing tag `rc-v1.2.3` creates package version `1.2.3-rc.{run_number}` where run_number is the GitHub Actions run number
 
 2. **Production/stable versions** (from version tags):
    - When a version tag (e.g., `v1.0.0`) is created, production packages are published using the tag version
@@ -140,14 +136,14 @@ Our pipeline uses two different version sources:
 
 **Version Workflow**:
 - Create a release candidate tag (e.g., `rc-v1.2.3`) to publish a pre-release package
-- The workflow extracts the version from the tag name and appends the commit SHA
+- The workflow extracts the version from the tag name and appends the GitHub Actions run number
 - When ready for production, create a version tag (e.g., `v1.2.3`) to publish the stable release
 
 **Example Scenario**:
-1. Push tag `rc-v1.2.3` → publishes `1.2.3-rc-abc1234` (pre-release)
-2. Push tag `rc-v1.2.3` again (different commit) → publishes `1.2.3-rc-def5678` (pre-release)
+1. Push tag `rc-v1.2.3` → publishes `1.2.3-rc.42` (pre-release, run #42)
+2. Push tag `rc-v1.2.3` again → publishes `1.2.3-rc.43` (pre-release, run #43)
 3. Create tag `v1.2.3` → publishes `1.2.3` (production)
-4. Push tag `rc-v1.2.4` → publishes `1.2.4-rc-ghi9012` (pre-release)
+4. Push tag `rc-v1.2.4` → publishes `1.2.4-rc.44` (pre-release, run #44)
 
 ## Industry Best Practices Comparison
 
@@ -161,7 +157,7 @@ Our pipeline uses two different version sources:
 | **Protected Main Branch** | ✅ Implemented | No direct pushes, PR-only workflow |
 | **Automated Publishing** | ✅ Implemented | Tag-based production releases + pre-release on release candidate tags |
 | **Version Management** | ✅ Implemented | Semantic versioning with git tags + pre-release versions |
-| **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on release candidate tags with SHA-based versioning |
+| **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on release candidate tags with run number-based versioning |
 | **Secure Secrets** | ✅ Implemented | GitHub secrets for API keys |
 
 ### Current Gaps
