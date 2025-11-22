@@ -14,7 +14,7 @@ We currently have three GitHub Actions workflows that handle different aspects o
 
 1. **PR Build and Test** (`pr-build-test.yml`) - Validates code quality on pull requests
 2. **Build and Publish** (`build-and-publish.yml`) - Handles production NuGet package publishing via version tags
-3. **Pre-release Publish** (`pre-release-publish.yml`) - Handles pre-release NuGet package publishing on main branch merges
+3. **Pre-release Publish** (`pre-release-publish.yml`) - Handles pre-release NuGet package publishing via release candidate tags
 
 ### 1. PR Build and Test Workflow
 
@@ -85,20 +85,20 @@ Publish to NuGet.org
 
 ### 3. Pre-release Publish Workflow
 
-**Purpose**: Automatically publishes pre-release NuGet packages when code is merged to the main branch.
+**Purpose**: Automatically publishes pre-release NuGet packages when release candidate tags are pushed.
 
 **Triggers**:
-- Push to main branch
+- Release candidate tags (e.g., `rc-v1.2.3`)
 
 **Process Flow**:
 ```
-Merge to Main
+Release Candidate Tag Pushed (rc-v*)
     ↓
-Extract Base Version from csproj
+Extract Base Version from Tag Name
     ↓
-Get PR Number via GitHub API
+Get Short SHA from Commit
     ↓
-Determine Version: n.n.n-rc-PR_NUMBER.REVISION
+Determine Version: n.n.n-rc-SHA
     ↓
 Restore Dependencies
     ↓
@@ -112,47 +112,42 @@ Publish to NuGet.org
 ```
 
 **Version Format**:
-- Base version from `Shift.csproj` + `-rc-` + PR number + `.` + GitHub run number (e.g., `0.0.12-rc-42.5`)
-  - Base version (`n.n.n`): Extracted from `<Version>` property in `src/Shift/Shift.csproj`, with any existing pre-release suffix stripped to ensure clean base version
-  - PR number: Retrieved via GitHub API for the merged PR (fails if no PR found, enforcing branch protection)
-  - Revision: GitHub Actions run number (`GITHUB_RUN_NUMBER`)
+- Base version from tag name + `-rc-` + short commit SHA (e.g., `1.2.3-rc-abc1234`)
+  - Base version (`n.n.n`): Extracted from tag name by removing `rc-v` prefix (e.g., `rc-v1.2.3` → `1.2.3`)
+  - Short SHA: First 7 characters of the commit SHA (`github.sha`)
 
 **Key Features**:
-- ✅ Pre-release publishing on merge to main branch
-- ✅ Pre-release version format: `n.n.n-rc-PR_NUMBER.REVISION`
-- ✅ Automatic PR number detection via GitHub API
-- ✅ Version normalization (strips existing pre-release suffixes from csproj)
+- ✅ Pre-release publishing on release candidate tag push
+- ✅ Pre-release version format: `n.n.n-rc-{SHORT_SHA}`
+- ✅ Automatic version extraction from tag name
+- ✅ Commit SHA-based versioning for traceability
 - ✅ Duplicate package protection (`--skip-duplicate` flag prevents failures on re-runs)
 - ✅ Secure API key management
 - ✅ NuGet.org publishing for pre-release packages
 
 ## Version Management Strategy
 
-> **Important**: The version in `src/Shift/Shift.csproj` must be manually updated to be ahead of the latest tag version.
-
 Our pipeline uses two different version sources:
 
-1. **Pre-release versions** (from `csproj` file):
-   - When code is merged to `main`, pre-release packages are published using the version from `Shift.csproj`
-   - Format: `{csproj_version}-rc-{PR_NUMBER}.{REVISION}` (e.g., `0.0.12-rc-42.5`)
-   - Example: If `csproj` has `<Version>0.0.12</Version>`, merging PR #42 creates package version `0.0.12-rc-42.5`
+1. **Pre-release versions** (from release candidate tags):
+   - When a release candidate tag (e.g., `rc-v1.2.3`) is pushed, pre-release packages are published
+   - Format: `{tag_version}-rc-{SHORT_SHA}` (e.g., `1.2.3-rc-abc1234`)
+   - Example: Pushing tag `rc-v1.2.3` with commit SHA `abc1234567890...` creates package version `1.2.3-rc-abc1234`
 
-2. **Production/stable versions** (from git tags):
+2. **Production/stable versions** (from version tags):
    - When a version tag (e.g., `v1.0.0`) is created, production packages are published using the tag version
    - Format: `{tag_version}` (e.g., `1.0.0` from tag `v1.0.0`)
 
-**Version Update Workflow**:
-- After creating a production release tag (e.g., `v1.0.0`), update the `<Version>` in `Shift.csproj` to the next planned version (e.g., `1.0.1` or `1.1.0`)
-- This ensures future pre-release packages will use the incremented version number
-- Pre-release versions will always be based on the csproj version, regardless of existing tags
+**Version Workflow**:
+- Create a release candidate tag (e.g., `rc-v1.2.3`) to publish a pre-release package
+- The workflow extracts the version from the tag name and appends the commit SHA
+- When ready for production, create a version tag (e.g., `v1.2.3`) to publish the stable release
 
 **Example Scenario**:
-1. Latest tag: `v1.0.0` (production release)
-2. Update `Shift.csproj` to `<Version>1.0.1</Version>` 
-3. Merge PR #50 → publishes `1.0.1-rc-50.1` (pre-release)
-4. Merge PR #51 → publishes `1.0.1-rc-51.2` (pre-release)
-5. Create tag `v1.0.1` → publishes `1.0.1` (production)
-6. Update `Shift.csproj` to `<Version>1.1.0</Version>` for next cycle
+1. Push tag `rc-v1.2.3` → publishes `1.2.3-rc-abc1234` (pre-release)
+2. Push tag `rc-v1.2.3` again (different commit) → publishes `1.2.3-rc-def5678` (pre-release)
+3. Create tag `v1.2.3` → publishes `1.2.3` (production)
+4. Push tag `rc-v1.2.4` → publishes `1.2.4-rc-ghi9012` (pre-release)
 
 ## Industry Best Practices Comparison
 
@@ -164,9 +159,9 @@ Our pipeline uses two different version sources:
 | **Automated Testing** | ✅ Implemented | Comprehensive test suite execution |
 | **Test Result Reporting** | ✅ Implemented | Visual test results in GitHub PR interface |
 | **Protected Main Branch** | ✅ Implemented | No direct pushes, PR-only workflow |
-| **Automated Publishing** | ✅ Implemented | Tag-based production releases + pre-release on merge |
+| **Automated Publishing** | ✅ Implemented | Tag-based production releases + pre-release on release candidate tags |
 | **Version Management** | ✅ Implemented | Semantic versioning with git tags + pre-release versions |
-| **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on main merges with PR tracking |
+| **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on release candidate tags with SHA-based versioning |
 | **Secure Secrets** | ✅ Implemented | GitHub secrets for API keys |
 
 ### Current Gaps
@@ -231,7 +226,7 @@ The current pipeline successfully:
 - Executes comprehensive test suites on every change
 - Provides visual test results in GitHub PR interface
 - Automatically publishes production NuGet packages on version tags
-- Automatically publishes pre-release NuGet packages when code is merged to main
+- Automatically publishes pre-release NuGet packages when release candidate tags are pushed
 - Maintains secure API key management
 
 While there are opportunities for enhancement (as documented in the [CI/CD Development Backlog](../development/backlog-ci-cd.md)), the current pipeline effectively supports our development process and ensures code quality.
