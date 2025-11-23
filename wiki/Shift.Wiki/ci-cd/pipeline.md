@@ -57,6 +57,7 @@ Publish Test Results to GitHub UI
 
 **Triggers**:
 - Version tags (e.g., `v1.0.0`, `v2.1.3`)
+- Manual workflow dispatch (via GitHub Actions UI)
 
 **Process Flow**:
 ```
@@ -128,7 +129,7 @@ Our pipeline uses two different version sources:
 1. **Pre-release versions** (from release candidate tags):
    - When a release candidate tag (e.g., `rc-v1.2.3`) is pushed, pre-release packages are published
    - Format: `{tag_version}-rc.{RUN_NUMBER}` (e.g., `1.2.3-rc.42`)
-   - Example: Pushing tag `rc-v1.2.3` creates package version `1.2.3-rc.{run_number}` where run_number is the GitHub Actions run number
+   - Example: Pushing tag `rc-v1.2.3` creates package version `1.2.3-rc.42` (where `42` is the GitHub Actions run number for that workflow execution)
 
 2. **Production/stable versions** (from version tags):
    - When a version tag (e.g., `v1.0.0`) is created, production packages are published using the tag version
