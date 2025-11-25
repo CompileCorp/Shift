@@ -24,6 +24,14 @@ jobs:
       run: |
         # Extract version from tag (e.g., rc-v1.0.0 -> 1.0.0)
         BASE_VERSION="${GITHUB_REF#refs/tags/rc-v}"
+        
+        # Validate version format (e.g., 1.2.3, 1.2.3-alpha)
+        if ! [[ "$BASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "Error: Invalid version format in tag: $BASE_VERSION"
+          echo "Expected format: rc-vX.Y.Z or rc-vX.Y.Z-prerelease (e.g., rc-v1.2.3 or rc-v1.2.3-alpha)"
+          exit 1
+        fi
+        
         REVISION="${{ github.run_number }}"
         FINAL_VERSION="${BASE_VERSION}-rc.${REVISION}"
         echo "BASE_VERSION=$BASE_VERSION" >> $GITHUB_OUTPUT
