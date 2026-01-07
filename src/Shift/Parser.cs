@@ -7,6 +7,19 @@ namespace Compile.Shift;
 
 public class Parser
 {
+    /// <summary>
+    /// Checks if the given type name is a valid primary key type (simple types without precision).
+    /// Valid PK types: guid, long, bool, float, datetime
+    /// Invalid: int (default, must not be explicit), string types (require precision), decimal (requires precision)
+    /// </summary>
+    private static bool IsValidPrimaryKeyType(string typeName)
+    {
+        // Only allow simple types that don't require precision and are valid for primary keys
+        // int is explicitly NOT allowed here because it's the default
+        var validTypes = new[] { "guid", "long", "bool", "float", "datetime" };
+        return validTypes.Contains(typeName, StringComparer.OrdinalIgnoreCase);
+    }
+
     public async Task ParseMixinsAsync(DatabaseModel model, IEnumerable<string> mixinFiles)
     {
         foreach (var mixinFile in mixinFiles)
@@ -68,44 +81,102 @@ public class Parser
                     .Where(x => x != "{")
                     .ToArray();
 
-                table.Name = parts[0].Trim();
+                // Parse: model [Type] Name [with Mixin]
+                string? primaryKeyType = null;
+                string tableName;
 
-                var containsWith = line.Contains(" with ");
+                // Find if there's a "with" clause
+                var withIndex = Array.IndexOf(parts, "with");
+                var hasWithClause = withIndex != -1;
 
-                // model name type with model 4
-                // model name type 2
-
-                // Check for mixin usage
-                if (containsWith)
+                if (hasWithClause)
                 {
-                    var withIndex = line.IndexOf(" with ", StringComparison.Ordinal);
-                    withMixin = line.Substring(withIndex + 6).Split('{')[0].Trim();
-                    table.Name = line.Substring(6, withIndex - 6).Trim();
+                    // Syntax: model [Type] Name with Mixin
+                    if (withIndex == 2)
+                    {
+                        // model Type Name with Mixin
+                        primaryKeyType = parts[0];
+
+                        // Check if explicitly specifying 'int' (which is not allowed)
+                        if (primaryKeyType.Equals("int", StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new Exception("Primary key type 'int' is the default and should not be explicitly specified. Use 'model Name with Mixin' instead of 'model int Name with Mixin'.");
+                        }
+
+                        tableName = parts[1];
+                        withMixin = parts[3];
+                    }
+                    else if (withIndex == 1)
+                    {
+                        // model Name with Mixin
+                        tableName = parts[0];
+                        withMixin = parts[2];
+                    }
+                    else
+                    {
+                        throw new Exception($"Invalid model syntax: {line}");
+                    }
                 }
+                else
+                {
+                    // Syntax: model [Type] Name
+                    if (parts.Length == 2)
+                    {
+                        // Check if explicitly specifying 'int' (which is not allowed)
+                        if (parts[0].Equals("int", StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new Exception("Primary key type 'int' is the default and should not be explicitly specified. Use 'model Name' instead of 'model int Name'.");
+                        }
+
+                        // Check if parts[0] is a valid simple type (types without precision)
+                        if (IsValidPrimaryKeyType(parts[0]))
+                        {
+                            primaryKeyType = parts[0];
+                            tableName = parts[1];
+                        }
+                        else
+                        {
+                            throw new Exception($"Unknown primary key type '{parts[0]}' or invalid syntax in: {line}");
+                        }
+                    }
+                    else if (parts.Length == 1)
+                    {
+                        // model Name
+                        tableName = parts[0];
+                    }
+                    else
+                    {
+                        throw new Exception($"Invalid model syntax: {line}");
+                    }
+                }
+
+                table.Name = tableName;
 
                 var fieldModel = new FieldModel
                 {
                     Name = $"{table.Name}ID",
-                    Type = "int",
+                    Type = "int",  // Default type
                     IsNullable = false,
                     IsPrimaryKey = true,
                     IsIdentity = true
                 };
 
-                if ((containsWith && parts.Length == 4) || (!containsWith && parts.Length == 2))
+                // Override type if specified
+                if (primaryKeyType != null)
                 {
-                    fieldModel.Type = parts[1].Trim();
-                }
+                    fieldModel.Type = primaryKeyType;
 
-                // Normalize DSL type to SQL type for primary key and adjust identity if needed
-                fieldModel.Type =
-                    Vnum.TryFromCode<DmdFieldType>(fieldModel.Type, ignoreCase: true, out var dmdFieldType)
-                        ? dmdFieldType.SqlFieldType.Code
-                        : fieldModel.Type;
+                    // Normalize DSL type to SQL type for primary key
+                    fieldModel.Type =
+                        Vnum.TryFromCode<DmdFieldType>(fieldModel.Type, ignoreCase: true, out var dmdFieldType)
+                            ? dmdFieldType.SqlFieldType.Code
+                            : fieldModel.Type;
 
-                if (fieldModel.Type.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase))
-                {
-                    fieldModel.IsIdentity = false;
+                    // Special handling for guid: disable identity
+                    if (fieldModel.Type.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fieldModel.IsIdentity = false;
+                    }
                 }
 
                 table.Fields.Add(fieldModel);

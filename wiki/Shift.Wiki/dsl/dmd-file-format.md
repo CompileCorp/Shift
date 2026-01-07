@@ -49,6 +49,40 @@ DMD files are processed by Shift's `Parser` class and converted into `DatabaseMo
 model TableName {
   // field definitions
 }
+
+// With custom primary key type (optional)
+model PrimaryKeyType TableName {
+  // field definitions
+}
+
+// With mixin (optional)
+model TableName with MixinName {
+  // field definitions
+}
+
+// With both custom primary key and mixin (optional)
+model PrimaryKeyType TableName with MixinName {
+  // field definitions
+}
+```
+
+**Examples:**
+```dmd
+model User {                      // Default: int identity primary key
+  ustring Username
+}
+
+model guid Session {              // GUID primary key (non-identity)
+  datetime CreatedAt
+}
+
+model long Product {              // BIGINT identity primary key
+  ustring Name
+}
+
+model guid Trip with Auditable {  // GUID primary key with mixin
+  datetime DepartureDate
+}
 ```
 
 ### Field Declaration
@@ -171,9 +205,11 @@ CREATE TABLE [User] (
 
 ### Custom Primary Key Types
 
+You can optionally specify a primary key type by placing it before the model name. The type must be a simple type (no precision) and cannot be `int` (since that's the default).
+
 #### GUID Primary Key
 ```dmd
-model User guid {
+model guid User {
   ustring Username
   ustring Email
 }
@@ -189,23 +225,36 @@ CREATE TABLE [User] (
 )
 ```
 
-#### Explicit Integer Primary Key
+**Note:** GUID primary keys automatically disable the IDENTITY property.
+
+#### BIGINT Primary Key
 ```dmd
-model User int {
-  ustring Username
-  ustring Email
+model long Product {
+  ustring Name
+  decimal(10,2) Price
 }
 ```
 
 **Generated SQL:**
 ```sql
-CREATE TABLE [User] (
-  [UserID] int IDENTITY(1,1) NOT NULL,
-  [Username] nvarchar(255) NOT NULL,
-  [Email] nvarchar(255) NOT NULL,
-  CONSTRAINT [PK_User] PRIMARY KEY ([UserID])
+CREATE TABLE [Product] (
+  [ProductID] bigint IDENTITY(1,1) NOT NULL,
+  [Name] nvarchar(255) NOT NULL,
+  [Price] decimal(10,2) NOT NULL,
+  CONSTRAINT [PK_Product] PRIMARY KEY ([ProductID])
 )
 ```
+
+#### Valid Primary Key Types
+
+The following types can be specified for primary keys:
+- `guid` → `uniqueidentifier` (non-identity)
+- `long` → `bigint` (identity)
+- `bool` → `bit` (identity)
+- `float` → `float` (identity)
+- `datetime` → `datetime` (identity)
+
+**Note:** You cannot explicitly specify `int` as the primary key type since it's the default. Use `model Name` instead of `model int Name`.
 
 ### @NoIdentity Attribute
 
@@ -371,6 +420,32 @@ CREATE TABLE [User] (
   CONSTRAINT [PK_User] PRIMARY KEY ([UserID])
 )
 ```
+
+### Custom Primary Key with Mixins
+
+You can combine custom primary key types with mixins:
+
+```dmd
+model guid Trip with Auditable {
+  string(200) Title
+  datetime DepartureDate
+}
+```
+
+**Generated SQL:**
+```sql
+CREATE TABLE [Trip] (
+  [TripID] uniqueidentifier NOT NULL,
+  [Title] nvarchar(200) NOT NULL,
+  [DepartureDate] datetime NOT NULL,
+  [CreatedDateTime] datetime NOT NULL,
+  [LastModifiedDateTime] datetime NOT NULL,
+  [LockNumber] int NOT NULL,
+  CONSTRAINT [PK_Trip] PRIMARY KEY ([TripID])
+)
+```
+
+**Note:** The primary key type is specified before the model name, and the mixin is applied after.
 
 ### Mixins with Foreign Keys
 
@@ -702,7 +777,7 @@ model Product {
 
 **User.dmd:**
 ```dmd
-model User guid {
+model guid User {
   string(100) Username
   string(256) Email
   string(255) PasswordHash
@@ -758,8 +833,8 @@ mixin Auditable {
 
 ### Type Selection
 
-1. **Primary keys** - Use `guid` for distributed systems, `int` for single-server applications
-2. **Strings** - Use `string` for Unicode text, `astring` for ASCII-only data
+1. **Primary keys** - Use `model guid Name` for distributed systems or when you need non-sequential keys; use `model Name` (default `int` identity) for single-server applications with sequential IDs. **Note:** Do not explicitly specify `int` - it's the default.
+2. **Strings** - Use `ustring` for Unicode text, `astring` for ASCII-only data
 3. **Decimals** - Always specify precision and scale for monetary values
 4. **Nullable fields** - Be explicit about nullability with `?` modifier
 

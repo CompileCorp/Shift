@@ -187,7 +187,7 @@ model Document {
     {
         // Arrange
         var content = @"
-model User guid {
+model guid User {
   string(100) Username
   string(256) Email
 }";
@@ -266,6 +266,100 @@ model Category {
         pkField.IsNullable.Should().BeFalse();
 
 
+    }
+
+    /// <summary>
+    /// Tests that explicitly specifying 'int' as the primary key type throws an exception
+    /// since int is the default and should not be explicitly specified.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithExplicitIntPrimaryKey_ShouldThrowException()
+    {
+        // Arrange
+        var content = @"
+model int Category {
+  string(100) Name
+}";
+
+        var model = new DatabaseModel();
+
+        // Act & Assert
+        var exception = Assert.Throws<Exception>(() => Sut.ParseTable(model, content));
+        exception.Message.Should().Contain("Primary key type 'int' is the default");
+    }
+
+    /// <summary>
+    /// Tests that parsing a model with 'long' primary key type correctly sets the primary key
+    /// field type to 'bigint' and maintains the identity property.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithLongPrimaryKey_ShouldSetCorrectType()
+    {
+        // Arrange
+        var content = @"
+model long Product {
+  string(200) Name
+  decimal(10,2) Price
+}";
+
+        var model = new DatabaseModel();
+
+        // Act
+        Sut.ParseTable(model, content);
+
+        // Assert
+        var table = model.Tables["Product"];
+        var pkField = table.Fields.First(f => f.IsPrimaryKey);
+        pkField.Name.Should().Be("ProductID");
+        pkField.Type.Should().Be("bigint");
+        pkField.IsIdentity.Should().BeTrue();
+        pkField.IsNullable.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Tests that parsing a model with a guid primary key and a mixin correctly
+    /// sets the primary key type and applies the mixin fields.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithGuidPrimaryKeyAndMixin_ShouldSetTypeAndApplyMixin()
+    {
+        // Arrange
+        var model = new DatabaseModel();
+
+        var mixinContent = @"
+mixin Auditable {
+  string(50) CreatedBy
+  datetime CreatedDateTime
+}";
+        var mixin = Sut.ParseMixin(mixinContent);
+        model.Mixins.Add(mixin.Name, mixin);
+
+        var tableContent = @"
+model guid Trip with Auditable {
+  string(200) Title
+  datetime DepartureDate
+}";
+
+        // Act
+        Sut.ParseTable(model, tableContent);
+
+        // Assert
+        var table = model.Tables["Trip"];
+
+        // Verify primary key
+        var pkField = table.Fields.First(f => f.IsPrimaryKey);
+        pkField.Name.Should().Be("TripID");
+        pkField.Type.Should().Be("uniqueidentifier");
+        pkField.IsIdentity.Should().BeFalse();
+
+        // Verify mixin was applied
+        table.Mixins.Should().Contain("Auditable");
+        table.Fields.Should().Contain(f => f.Name == "CreatedBy");
+        table.Fields.Should().Contain(f => f.Name == "CreatedDateTime");
+
+        // Verify model fields
+        table.Fields.Should().Contain(f => f.Name == "Title");
+        table.Fields.Should().Contain(f => f.Name == "DepartureDate");
     }
 
     #endregion
