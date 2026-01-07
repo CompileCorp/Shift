@@ -59,4 +59,4 @@ Thumbs.db
 coverage-reports/
 coverage-report/
 coverage-reports-*/
-coverage-report-*/
+coverage-report-*/.claude/
