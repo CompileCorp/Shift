@@ -174,6 +174,55 @@ model Document {
 
     }
 
+    /// <summary>
+    /// Tests that parsing nullable max-length fields correctly sets both
+    /// the precision to -1 and IsNullable to true.
+    /// </summary>
+    [Fact]
+    public void ParseTable_WithNullableMaxLengthFields_ShouldSetNullableCorrectly()
+    {
+        // Arrange
+        var content = @"
+model Task {
+  string(max)? Description
+  string(max) RequiredContent
+  ustring(max)? OptionalUnicodeContent
+  astring(max)? OptionalAsciiContent
+}";
+
+        var model = new DatabaseModel();
+
+        // Act
+        Sut.ParseTable(model, content);
+
+        // Assert
+        var table = model.Tables["Task"];
+
+        // Nullable max-length field
+        var descriptionField = table.Fields.First(f => f.Name == "Description");
+        descriptionField.Type.Should().Be("nvarchar");
+        descriptionField.Precision.Should().Be(-1);
+        descriptionField.IsNullable.Should().BeTrue();
+
+        // Non-nullable max-length field
+        var requiredField = table.Fields.First(f => f.Name == "RequiredContent");
+        requiredField.Type.Should().Be("nvarchar");
+        requiredField.Precision.Should().Be(-1);
+        requiredField.IsNullable.Should().BeFalse();
+
+        // Nullable ustring(max)
+        var optionalUnicodeField = table.Fields.First(f => f.Name == "OptionalUnicodeContent");
+        optionalUnicodeField.Type.Should().Be("nvarchar");
+        optionalUnicodeField.Precision.Should().Be(-1);
+        optionalUnicodeField.IsNullable.Should().BeTrue();
+
+        // Nullable astring(max)
+        var optionalAsciiField = table.Fields.First(f => f.Name == "OptionalAsciiContent");
+        optionalAsciiField.Type.Should().Be("varchar");
+        optionalAsciiField.Precision.Should().Be(-1);
+        optionalAsciiField.IsNullable.Should().BeTrue();
+    }
+
     #endregion
 
     #region Primary Key Attribute Tests

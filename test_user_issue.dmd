@@ -1,0 +1,4 @@
+model TestTask {
+  string(max)? Description
+  string(max) RequiredContent
+}
