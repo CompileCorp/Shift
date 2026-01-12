@@ -32,6 +32,18 @@ public class MigrationPlanner
                     ForeignKey = foreignKey
                 });
             }
+
+            // Add indexes for new tables
+            foreach (var index in table.Indexes)
+            {
+                plan.Steps.Add(new MigrationStep
+                {
+                    Action = MigrationAction.AddIndex,
+                    TableName = table.Name,
+                    Index = index,
+                    Table = table
+                });
+            }
         }
 
         // 2. Add missing columns to existing tables
