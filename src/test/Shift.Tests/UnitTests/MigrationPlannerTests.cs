@@ -470,6 +470,42 @@ model Document with Auditable {
             extra.Fields.SequenceEqual(new[] { "Username" }));
     }
 
+    /// <summary>
+    /// Tests that indexes are created for new tables on first run (fresh database scenario).
+    /// This reproduces the bug where indexes were not created until the second run.
+    /// </summary>
+    [Fact]
+    public void GeneratePlan_WithNewTableWithIndexes_ShouldCreateIndexesOnFirstRun()
+    {
+        // Arrange - Fresh database scenario
+        var targetModel = CreateModelWithIndexes(); // Target has table with indexes
+        var actualModel = new DatabaseModel(); // Empty actual model (fresh database)
+
+        // Act
+        var plan = Sut.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        // Should create the table
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.CreateTable &&
+            step.TableName == "User");
+
+        // Should create indexes for the new table on first run
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.AddIndex &&
+            step.TableName == "User" &&
+            step.Index != null &&
+            step.Index.Fields.SequenceEqual(new[] { "Email" }) &&
+            step.Index.IsUnique == true);
+
+        plan.Steps.Should().Contain(step =>
+            step.Action == MigrationAction.AddIndex &&
+            step.TableName == "User" &&
+            step.Index != null &&
+            step.Index.Fields.SequenceEqual(new[] { "Username" }) &&
+            step.Index.IsUnique == false);
+    }
+
     #endregion
 
     #region Helper Methods
