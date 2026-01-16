@@ -39,20 +39,20 @@ public class SqlMigrationPlanRunner
                 {
                     foreach (var field in step.Fields)
                     {
-                        Logger.LogInformation($"{step.Action} {step.TableName} {field}");
+                        Logger.LogWarning($"{step.Action} {step.TableName} {field}");
                         sqls.AddRange(GenerateColumnSql(step.TableName, field));
                     }
                 }
                 else if (step.Action == MigrationAction.CreateTable)
                 {
-                    Logger.LogInformation($"{step.Action} {step.TableName}");
+                    Logger.LogWarning($"{step.Action} {step.TableName}");
                     sqls.AddRange(GenerateCreateTableSql(step.TableName, step.Fields));
                 }
                 else if (step.Action == MigrationAction.AlterColumn)
                 {
                     foreach (var field in step.Fields)
                     {
-                        Logger.LogInformation($"{step.Action} {step.TableName} {field}");
+                        Logger.LogWarning($"{step.Action} {step.TableName} {field}");
                         // Safety check: skip alters that would cause data loss
                         if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field))
                         {
@@ -65,7 +65,7 @@ public class SqlMigrationPlanRunner
                 }
                 else if (step is { Action: MigrationAction.AddForeignKey, ForeignKey: not null })
                 {
-                    Logger.LogInformation($"{step.Action} {step.TableName} {step.ForeignKey.ColumnName}");
+                    Logger.LogWarning($"{step.Action} {step.TableName} {step.ForeignKey.ColumnName}");
                     sqls.AddRange(CreateForeignKeySql(step.TableName, step.ForeignKey));
                     sqls.AddRange(GenerateIndexSql(step.TableName, new IndexModel()
                     {
@@ -76,7 +76,7 @@ public class SqlMigrationPlanRunner
                 }
                 else if (step is { Action: MigrationAction.AddIndex, Index: not null })
                 {
-                    Logger.LogInformation($"{step.Action} {step.TableName} {string.Join(",", step.Index.Fields)}");
+                    Logger.LogWarning($"{step.Action} {step.TableName} {string.Join(",", step.Index.Fields)}");
                     sqls.AddRange(GenerateIndexSql(step.TableName, step.Index, step.Table));
                 }
 
