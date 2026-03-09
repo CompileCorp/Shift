@@ -63,9 +63,28 @@ internal static class CommandHelper
             return new PrintHelpCommand(["Error: Command requires a connection string and at least one dmd model location path"]);
         }
 
+        var connectionString = args[0];
+        var remainingArgs = args[1..].ToList();
+        var schema = "dbo";
+
+        // Parse --schema option
+        var schemaIndex = remainingArgs.FindIndex(a => a.Equals("--schema", StringComparison.OrdinalIgnoreCase));
+        if (schemaIndex >= 0 && schemaIndex + 1 < remainingArgs.Count)
+        {
+            schema = remainingArgs[schemaIndex + 1];
+            remainingArgs.RemoveAt(schemaIndex + 1);
+            remainingArgs.RemoveAt(schemaIndex);
+        }
+
+        if (remainingArgs.Count == 0)
+        {
+            return new PrintHelpCommand(["Error: Command requires at least one dmd model location path"]);
+        }
+
         return new ApplyCommand(
-            ConnectionString: args[0],
-            ModelLocationPaths: args[1..]);
+            ConnectionString: connectionString,
+            ModelLocationPaths: remainingArgs.ToArray(),
+            Schema: schema);
     }
 
     private static IRequest<Unit> GetApplyAssembliesCommand(UserInput userInput)
@@ -77,9 +96,19 @@ internal static class CommandHelper
         }
 
         var connectionString = args[0];
-        var remainingArgs = args[1..];
+        var remainingArgs = args[1..].ToList();
         var dllPaths = new List<string>();
         var allNamespaces = new HashSet<string>(StringComparer.Ordinal);
+        var schema = "dbo";
+
+        // Parse --schema option first
+        var schemaIndex = remainingArgs.FindIndex(a => a.Equals("--schema", StringComparison.OrdinalIgnoreCase));
+        if (schemaIndex >= 0 && schemaIndex + 1 < remainingArgs.Count)
+        {
+            schema = remainingArgs[schemaIndex + 1];
+            remainingArgs.RemoveAt(schemaIndex + 1);
+            remainingArgs.RemoveAt(schemaIndex);
+        }
 
         // Parse arguments: anything ending with .dll is a DLL, anything else is a filter
         foreach (var arg in remainingArgs)
@@ -109,7 +138,8 @@ internal static class CommandHelper
         return new ApplyAssembliesCommand(
             ConnectionString: connectionString,
             DllPaths: dllPaths.ToArray(),
-            Namespaces: allNamespaces.Count > 0 ? allNamespaces.ToArray() : null);
+            Namespaces: allNamespaces.Count > 0 ? allNamespaces.ToArray() : null,
+            Schema: schema);
     }
 
     private static IRequest<Unit> GetExportCommand(UserInput userInput)
@@ -187,6 +217,7 @@ internal static class CommandHelper
 
         // Parse options
         var options = new EfCodeGenerationOptions();
+        var schema = "dbo";
         for (int i = 0; i < remainingArgs.Length; i += 2)
         {
             if (i + 1 >= remainingArgs.Length) break;
@@ -208,6 +239,9 @@ internal static class CommandHelper
                 case "--base-class":
                     options.BaseClassName = value;
                     break;
+                case "--schema":
+                    schema = value;
+                    break;
                 default:
                     Console.WriteLine($"Warning: Unknown option '{option}'");
                     break;
@@ -216,6 +250,7 @@ internal static class CommandHelper
 
         Console.WriteLine($"Generating Entity Framework code from SQL Server with custom options...");
         Console.WriteLine($"   Connection: {connectionString}");
+        Console.WriteLine($"   Schema: {schema}");
         Console.WriteLine($"   Output: {outputPath}");
         Console.WriteLine($"   Namespace: {options.NamespaceName}");
         Console.WriteLine($"   Context: {options.ContextClassName}");
@@ -225,7 +260,7 @@ internal static class CommandHelper
 
         return new EfFromSqlCustomCommand(
             ConnectionString: connectionString,
-            Schema: "dbo", //TODO: make schema configurable
+            Schema: schema,
             OutputDirectoryPath: outputPath,
             Options: options);
     }

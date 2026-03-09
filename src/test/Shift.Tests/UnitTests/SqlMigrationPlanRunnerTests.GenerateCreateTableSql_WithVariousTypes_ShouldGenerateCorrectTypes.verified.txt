@@ -1,4 +1,4 @@
-﻿CREATE TABLE [Product] (
+CREATE TABLE [dbo].[Product] (
   [ID] int IDENTITY(1,1) NOT NULL,
   [Price] decimal(18,2) NOT NULL,
   [IsActive] bit NOT NULL,

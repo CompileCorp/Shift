@@ -4,7 +4,7 @@ using System.Reflection;
 
 namespace Compile.Shift.Cli.Commands;
 
-public record ApplyAssembliesCommand(string ConnectionString, string[] DllPaths, string[]? Namespaces = null) : IRequest<Unit>;
+public record ApplyAssembliesCommand(string ConnectionString, string[] DllPaths, string[]? Namespaces = null, string Schema = "dbo") : IRequest<Unit>;
 
 public class ApplyAssembliesCommandHandler : IRequestHandler<ApplyAssembliesCommand, Unit>
 {
@@ -40,7 +40,7 @@ public class ApplyAssembliesCommandHandler : IRequestHandler<ApplyAssembliesComm
         }
 
         var targetModel = await _shift.LoadFromAssembliesAsync(assemblies, request.Namespaces);
-        await _shift.ApplyToSqlAsync(targetModel, request.ConnectionString);
+        await _shift.ApplyToSqlAsync(targetModel, request.ConnectionString, request.Schema);
         return Unit.Value;
     }
 }

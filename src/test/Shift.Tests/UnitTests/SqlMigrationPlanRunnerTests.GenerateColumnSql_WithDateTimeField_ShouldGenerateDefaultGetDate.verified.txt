@@ -1,1 +1,1 @@
-﻿ALTER TABLE [User] ADD [CreatedDate] datetime NOT NULL  DEFAULT GETDATE()
+ALTER TABLE [dbo].[User] ADD [CreatedDate] datetime NOT NULL  DEFAULT GETDATE()

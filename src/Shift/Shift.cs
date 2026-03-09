@@ -188,7 +188,7 @@ public class Shift : IShift
         var sourceModel = await LoadFromSqlAsync(connectionString, schema);
         var migrationPlanner = new MigrationPlanner();
         var plan = migrationPlanner.GeneratePlan(targetModel, sourceModel);
-        var sql = new SqlMigrationPlanRunner(connectionString, plan) { Logger = Logger };
+        var sql = new SqlMigrationPlanRunner(connectionString, plan, schema) { Logger = Logger };
         sql.Run();
 
         var effects = plan.Steps

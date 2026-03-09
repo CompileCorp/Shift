@@ -1,4 +1,4 @@
-﻿CREATE TABLE [TestTable] (
+CREATE TABLE [dbo].[TestTable] (
   [ID] int IDENTITY(1,1) NOT NULL,
   [RequiredField] nvarchar(50) NOT NULL,
   [OptionalField] nvarchar(50) NULL,

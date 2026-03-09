@@ -1,4 +1,4 @@
-﻿CREATE TABLE [TestTable] (
+CREATE TABLE [dbo].[TestTable] (
   [Name] nvarchar(100) NOT NULL,
   [Description] nvarchar(500) NULL
 )

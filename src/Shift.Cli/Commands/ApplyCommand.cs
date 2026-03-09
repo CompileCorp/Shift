@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Compile.Shift.Cli.Commands;
 
-public record ApplyCommand(string ConnectionString, string[] ModelLocationPaths) : IRequest<Unit>;
+public record ApplyCommand(string ConnectionString, string[] ModelLocationPaths, string Schema = "dbo") : IRequest<Unit>;
 
 public class ApplyCommandHandler : IRequestHandler<ApplyCommand, Unit>
 {
@@ -19,7 +19,7 @@ public class ApplyCommandHandler : IRequestHandler<ApplyCommand, Unit>
     public async Task<Unit> Handle(ApplyCommand request, CancellationToken cancellationToken)
     {
         var targetModel = await _shift.LoadFromPathAsync(request.ModelLocationPaths);
-        await _shift.ApplyToSqlAsync(targetModel, request.ConnectionString);
+        await _shift.ApplyToSqlAsync(targetModel, request.ConnectionString, request.Schema);
         return Unit.Value;
     }
 }

@@ -1,4 +1,4 @@
-﻿ALTER TABLE [dbo].[Document] WITH NOCHECK ADD CONSTRAINT [FK_Document_CreatedByUserID] FOREIGN KEY ([CreatedByUserID])
+ALTER TABLE [dbo].[Document] WITH NOCHECK ADD CONSTRAINT [FK_Document_CreatedByUserID] FOREIGN KEY ([CreatedByUserID])
 		REFERENCES [dbo].[User]([UserID])
 
-ALTER TABLE[dbo].[Document] CHECK CONSTRAINT[FK_Document_CreatedByUserID]
+ALTER TABLE [dbo].[Document] CHECK CONSTRAINT [FK_Document_CreatedByUserID]

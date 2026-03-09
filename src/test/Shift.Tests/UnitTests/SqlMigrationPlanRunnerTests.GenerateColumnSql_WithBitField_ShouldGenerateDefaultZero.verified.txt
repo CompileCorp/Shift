@@ -1,1 +1,1 @@
-﻿ALTER TABLE [User] ADD [IsActive] bit NOT NULL  DEFAULT 0
+ALTER TABLE [dbo].[User] ADD [IsActive] bit NOT NULL  DEFAULT 0

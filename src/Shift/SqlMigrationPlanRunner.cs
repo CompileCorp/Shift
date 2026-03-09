@@ -13,12 +13,14 @@ public class SqlMigrationPlanRunner
 {
     private readonly string _connectionString;
     private readonly MigrationPlan _plan;
+    private readonly string _schema;
     public required ILogger Logger { private get; init; }
 
-    public SqlMigrationPlanRunner(string connectionString, MigrationPlan plan)
+    public SqlMigrationPlanRunner(string connectionString, MigrationPlan plan, string schema = "dbo")
     {
         _connectionString = connectionString;
         _plan = plan;
+        _schema = schema;
     }
 
     public List<(MigrationStep Step, Exception Exception)> Run()
@@ -107,10 +109,10 @@ public class SqlMigrationPlanRunner
     {
         var fkName = $"FK_{tableName}_{foreignKey.ColumnName}";
 
-        yield return $@"ALTER TABLE [dbo].[{tableName}] WITH NOCHECK ADD CONSTRAINT [{fkName}] FOREIGN KEY ([{foreignKey.ColumnName}])
-		REFERENCES [dbo].[{foreignKey.TargetTable}]([{foreignKey.TargetColumnName}])";
+        yield return $@"ALTER TABLE [{_schema}].[{tableName}] WITH NOCHECK ADD CONSTRAINT [{fkName}] FOREIGN KEY ([{foreignKey.ColumnName}])
+		REFERENCES [{_schema}].[{foreignKey.TargetTable}]([{foreignKey.TargetColumnName}])";
 
-        yield return $"ALTER TABLE[dbo].[{tableName}] CHECK CONSTRAINT[{fkName}]";
+        yield return $"ALTER TABLE [{_schema}].[{tableName}] CHECK CONSTRAINT [{fkName}]";
     }
 
     internal IEnumerable<string> GenerateCreateTableSql(string tableName, List<FieldModel> fields)
@@ -133,7 +135,7 @@ public class SqlMigrationPlanRunner
                 pkField = field.Name;
         }
         var pkConstraint = pkField != null ? $",\n  CONSTRAINT [PK_{tableName}] PRIMARY KEY ([{pkField}])" : string.Empty;
-        yield return $"CREATE TABLE [{tableName}] (\n  {string.Join(",\n  ", tableColSql)}{pkConstraint}\n)";
+        yield return $"CREATE TABLE [{_schema}].[{tableName}] (\n  {string.Join(",\n  ", tableColSql)}{pkConstraint}\n)";
     }
 
     internal IEnumerable<string> GenerateColumnSql(string tableName, FieldModel field)
@@ -187,7 +189,7 @@ public class SqlMigrationPlanRunner
             }
         }
 
-        yield return $"ALTER TABLE [{tableName}] ADD [{field.Name}] {typeSql} {nullSql} {defaultSql}";
+        yield return $"ALTER TABLE [{_schema}].[{tableName}] ADD [{field.Name}] {typeSql} {nullSql} {defaultSql}";
 
         if (field.IsNullable)
         {
@@ -198,8 +200,8 @@ DECLARE @dfname nvarchar(128);
 SELECT @dfname = df.name
 FROM sys.default_constraints df
 INNER JOIN sys.columns c ON df.parent_object_id = c.object_id AND df.parent_column_id = c.column_id
-WHERE df.parent_object_id = OBJECT_ID('{tableName}') AND c.name = '{field.Name}';
-IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfname + ']');
+WHERE df.parent_object_id = OBJECT_ID('{_schema}.{tableName}') AND c.name = '{field.Name}';
+IF @dfname IS NOT NULL EXEC('ALTER TABLE [{_schema}].[{tableName}] DROP CONSTRAINT [' + @dfname + ']');
 ";
         }
     }
@@ -212,7 +214,7 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
                 : SqlTypeHelper.GetUnknownSqlTypeString(field);
 
         var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
-        yield return $"ALTER TABLE [dbo].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
+        yield return $"ALTER TABLE [{_schema}].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
     }
 
     internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)
@@ -248,7 +250,7 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
                 predicate = $"DATALENGTH([{field.Name}]) > @limitBytes";
             }
 
-            var sql = $"SELECT TOP 1 1 FROM [dbo].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND {predicate}";
+            var sql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND {predicate}";
             using var cmd = new SqlCommand(sql, connection);
             if (baseType is "char" or "nchar")
             {
@@ -268,7 +270,7 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
             int precision = field.Precision ?? 18;
             int scale = field.Scale ?? 0;
 
-            var sql = $"SELECT TOP 1 1 FROM [dbo].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND (TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) IS NULL OR TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) <> [{field.Name}])";
+            var sql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND (TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) IS NULL OR TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) <> [{field.Name}])";
             using var cmd = new SqlCommand(sql, connection);
             var result = cmd.ExecuteScalar();
             return result != null;
@@ -298,9 +300,9 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{tableName}] DROP CONSTRAINT [' + @dfn
         };
 
         yield return
-$@"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('dbo.{tableName}'))
+$@"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('{_schema}.{tableName}'))
 BEGIN
-    CREATE {uniqueKeyword}{kindKeyword}INDEX [{indexName}] ON [dbo].[{tableName}]({columnList})
+    CREATE {uniqueKeyword}{kindKeyword}INDEX [{indexName}] ON [{_schema}].[{tableName}]({columnList})
 END";
     }
 

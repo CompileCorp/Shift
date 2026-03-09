@@ -1,1 +1,1 @@
-﻿ALTER TABLE [OrderItem] ADD [Quantity] int NOT NULL  DEFAULT 0
+ALTER TABLE [dbo].[OrderItem] ADD [Quantity] int NOT NULL  DEFAULT 0

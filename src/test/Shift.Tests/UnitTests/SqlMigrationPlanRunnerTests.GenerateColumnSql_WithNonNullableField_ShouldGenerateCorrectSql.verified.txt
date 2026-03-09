@@ -1,1 +1,1 @@
-﻿ALTER TABLE [User] ADD [Username] nvarchar(100) NOT NULL  DEFAULT ''
+ALTER TABLE [dbo].[User] ADD [Username] nvarchar(100) NOT NULL  DEFAULT ''

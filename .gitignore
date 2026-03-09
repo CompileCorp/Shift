@@ -60,3 +60,4 @@ coverage-reports/
 coverage-report/
 coverage-reports-*/
 coverage-report-*/
+.claude/settings.local.json

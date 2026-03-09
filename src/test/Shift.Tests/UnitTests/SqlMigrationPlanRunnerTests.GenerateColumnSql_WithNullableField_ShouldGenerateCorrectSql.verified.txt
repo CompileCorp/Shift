@@ -1,9 +1,9 @@
-﻿ALTER TABLE [User] ADD [Email] nvarchar(256) NULL
+ALTER TABLE [dbo].[User] ADD [Email] nvarchar(256) NULL
 
 
 DECLARE @dfname nvarchar(128);
 SELECT @dfname = df.name
 FROM sys.default_constraints df
 INNER JOIN sys.columns c ON df.parent_object_id = c.object_id AND df.parent_column_id = c.column_id
-WHERE df.parent_object_id = OBJECT_ID('User') AND c.name = 'Email';
-IF @dfname IS NOT NULL EXEC('ALTER TABLE [User] DROP CONSTRAINT [' + @dfname + ']');
+WHERE df.parent_object_id = OBJECT_ID('dbo.User') AND c.name = 'Email';
+IF @dfname IS NOT NULL EXEC('ALTER TABLE [dbo].[User] DROP CONSTRAINT [' + @dfname + ']');
