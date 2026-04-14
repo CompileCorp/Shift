@@ -186,7 +186,7 @@ public class Shift : IShift
     public async Task ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo")
     {
         var sourceModel = await LoadFromSqlAsync(connectionString, schema);
-        var migrationPlanner = new MigrationPlanner();
+        var migrationPlanner = new MigrationPlanner { Logger = Logger };
         var plan = migrationPlanner.GeneratePlan(targetModel, sourceModel);
         var sql = new SqlMigrationPlanRunner(connectionString, plan, schema) { Logger = Logger };
         sql.Run();

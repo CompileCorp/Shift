@@ -87,6 +87,7 @@ public class SqlMigrationPlanRunner
                     sql = xsql;
                     Logger.LogDebug(sql);
                     using var cmd = new SqlCommand(sql, connection);
+                    cmd.CommandTimeout = 600;
                     cmd.ExecuteNonQuery();
                 }
             }
@@ -214,7 +215,23 @@ IF @dfname IS NOT NULL EXEC('ALTER TABLE [{_schema}].[{tableName}] DROP CONSTRAI
                 : SqlTypeHelper.GetUnknownSqlTypeString(field);
 
         var nullSql = field.IsNullable ? "NULL" : "NOT NULL";
-        yield return $"ALTER TABLE [{_schema}].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}";
+
+        yield return $@"
+IF EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = '{_schema}'
+      AND TABLE_NAME = '{tableName}'
+      AND COLUMN_NAME = '{field.Name}'
+      AND (
+          DATA_TYPE <> '{field.Type}'
+          OR COALESCE(CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, 0) <> {field.Precision ?? -1}
+          OR IS_NULLABLE <> '{(field.IsNullable ? "YES" : "NO")}'
+      )
+)
+BEGIN
+    ALTER TABLE [{_schema}].[{tableName}] ALTER COLUMN [{field.Name}] {typeSql} {nullSql}
+END";
     }
 
     internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)

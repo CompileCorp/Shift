@@ -1,10 +1,13 @@
 using Compile.Shift.Model;
 using Compile.Shift.Helpers;
+using Microsoft.Extensions.Logging;
 
 namespace Compile.Shift;
 
 public class MigrationPlanner
 {
+    public ILogger? Logger { get; init; }
+
     public MigrationPlan GeneratePlan(DatabaseModel targetModel, DatabaseModel actualModel)
     {
         var plan = new MigrationPlan();
@@ -97,18 +100,18 @@ public class MigrationPlanner
                     var isSizeType = targetType is "varchar" or "nvarchar" or "char" or "nchar" or "binary" or "varbinary";
                     if (isSizeType && string.Equals(targetType, actualType, StringComparison.OrdinalIgnoreCase))
                     {
-                        int? targetPrecision = targetField.Precision;
-                        int? actualPrecision = actualField.Precision;
+                        // Normalize: treat null and -1 as equivalent (both mean MAX)
+                        int? targetPrecision = targetField.Precision == -1 ? null : targetField.Precision;
+                        int? actualPrecision = actualField.Precision == -1 ? null : actualField.Precision;
 
-                        bool sizeChanged = false;
-                        // Any change including MAX <-> fixed and different fixed lengths
-                        if (targetPrecision != actualPrecision)
-                        {
-                            sizeChanged = true;
-                        }
+                        bool sizeChanged = targetPrecision != actualPrecision;
 
                         if (sizeChanged)
                         {
+                            Logger?.LogWarning(
+                                "AlterColumn {Table}.{Column}: target precision {TargetPrecision} != actual precision {ActualPrecision}",
+                                targetTable.Name, targetField.Name, targetPrecision, actualPrecision);
+
                             plan.Steps.Add(new MigrationStep
                             {
                                 Action = MigrationAction.AlterColumn,
