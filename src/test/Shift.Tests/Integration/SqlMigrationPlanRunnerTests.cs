@@ -68,6 +68,42 @@ public class SqlMigrationPlanRunnerTests
     }
 
     /// <summary>
+    /// Tests that when a step fails (here, creating a table that already exists), the runner
+    /// captures the failure and returns it rather than throwing — exercising the catch path.
+    /// </summary>
+    [Fact]
+    public async Task Run_WhenStepFails_CapturesFailureInsteadOfThrowing()
+    {
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            var fields = new List<FieldModel>
+            {
+                new() { Name = "Id", Type = "int", IsPrimaryKey = true, IsIdentity = true }
+            };
+            var plan = new MigrationPlan();
+            // Two identical CreateTable steps: the first succeeds, the second fails because the
+            // table already exists, producing a SqlException that must be captured.
+            plan.Steps.Add(new MigrationStep { Action = MigrationAction.CreateTable, TableName = "Dup", Fields = fields });
+            plan.Steps.Add(new MigrationStep { Action = MigrationAction.CreateTable, TableName = "Dup", Fields = fields });
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan) { Logger = _logger };
+
+            var failures = runner.Run();
+
+            failures.Should().HaveCount(1);
+            failures[0].Item1.TableName.Should().Be("Dup");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
     /// Tests that SqlMigrationPlanRunner can create tables with various field types.
     /// </summary>
     [Fact]

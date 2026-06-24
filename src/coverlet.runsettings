@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+
+          <!-- Measure every product assembly. Using a Shift.* wildcard (rather than naming
+               each assembly) means a new product project is counted toward the gate automatically
+               instead of being silently omitted. Test assemblies match the wildcard too, so they
+               are removed below via Exclude and their assembly-level [ExcludeFromCodeCoverage]. -->
+          <Include>[Shift]*,[Shift.*]*</Include>
+          <Exclude>[Shift.*Tests]*,[Shift.Test.Framework]*</Exclude>
+
+          <!-- Code that is deliberately not unit-tested:
+               - [ExcludeFromCodeCoverage] marks bootstrap/composition-root and sample code.
+               - Compiler/generated members are never meaningful coverage targets. -->
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverage</ExcludeByAttribute>
+
+          <!-- Sample/documentation code is not part of the product surface. -->
+          <ExcludeByFile>**/Examples/**/*.cs</ExcludeByFile>
+
+          <!-- Trivial auto-property accessors are not worth dedicated tests. -->
+          <SkipAutoProps>true</SkipAutoProps>
+
+          <SingleHit>false</SingleHit>
+          <UseSourceLink>true</UseSourceLink>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

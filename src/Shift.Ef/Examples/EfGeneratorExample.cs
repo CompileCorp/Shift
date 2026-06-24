@@ -1,11 +1,15 @@
 using Compile.Shift;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Compile.Shift.Ef.Examples;
 
 /// <summary>
-/// Example demonstrating how to use Shift.Ef to generate Entity Framework code
+/// Example demonstrating how to use Shift.Ef to generate Entity Framework code.
+/// This is documentation/sample code (hardcoded connection strings, not part of the
+/// shipping product surface) and is intentionally excluded from coverage.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public class EfGeneratorExample
 {
     private readonly ILogger<EfGeneratorExample> _logger;

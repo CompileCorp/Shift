@@ -4,9 +4,14 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Compile.Shift.Cli;
 
+// Composition root / application entry point: host building, DI registration and the
+// process-level exception shim. The actual command-selection logic lives in CommandHelper
+// (which is unit-tested); there is no meaningful unit-test surface here.
+[ExcludeFromCodeCoverage]
 internal class Program
 {
     static async Task Main(string[] args)
@@ -30,21 +35,7 @@ internal class Program
     private static IHostBuilder CreateHostBuilder()
     {
         return Host.CreateDefaultBuilder()
-            .ConfigureServices((context, services) =>
-            {
-                // Register MediatR
-                services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
-
-                // Register Shift services
-                services.AddScoped<IShift, Shift>(sp =>
-                {
-                    var logger = sp.GetRequiredService<ILogger<Shift>>();
-                    return new Shift { Logger = logger };
-                });
-
-                // Register other services as needed
-                services.AddTransient<ModelExporter>();
-            })
+            .ConfigureServices((context, services) => services.AddShiftCli())
             .ConfigureLogging(logging =>
             {
                 logging.ClearProviders();

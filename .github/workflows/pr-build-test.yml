@@ -45,12 +45,12 @@ jobs:
     - name: Build solution
       run: dotnet build src/Shift.slnx --configuration Release --no-restore
 
-    # Run all tests in the solution with TRX logger for test reporting
-    # This will automatically discover and run all test projects
+    # Run all tests in the solution with TRX logger for test reporting and
+    # collect code coverage using the shared runsettings (scope/exclusions defined there).
+    # A test failure must fail the build, so continue-on-error is intentionally NOT set.
     - name: Run tests
-      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal --logger "trx" --results-directory TestResults
-      continue-on-error: true
-      
+      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal --settings src/coverlet.runsettings --collect:"XPlat Code Coverage" --logger "trx" --results-directory TestResults
+
     # Publish test results to GitHub PR interface for clear visual feedback
     # Uses wildcard pattern to collect all TRX files from all test projects
     - name: Publish Test Results
@@ -58,6 +58,43 @@ jobs:
       if: always()
       with:
         name: Test Results
-        path: TestResults/*.trx
+        path: TestResults/**/*.trx
         reporter: dotnet-trx
         fail-on-error: true
+
+    # Coverage steps run only when the build and tests succeeded (default success() condition).
+    # This avoids confusing "no report files" / missing-summary errors cascading from an earlier
+    # failure (e.g. a formatting or build failure) when no coverage was ever produced.
+    - name: Install ReportGenerator
+      run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+    - name: Generate coverage report
+      run: |
+        reportgenerator \
+          -reports:"TestResults/**/coverage.cobertura.xml" \
+          -targetdir:"CoverageReport" \
+          -reporttypes:"Html;JsonSummary;MarkdownSummaryGithub"
+
+    - name: Publish coverage to job summary
+      run: cat CoverageReport/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload coverage report artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: CoverageReport
+
+    # Fail the build if line coverage drops below the agreed threshold.
+    # Ratchet COVERAGE_THRESHOLD upward toward 100 as gaps are closed.
+    - name: Enforce coverage threshold
+      env:
+        # Achieved 99.5%; the ~9 remaining lines are unreachable/defensive (generic catch
+        # blocks, exhaustive-switch defaults, a parser-unreachable null guard).
+        COVERAGE_THRESHOLD: "99"
+      run: |
+        # Read the machine-readable summary (stable JSON number) rather than scraping the
+        # human-readable text summary, which is sensitive to label wording and locale.
+        line=$(jq -r '.summary.linecoverage' CoverageReport/Summary.json)
+        echo "Measured line coverage: ${line}% (threshold: ${COVERAGE_THRESHOLD}%)"
+        awk -v c="$line" -v t="$COVERAGE_THRESHOLD" 'BEGIN { if (c+0 < t+0) { exit 1 } }' \
+          || { echo "::error::Line coverage ${line}% is below the required ${COVERAGE_THRESHOLD}%"; exit 1; }

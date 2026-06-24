@@ -80,7 +80,9 @@ public class Parser
                 {
                     var withIndex = line.IndexOf(" with ", StringComparison.Ordinal);
                     withMixin = line.Substring(withIndex + 6).Split('{')[0].Trim();
-                    table.Name = line.Substring(6, withIndex - 6).Trim();
+                    // table.Name is already parts[0] (the first token). Do not re-derive it from
+                    // the substring before " with " — that incorrectly includes the optional PK
+                    // type token (e.g. "model Order guid with Auditable" => name "Order").
                 }
 
                 var fieldModel = new FieldModel

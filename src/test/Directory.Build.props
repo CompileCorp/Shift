@@ -1,0 +1,12 @@
+<Project>
+
+  <!-- Applies to every test project under src/test.
+       Mark each test assembly with [assembly: ExcludeFromCodeCoverage] so coverage reflects
+       product code only, regardless of which engine runs (coverlet honors the runsettings filter;
+       Visual Studio's engine honors this attribute). Centralized here so a new test project is
+       covered automatically rather than needing its own AssemblyInfo. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+  </ItemGroup>
+
+</Project>

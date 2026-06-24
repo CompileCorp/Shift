@@ -145,6 +145,10 @@ public class EntityMapGenerator
         sb.AppendLine();
     }
 
+    // NOTE: This intentionally does not delegate to Shift's SqlTypeHelper. The two have different
+    // output contracts: SqlTypeHelper targets migration DDL (e.g. decimal precision-only becomes
+    // "decimal(p,0)", and an unsized varchar becomes "varchar(<default>)"), whereas EF column types
+    // here must be "decimal(p)" and "varchar(max)". Delegating would change the generated EF output.
     private string GetColumnTypeDefinition(FieldModel field)
     {
         var type = field.Type.ToLower();
@@ -155,10 +159,12 @@ public class EntityMapGenerator
                 $"decimal({field.Precision},{field.Scale})",
             "decimal" or "numeric" when field.Precision.HasValue =>
                 $"decimal({field.Precision})",
+            // A max-length column is represented as Precision == -1 (loader/parser convention)
+            // or as no precision at all; both render as the "max" keyword, never "(-1)".
+            "varchar" or "nvarchar" when field.Precision is null or -1 =>
+                $"{field.Type}(max)",
             "varchar" or "nvarchar" or "char" or "nchar" when field.Precision.HasValue =>
                 $"{field.Type}({field.Precision})",
-            "varchar" or "nvarchar" when !field.Precision.HasValue =>
-                $"{field.Type}(max)",
             _ => field.Type
         };
     }
