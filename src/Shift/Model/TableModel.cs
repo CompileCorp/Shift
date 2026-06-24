@@ -11,6 +11,7 @@ public class TableModel : IModel
 
     public override string ToString()
     {
-        return $"Name:\"{Name}\"\nFields:{{\n\t{Fields.Select(x => x.ToString()).Aggregate((a, b) => a + "\n\t" + b)}\n\t}}";
+        // string.Join (not Aggregate) so ToString never throws on a table with no fields.
+        return $"Name:\"{Name}\"\nFields:{{\n\t{string.Join("\n\t", Fields.Select(x => x.ToString()))}\n\t}}";
     }
 }

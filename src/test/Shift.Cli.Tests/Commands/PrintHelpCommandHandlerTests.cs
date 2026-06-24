@@ -138,6 +138,34 @@ public class PrintHelpCommandHandlerTests : UnitTestContext<PrintHelpCommandHand
         result.Should().Be(Unit.Value);
     }
 
+    /// <summary>
+    /// Tests that PrintHelpCommandHandler prints supplied error messages before the help text.
+    /// Exercises the Messages branch of the handler.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WithMessages_PrintsMessagesAndCompletes()
+    {
+        // Arrange
+        var command = new PrintHelpCommand(new List<string> { "Error: something went wrong" });
+        var originalOut = Console.Out;
+        using var writer = new StringWriter();
+        Console.SetOut(writer);
+
+        try
+        {
+            // Act
+            var result = await Sut.Handle(command, CancellationToken.None);
+
+            // Assert
+            result.Should().Be(Unit.Value);
+            writer.ToString().Should().Contain("Error: something went wrong");
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+        }
+    }
+
     #endregion
 
     #region Performance Tests

@@ -9,7 +9,7 @@ public interface IEfCodeGenerator
     Task GenerateEfCodeAsync(DatabaseModel model, string outputPath, string namespaceName = "Generated");
 }
 
-public class EfCodeGenerator
+public class EfCodeGenerator : IEfCodeGenerator
 {
     private readonly EntityGenerator _entityGenerator;
     private readonly DbContextGenerator _dbContextGenerator;

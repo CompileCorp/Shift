@@ -250,21 +250,4 @@ public class ModelExporter
         // Fallback: return the original column name
         return columnName;
     }
-
-    private IEnumerable<FieldModel> GetFieldsExcludingMixinFields(TableModel table, List<MixinModel> appliedMixins)
-    {
-        var mixinFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var mixin in appliedMixins)
-        {
-            foreach (var mixinField in mixin.Fields)
-            {
-                // Handle optional fields (remove '!' prefix)
-                var fieldName = mixinField.Name.StartsWith("!") ? mixinField.Name.Substring(1) : mixinField.Name;
-                mixinFieldNames.Add(fieldName);
-            }
-        }
-
-        return table.Fields.Where(f => !mixinFieldNames.Contains(f.Name));
-    }
 }
