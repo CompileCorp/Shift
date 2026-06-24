@@ -1,1 +1,17 @@
-﻿ALTER TABLE [dbo].[User] ALTER COLUMN [Email] nvarchar(256) NULL
+﻿
+IF EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'dbo'
+      AND TABLE_NAME = 'User'
+      AND COLUMN_NAME = 'Email'
+      AND (
+          DATA_TYPE <> 'nvarchar'
+          OR COALESCE(CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, 0) <> 256
+          OR COALESCE(NUMERIC_SCALE, 0) <> 0
+          OR IS_NULLABLE <> 'YES'
+      )
+)
+BEGIN
+    ALTER TABLE [dbo].[User] ALTER COLUMN [Email] nvarchar(256) NULL
+END

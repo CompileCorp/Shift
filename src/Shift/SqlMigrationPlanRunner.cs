@@ -226,6 +226,7 @@ IF EXISTS (
       AND (
           DATA_TYPE <> '{field.Type}'
           OR COALESCE(CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, 0) <> {field.Precision ?? -1}
+          OR COALESCE(NUMERIC_SCALE, 0) <> {field.Scale ?? 0}
           OR IS_NULLABLE <> '{(field.IsNullable ? "YES" : "NO")}'
       )
 )
