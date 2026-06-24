@@ -178,20 +178,21 @@ All generators use StringBuilder for performance and consistent formatting:
 ```csharp
 public class EntityGenerator
 {
-    public string GenerateEntity(TableModel table, EfCodeGenerationOptions options)
+    public string GenerateEntity(TableModel table, string namespaceName)
     {
         var sb = new StringBuilder();
-        
-        // Generate class header
+
+        // Generate class header (including the [Table(...)] attribute)
+        sb.AppendLine($"[Table(\"{table.Name}\")]");
         sb.AppendLine($"public partial class {table.Name}Entity");
         sb.AppendLine("{");
-        
+
         // Generate properties
         foreach (var field in table.Fields)
         {
-            sb.AppendLine($"    {GenerateProperty(field)}");
+            GenerateProperty(sb, field);
         }
-        
+
         sb.AppendLine("}");
         return sb.ToString();
     }
@@ -200,24 +201,42 @@ public class EntityGenerator
 
 #### Type Mapping System
 
-Comprehensive mapping from SQL Server types to C# types:
+Comprehensive mapping from SQL Server types to C# types. `TypeMapper` uses a case-insensitive `Dictionary<string, string>` lookup (not a `switch`). Size specifications such as `varchar(50)` are stripped to the base type before lookup, value types are made nullable when the field is nullable/optional, and **unknown types default to `"string"`**:
 
 ```csharp
 public class TypeMapper
 {
+    private readonly Dictionary<string, string> _typeMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "bit", "bool" },
+        { "tinyint", "byte" },
+        { "smallint", "short" },
+        { "int", "int" },
+        { "bigint", "long" },
+        { "decimal", "decimal" },
+        { "numeric", "decimal" },
+        { "money", "decimal" },
+        { "smallmoney", "decimal" },
+        { "float", "double" },   // note: SQL float maps to double
+        { "real", "float" },
+        { "char", "string" },
+        { "varchar", "string" },
+        { "nvarchar", "string" },
+        { "datetime", "DateTime" },
+        { "uniqueidentifier", "Guid" },
+        // ... binary, xml, time, date, and other types
+    };
+
     public string MapToCSharpType(FieldModel field)
     {
-        return field.Type switch
+        var baseType = GetBaseType(field.Type); // strips "(size)" then looks up; defaults to "string"
+
+        if ((field.IsNullable || field.IsOptional) && IsValueType(baseType))
         {
-            "int" => "int",
-            "bigint" => "long",
-            "bit" => "bool",
-            "nvarchar" => "string",
-            "varchar" => "string",
-            "datetime" => "DateTime",
-            "decimal" => "decimal",
-            _ => "object"
-        };
+            return $"{baseType}?";
+        }
+
+        return baseType;
     }
 }
 ```
@@ -236,27 +255,32 @@ public static class ShiftEfExtensions
         string connectionString,
         string outputPath,
         ILogger logger,
-        EfCodeGenerationOptions? options = null)
+        EfCodeGenerationOptions options,
+        string schema = "dbo")
     {
-        var model = await shift.LoadFromSqlAsync(connectionString);
-        var generator = new EfCodeGenerator { Logger = logger };
-        await generator.GenerateEfCodeAsync(model, outputPath, logger, options);
+        var model = await shift.LoadFromSqlAsync(connectionString, schema);
+        // Logger is set via the EfCodeGenerator's required init property,
+        // so GenerateEfCodeAsync takes only (model, outputPath, options).
+        await shift.GenerateEfCodeAsync(model, outputPath, logger, options);
     }
 }
 ```
 
+> The `EfCodeGenerator.GenerateEfCodeAsync` instance method has the signature `GenerateEfCodeAsync(DatabaseModel model, string outputPath, EfCodeGenerationOptions options)` — it has **no `logger` parameter**. The `ShiftEfExtensions` overloads accept an `ILogger` and assign it to the generator's `Logger` property before generating.
+
 #### Logger Integration
 
-Respects Shift's logging infrastructure:
+Respects Shift's logging infrastructure. The logger is a **required, init-only** property (with a private getter) and is used directly — there is no `LogInfo` wrapper:
 
 ```csharp
 public class EfCodeGenerator
 {
-    public ILogger? Logger { get; set; }
-    
-    private void LogInfo(string message)
+    public required ILogger Logger { private get; init; }
+
+    public async Task GenerateEfCodeAsync(DatabaseModel model, string outputPath, EfCodeGenerationOptions options)
     {
-        Logger?.LogInformation(message);
+        Logger.LogInformation("Starting Entity Framework code generation for {TableCount} tables", model.Tables.Count);
+        // ...
     }
 }
 ```
@@ -273,19 +297,16 @@ public class EfCodeGenerator
 
 #### Directory Structure
 
+All generated files are written **flat into the single `outputPath`** directory — the generator only calls `Directory.CreateDirectory(outputPath)` and does not create `Entities/`, `Maps/`, `Contexts/`, or `Extensions/` subfolders:
+
 ```
-Generated/
-├── Entities/
-│   ├── ClientEntity.g.cs
-│   └── OrderEntity.g.cs
-├── Maps/
-│   ├── ClientEntityMap.g.cs
-│   └── OrderEntityMap.g.cs
-├── Contexts/
-│   ├── MyAppDbContext.g.cs
-│   └── IMyAppDbContext.g.cs
-└── Extensions/
-    └── (for custom extensions)
+<outputPath>/
+├── ClientEntity.g.cs
+├── OrderEntity.g.cs
+├── ClientEntityMap.g.cs
+├── OrderEntityMap.g.cs
+├── MyAppDbContext.g.cs        // {ContextClassName}.g.cs
+└── IMyAppDbContext.g.cs       // {InterfaceName}.g.cs
 ```
 
 ## Testing and Validation
@@ -312,11 +333,6 @@ Generated/
 - Proper null reference handling
 - Type-safe property declarations
 - Correct relationship mappings
-
-## Future Enhancements
-
-For planned features, see the [Feature Development Backlog](backlog-features.md).  
-For technical debt items, see the [Technical Debt Backlog](backlog-technical-debt.md).
 
 ## Development Guidelines
 

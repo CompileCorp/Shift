@@ -83,31 +83,53 @@ The CLI command supports loading from multiple assemblies with optional namespac
 
 **Syntax:**
 ```bash
-shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ...
+shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ... [--schema <schema>]
 ```
 
 **Parsing Logic:**
 - Arguments ending with `.dll` (case-insensitive) are treated as assembly paths
 - All other arguments are treated as namespace filters
 - DLLs and filters can be specified in any order
+- Empty/whitespace arguments are skipped
+- Namespace filters are de-duplicated (ordinal comparison) before use
+- `--schema <schema>` selects the target schema (defaults to `dbo`)
 - All filters apply to all assemblies
 - At least one DLL must be provided
 
+**Argument parsing** is performed in `CommandHelper.GetApplyAssembliesCommand` (a `foreach` loop over the remaining arguments), which produces an `ApplyAssembliesCommand` record. The command handler then loads the assemblies and applies the model.
+
 **Example Implementation Flow:**
-1. Parse connection string and remaining arguments
-2. Separate arguments into DLLs (ending with `.dll`) and filters (everything else)
-3. Load assemblies from DLL paths
+1. Parse connection string, `--schema` option, and remaining arguments
+2. Separate arguments into DLLs (ending with `.dll`) and de-duplicated namespace filters (everything else)
+3. For each DLL path, resolve the full path, verify the file exists (throwing `FileNotFoundException` if not), then load it with `Assembly.LoadFrom`
 4. Load models with namespace filtering if filters are provided
-5. Apply migration plan to database
+5. Apply migration plan to database with the chosen schema
 
 ```csharp
-// Simplified parsing logic
-var dllPaths = args.Where(arg => arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
-var namespaces = args.Where(arg => !arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)).ToList();
+// Argument separation (CommandHelper.GetApplyAssembliesCommand)
+var dllPaths = new List<string>();
+var allNamespaces = new HashSet<string>(StringComparer.Ordinal);
+foreach (var arg in remainingArgs)
+{
+    if (string.IsNullOrWhiteSpace(arg)) continue;
+    if (arg.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+        dllPaths.Add(arg);
+    else
+        allNamespaces.Add(arg);
+}
 
-var assemblies = dllPaths.Select(Assembly.LoadFrom).ToList();
-var model = await shift.LoadFromAssembliesAsync(assemblies, namespaces.Count > 0 ? namespaces : null);
-await shift.ApplyToSqlAsync(model, connectionString);
+// Command handler (ApplyAssembliesCommandHandler.Handle)
+var assemblies = new List<Assembly>();
+foreach (var dllPath in dllPaths)
+{
+    var fullPath = Path.GetFullPath(dllPath);
+    if (!File.Exists(fullPath))
+        throw new FileNotFoundException($"Assembly file not found: {fullPath}");
+    assemblies.Add(Assembly.LoadFrom(fullPath));
+}
+
+var model = await shift.LoadFromAssembliesAsync(assemblies, namespaces);
+await shift.ApplyToSqlAsync(model, connectionString, schema);
 ```
 
 ## Resource Embedding
@@ -217,6 +239,9 @@ shift apply-assemblies "Server=localhost;Database=MyDb;" ./CoreModels.dll ./Doma
 
 # Mixed order - DLLs and filters can be interleaved
 shift apply-assemblies "Server=localhost;Database=MyDb;" ./Lib1.dll Namespace1 ./Lib2.dll Namespace2
+
+# Target a non-default schema
+shift apply-assemblies "Server=localhost;Database=MyDb;" ./MyModels.dll --schema sales
 ```
 
 ## Priority and Conflict Resolution
@@ -226,6 +251,7 @@ shift apply-assemblies "Server=localhost;Database=MyDb;" ./Lib1.dll Namespace1 .
 1. **Mixins First**: All mixins are loaded before any tables
 2. **Assembly Order**: Assemblies are processed in the order provided
 3. **First Wins**: First assembly to define a mixin or table wins
+4. **FK Type Normalization**: After all assemblies are loaded, `NormalizeForeignKeyTypes` runs to align every foreign-key column's type to the referenced table's primary-key type (clearing any `Precision`/`Scale`). The same normalization is applied by `LoadFromPathAsync`.
 
 ### Conflict Resolution
 
@@ -336,7 +362,3 @@ public async Task LoadFromAssembliesAsync_ShouldRespectOrderAndPriority()
 3. **Namespace Filtering**: Use namespace filtering to load only the models you need, reducing memory usage and processing time
 4. **Async Operations**: Use async/await for I/O operations
 5. **Error Boundaries**: Handle errors gracefully without stopping entire process
-
-## Future Enhancements
-
-For planned features and advanced scenarios, see the [Feature Development Backlog](../development/backlog-features.md).

@@ -65,7 +65,7 @@ Builds individual table models with fields, indexes, foreign keys, and attribute
 - **`WithField(string name, string type, Action<FieldModelBuilder>? configure = null)`**: Adds a field to the table
 - **`WithIndex(string name, string columnName, bool isUnique = false)`**: Adds a single-column index
 - **`WithIndex(string name, IEnumerable<string> columnNames, bool isUnique = false)`**: Adds a multi-column index
-- **`WithForeignKey(string columnName, string targetTable, string targetColumnName, RelationshipType relationshipType)`**: Adds a foreign key
+- **`WithForeignKey(string columnName, string targetTable, string targetColumnName, RelationshipType relationshipType = RelationshipType.OneToMany)`**: Adds a foreign key (`relationshipType` defaults to `RelationshipType.OneToMany` and may be omitted)
 - **`WithAttribute(string key, bool value)`**: Adds a table attribute
 - **`Build()`**: Returns the constructed `TableModel`
 
@@ -85,11 +85,9 @@ Builds individual field models with type information, constraints, and propertie
 
 - **`PrimaryKey(bool isPrimaryKey = true)`**: Sets the primary key flag
 - **`Identity(bool isIdentity = true)`**: Sets the identity flag
-- **`Nullable(bool isNullable = true)`**: Sets the nullable flag
-- **`Optional(bool isOptional = true)`**: Sets the optional flag
-- **`Precision(int precision)`**: Sets the precision for string/binary types
-- **`Precision(int precision, int scale)`**: Sets precision and scale for decimal types
-- **`Scale(int scale)`**: Sets the scale for decimal types
+- **`Nullable(bool nullable = true)`**: Sets the nullable flag
+- **`Precision(int precision, int? scale = null)`**: Sets the precision and, optionally, the scale (e.g. `Precision(256)` for strings/binary, `Precision(10, 2)` for decimals)
+- **`WithAttribute(string key, string value)`**: No-op kept for API compatibility. `FieldModel` does not support field-level attributes in the current implementation, so this method does nothing.
 - **`Build()`**: Returns the constructed `FieldModel`
 
 ### MixinModelBuilder

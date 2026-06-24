@@ -2,7 +2,9 @@
 
 The **Vnum** (Value Backed Enumeration) pattern provides a robust alternative to traditional enums. It's inspired by Jimmy Bogard's "Enumeration Classes" pattern and is used extensively throughout the system for type-safe, extensible enumeration-like constructs.
 
-> 📚 **Looking for quick examples?** See [Vnum Quick Reference](vnum-quick-reference.md) for copy-paste code snippets and common patterns.
+> ℹ️ **Where it comes from:** `Vnum` is provided by the **`CompileCorp.Vnum`** NuGet package (namespace `Compile.VnumEnumeration`). It is not defined in this repository.
+
+> 📚 **In a hurry?** Jump to the [Quick Reference](#quick-reference) below for copy-paste snippets and common operations.
 
 ## Overview
 
@@ -17,6 +19,67 @@ Vnum provides a strongly-typed way to represent fixed sets of values with additi
 5. **Testing**: Comprehensive testing utilities and patterns
 6. **Performance**: Thread-safe caching with reflection optimization
 
+## Quick Reference
+
+A compact cheat sheet for everyday use. The sections further down explain each piece in depth, with design rationale and more examples.
+
+> 📝 The `Status`/`StatusId` types below are **illustrative**. The real Vnums in this codebase are `DmdFieldType`, `SqlFieldType` (`src/Shift/Model/Vnums/`), and `CliCmd`, `CliCmdAlias`, `CliSubCmd` (`src/Shift.Cli/Vnums/`).
+
+**Define an enum-backed Vnum (the recommended form):**
+
+```csharp
+public enum StatusId { Active = 1, Inactive = 2, Pending = 3 }
+
+public sealed class Status : Vnum<StatusId>
+{
+    public Status() { }
+    private Status(StatusId id, string code) : base(id, code) { }
+
+    public static readonly Status Active   = new(StatusId.Active, "ACTIVE");
+    public static readonly Status Inactive = new(StatusId.Inactive, "INACTIVE");
+    public static readonly Status Pending  = new(StatusId.Pending, "PENDING");
+}
+```
+
+See [Implementation Patterns](#implementation-patterns) for the simple (no-enum) and rich-metadata variants.
+
+**Common operations:**
+
+```csharp
+// Enumerate
+var all      = Vnum.GetAll<Status>();
+var filtered = Vnum.GetAll<Status>(s => s.Code.Contains("ACTIVE"));
+
+// Look up (throws if not found)
+var a = Vnum.FromValue<Status>(1);
+var b = Vnum.FromCode<Status>("ACTIVE");
+var c = Vnum.FromCode<Status>("active", ignoreCase: true);
+var d = Vnum.FromEnum<Status, StatusId>(StatusId.Active);
+
+// Look up (safe, no throw)
+Vnum.TryFromValue<Status>(1, out var s1);
+Vnum.TryFromCode<Status>("active", ignoreCase: true, out var s2);
+Vnum.TryFromEnum<Status, StatusId>(StatusId.Active, out var s3);
+
+// Compare
+if (status == Status.Active) { }
+if (status.Code == "ACTIVE") { }
+if (status.Value == 1) { }
+```
+
+**JSON (a Vnum serializes as its `Code` string):**
+
+```csharp
+var options = new JsonSerializerOptions { Converters = { new VnumJsonConverterFactory() } };
+
+JsonSerializer.Serialize(Status.Active, options);            // "ACTIVE"
+JsonSerializer.Deserialize<Status>("\"ACTIVE\"", options);   // Status.Active (case-sensitive)
+```
+
+See [JSON Serialization](#json-serialization) for collections, complex objects, and error handling.
+
+**Testing:** derive a test class from `UnitTestContext<VnumTestingHelper<TVnum, TEnum>>` and call the helper assertions (`Vnum_Instances_Must_Have_Unique_Values()`, `All_Vnum_Instances_Must_Have_Matching_Enum()`, …) — see [Testing Patterns](#testing-patterns).
+
 ## Core Architecture
 
 ### Base Classes
@@ -25,31 +88,49 @@ Vnum provides a strongly-typed way to represent fixed sets of values with additi
 ```csharp
 public abstract class Vnum : IEquatable<Vnum>
 {
-    public int Value { get; }           // Numeric identifier
+    public long Value { get; }          // Numeric identifier
     public string Code { get; }         // String code identifier
-    
-    // Core functionality
-    public static IEnumerable<T> GetAll<T>() where T : Vnum, new()
-    public static T FromValue<T>(int value) where T : Vnum, new()
-    public static T FromCode<T>(string code) where T : Vnum, new()
-    public static bool TryFromValue<T>(int value, out T vnum) where T : Vnum, new()
-    public static bool TryFromCode<T>(string code, out T vnum) where T : Vnum, new()
+
+    // Core functionality (filtering predicate is optional)
+    public static IEnumerable<TVnum> GetAll<TVnum>(Func<TVnum, bool>? predicate = null) where TVnum : Vnum
+    public static TVnum FromValue<TVnum>(long value) where TVnum : Vnum
+    public static TVnum FromCode<TVnum>(string code, bool ignoreCase = false) where TVnum : Vnum
+    public static bool TryFromValue<T>(long value, out T vnum) where T : Vnum
+    public static bool TryFromCode<TVnum>(string code, out TVnum vnum) where TVnum : Vnum
+    public static bool TryFromCode<TVnum>(string code, bool ignoreCase, out TVnum vnum) where TVnum : Vnum
+
+    // Enum-specific lookups (defined on the base class; constrained to Vnum<TEnum>)
+    public static TVnum FromEnum<TVnum, TEnum>(TEnum value)
+        where TVnum : Vnum<TEnum> where TEnum : struct, Enum
+    public static bool TryFromEnum<TVnum, TEnum>(TEnum value, out TVnum vnum)
+        where TVnum : Vnum<TEnum> where TEnum : struct, Enum
+
+    // Value-based equality and operators
+    public bool Equals(Vnum? other);
+    public static bool operator ==(Vnum? left, Vnum? right);
+    public static bool operator !=(Vnum? left, Vnum? right);
 }
 ```
+
+> **Note:** The lookup methods are constrained only by `where TVnum : Vnum` — there is **no `new()` constraint**. A public parameterless constructor is a convention used by some implementations, but it is not required by the API.
 
 #### `Vnum<TEnum>` (Generic Base Class)
 ```csharp
 public abstract class Vnum<TEnum> : Vnum where TEnum : struct, Enum
 {
-    public TEnum Id => (TEnum)Enum.ToObject(typeof(TEnum), Value);
-    
-    // Enum-specific functionality
-    public static TVnum FromEnum<TVnum, TEnum>(TEnum value)
-    public static bool TryFromEnum<TVnum, TEnum>(TEnum value, out TVnum vnum)
+    public TEnum Id { get; }   // The enum value, derived from Value
+
+    // Two protected constructors are available:
+    protected Vnum(long value, string code);
+    protected Vnum(TEnum value, string code);
 }
 ```
 
+> `FromEnum` / `TryFromEnum` are **static methods on the base `Vnum` class** (shown above), not declared on `Vnum<TEnum>`. They are constrained to `Vnum<TEnum>` so they only apply to enum-backed Vnums.
+
 ## Implementation Patterns
+
+> 📝 **Note on examples:** The Vnum types used throughout this guide (`Department`, `Country`, `ProductType`, `ProductCategory`, `Status`, etc.) are **illustrative** and do not exist in this repository. The real Vnums in this codebase are `DmdFieldType`, `SqlFieldType` (`src/Shift/Model/Vnums/`), and `CliCmd`, `CliCmdAlias`, `CliSubCmd` (`src/Shift.Cli/Vnums/`).
 
 ### Pattern 1: Simple Vnum (No Enum)
 
@@ -274,62 +355,23 @@ public class NewProductDto
 
 ### In Blazor Components
 
+You can project Vnum instances into your own simple DTO for binding. Define a record that suits your view, then map from `Code` and any extra properties:
+
 ```csharp
+// A view-specific DTO you define in your own project
+public record ProductTypeOption(string Code, string Description);
+
 @code {
-    private List<VnumDto> productTypes = new();
-    private List<VnumDto> productCategories = new();
-    
-    protected override async Task OnInitializedAsync()
+    private List<ProductTypeOption> productTypes = new();
+
+    protected override Task OnInitializedAsync()
     {
-        await LoadProductTypes();
-        await LoadProductCategories();
-    }
-    
-    private async Task LoadProductTypes()
-    {
-        var types = Vnum.GetAll<ProductType>()
-            .Select(pt => new VnumDto(pt.Code, pt.Description))
+        productTypes = Vnum.GetAll<ProductType>()
+            .Select(pt => new ProductTypeOption(pt.Code, pt.Description))
             .ToList();
-        productTypes = types;
+
+        return Task.CompletedTask;
     }
-}
-```
-
-## API Integration
-
-### VnumDto for Frontend
-
-```csharp
-public record VnumDto(
-    string Code,
-    string? Description
-);
-```
-
-### Converter for API Responses
-
-```csharp
-public static class VnumDtoConverter
-{
-    internal static VnumDto ConvertToDto<T>(this T item) where T : Vnum =>
-        new VnumDto(item.Code, item.GetPropertyValue("Description"));
-
-    internal static IEnumerable<VnumDto> ConvertToDto<T>(this IEnumerable<T> items) where T : Vnum =>
-        items.Select(x => x.ConvertToDto());
-}
-```
-
-### API Endpoints
-
-```csharp
-[HttpGet("product-types")]
-public ActionResult<IEnumerable<VnumDto>> GetProductTypes()
-{
-    var productTypes = Vnum.GetAll<ProductType>()
-        .ConvertToDto()
-        .ToList();
-    
-    return Ok(productTypes);
 }
 ```
 
@@ -373,13 +415,13 @@ public class DepartmentTests : UnitTestContext<VnumTestingHelper<Department, Dep
     [Test]
     public void All_Vnum_Instances_Must_Have_Matching_Enum()
     {
-        Service.All_Vnum_Instances_Must_Have_Matching_Enum();
+        Sut.All_Vnum_Instances_Must_Have_Matching_Enum();
     }
 
     [Test]
     public void All_Enum_Instances_Must_Convert_To_Vnum()
     {
-        Service.All_Enum_Instances_Must_Convert_To_Vnum();
+        Sut.All_Enum_Instances_Must_Convert_To_Vnum();
     }
 }
 ```
@@ -613,7 +655,7 @@ var json = JsonSerializer.Serialize(department, jsonOptions);
 
 // Deserialize from Code string (case-sensitive)
 var department = JsonSerializer.Deserialize<Department>("\"Forestry\"", jsonOptions);  // ✅ Works
-var department = JsonSerializer.Deserialize<Department>("\"Forestry\"", jsonOptions);  // ❌ Throws JsonException
+var department = JsonSerializer.Deserialize<Department>("\"forestry\"", jsonOptions);  // ❌ Throws JsonException
 
 // Backward compatibility - deserialize from numeric value
 var department = JsonSerializer.Deserialize<Department>("1", jsonOptions);
@@ -691,7 +733,7 @@ var json = JsonSerializer.Serialize(categories, jsonOptions);
 // Invalid code throws JsonException
 var json = "\"INVALID_CODE\"";
 var department = JsonSerializer.Deserialize<Department>(json, jsonOptions);
-// Throws: JsonException: 'INVALID_CODE' is not a valid code for Department
+// Throws: JsonException wrapping: 'INVALID_CODE' is not a valid code in Department
 
 // Null handling
 Department? nullDepartment = null;
@@ -860,63 +902,6 @@ public async Task<IActionResult> CreateConfig([FromBody] ConfigDto dto)
 }
 ```
 
-### Swagger/OpenAPI Integration
-
-A custom Swagger schema filter can correctly represent Vnum types as strings with enum values in OpenAPI documentation.
-
-#### Configuration
-
-Add the schema filter in your Swagger configuration:
-
-```csharp
-services.AddSwaggerGen(options =>
-{
-    // Register Vnum schema filter
-    options.SchemaFilter<VnumSchemaFilter>();
-    
-    // ... other Swagger configuration
-});
-```
-
-#### Swagger UI Representation
-
-Without `VnumSchemaFilter`:
-```json
-{
-  "Department": {
-    "type": "object",
-    "properties": {
-      "value": { "type": "integer" },
-      "code": { "type": "string" },
-      "id": { "type": "integer" }
-    }
-  }
-}
-```
-
-With `VnumSchemaFilter`:
-```json
-{
-  "Department": {
-    "type": "string",
-    "enum": ["Forestry", "Fishery", "Agriculture"],
-    "description": "Valid values: Forestry, Fishery, Agriculture"
-  }
-}
-```
-
-#### Benefits
-
-1. ✅ **Accurate Documentation**: Swagger UI shows Vnums as strings, not objects
-2. ✅ **Enum Values**: Dropdown list of valid values in Swagger UI
-3. ✅ **Better DX**: Frontend developers see clear, string-based API contracts
-4. ✅ **Auto-generated**: Works for all Vnum types automatically via reflection
-5. ✅ **Try It Out**: Swagger's "Try It Out" feature works correctly with string values
-
-#### Implementation Details
-
-The `VnumSchemaFilter` uses reflection to discover all Vnum instances and populate the OpenAPI enum values dynamically.
-
 ### Error Handling
 
 When invalid Vnum codes are provided to the API, ASP.NET Core automatically catches the `JsonException` thrown by the `VnumJsonConverter` during model binding and returns a standardized error response.
@@ -941,11 +926,13 @@ POST /api/configs
   "traceId": "00-84c1fd4063c38d9f3900d06e56542d48-85d1d4-00",
   "errors": {
     "$.department": [
-      "The JSON value could not be converted to Department. 'INVALID_DEPARTMENT' is not a valid code for Department. Valid codes: Forestry, Fishery, Agriculture"
+      "The JSON value could not be converted to Department. 'INVALID_DEPARTMENT' is not a valid code in Department"
     ]
   }
 }
 ```
+
+> The underlying lookup throws `InvalidOperationException` with the message `'{value}' is not a valid code in {TypeName}` (no list of valid codes is included), which the JSON converter surfaces as a `JsonException`.
 
 #### Case Sensitivity
 
@@ -963,7 +950,7 @@ Vnum deserialization is **case-sensitive** by default:
 {
   "errors": {
     "$.department": [
-      "The JSON value could not be converted to Department. 'forestry' is not a valid code for Department. Valid codes: Forestry, Fishery, Agriculture"
+      "The JSON value could not be converted to Department. 'forestry' is not a valid code in Department"
     ]
   }
 }
@@ -1007,9 +994,8 @@ The Vnum pattern is a powerful, type-safe alternative to traditional enums that 
 3. **Extensibility**: Easy to add new properties and methods
 4. **JSON Serialization**: Compact, human-readable JSON with automatic conversion
 5. **ASP.NET Core Integration**: Automatic serialization/deserialization in APIs
-6. **Swagger/OpenAPI Support**: Accurate documentation with enum values
-7. **Testing**: Comprehensive testing utilities
-8. **Performance**: Thread-safe caching and optimization
-9. **EF Core Integration**: Seamless storage and retrieval
+6. **Testing**: Comprehensive testing utilities
+7. **Performance**: Thread-safe caching and optimization
+8. **EF Core Integration**: Seamless storage and retrieval
 
 It's used for representing fixed sets of business values with additional context and metadata, making the codebase more maintainable, the API more intuitive, and the developer experience more productive.

@@ -12,10 +12,12 @@ Shift.Cli includes comprehensive Entity Framework code generation commands that 
 shift ef <subcommand> [options]
 ```
 
+The `ef` command can also be invoked using the aliases `ef-generate` or `generate-ef`.
+
 ### Available Subcommands
 
 - `sql` - Generate from SQL Server database
-- `files` - Generate from model files (YAML/JSON)
+- `files` - Generate from DMD/DMDX model files
 - `sql-custom` - Generate from SQL Server with custom options
 
 ## Commands Reference
@@ -27,69 +29,52 @@ Generates Entity Framework code directly from a SQL Server database.
 #### Syntax
 
 ```bash
-shift ef sql <connection_string> <output_path> [options]
+shift ef sql <connection_string> <output_path> [schema]
 ```
 
 #### Parameters
 
 - `connection_string` - SQL Server connection string
 - `output_path` - Directory where generated files will be created
+- `schema` - Database schema to read (optional, positional, defaults to `dbo`)
 
-#### Options
-
-- `--namespace <name>` - Custom namespace for generated classes
-- `--context <name>` - Custom DbContext class name
-- `--interface <name>` - Custom DbContext interface name
-- `--base-class <name>` - Custom base class to inherit from
+> **Note:** `ef sql` uses default code-generation settings. To customise the namespace, context, interface, or base class, use [`ef sql-custom`](#shift-ef-sql-custom).
 
 #### Examples
 
 ```bash
-# Basic generation
+# Basic generation (uses the dbo schema)
 shift ef sql "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated
 
-# With custom namespace
-shift ef sql "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated --namespace MyApp.Data
-
-# With custom context and interface
-shift ef sql "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated \
-  --namespace MyApp.Data \
-  --context MyAppDbContext \
-  --interface IMyAppDbContext
+# Generate from a specific schema
+shift ef sql "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated MySchema
 ```
 
 ### `shift ef files`
 
-Generates Entity Framework code from model files (YAML/JSON format).
+Generates Entity Framework code from DMD/DMDX model files.
 
 #### Syntax
 
 ```bash
-shift ef files <file1> [file2] ... <output_path> [options]
+shift ef files <path1> [path2] ... <output_path>
 ```
 
 #### Parameters
 
-- `file1, file2, ...` - Paths to model files (YAML/JSON)
-- `output_path` - Directory where generated files will be created
+- `path1, path2, ...` - Paths to DMD/DMDX files (files or directories)
+- `output_path` - Directory where generated files will be created (the last argument is always treated as the output path)
 
-#### Options
-
-- `--namespace <name>` - Custom namespace for generated classes
-- `--context <name>` - Custom DbContext class name
-- `--interface <name>` - Custom DbContext interface name
-- `--base-class <name>` - Custom base class to inherit from
+> **Note:** `ef files` uses default code-generation settings and does not accept namespace/context/interface/base-class options. For custom output settings, generate from SQL Server with [`ef sql-custom`](#shift-ef-sql-custom).
 
 #### Examples
 
 ```bash
 # Generate from multiple model files
-shift ef files ./Models/User.yaml ./Models/Order.yaml ./Generated
+shift ef files ./Models/User.dmd ./Models/Order.dmd ./Generated
 
-# With custom options
-shift ef files ./Models/*.yaml ./Generated \
-  --namespace MyApp.Data \
-  --context MyAppDbContext
+# Generate from directories of DMD files
+shift ef files ./Models/Core ./Models/Auth ./Generated
 ```
 
 ### `shift ef sql-custom`
@@ -113,6 +98,7 @@ shift ef sql-custom <connection_string> <output_path> [options]
 - `--context <name>` - Custom DbContext class name
 - `--interface <name>` - Custom DbContext interface name
 - `--base-class <name>` - Custom base class to inherit from
+- `--schema <name>` - Database schema to read (defaults to `dbo`)
 
 #### Examples
 
@@ -123,6 +109,11 @@ shift ef sql-custom "Server=localhost;Database=MyDb;Integrated Security=true;" .
   --context MyAppDbContext \
   --interface IMyAppDbContext \
   --base-class MyCustomBaseDbContext
+
+# Generate from a specific schema
+shift ef sql-custom "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated \
+  --namespace MyApp.Data \
+  --schema MySchema
 ```
 
 ## Configuration Options
@@ -133,7 +124,7 @@ shift ef sql-custom "Server=localhost;Database=MyDb;Integrated Security=true;" .
 --namespace MyApp.Data
 ```
 
-Sets the namespace for all generated classes. Defaults to `Compile.Shift.Generated`.
+Sets the namespace for all generated classes. Defaults to `Generated`.
 
 ### Context Class Name
 
@@ -157,7 +148,7 @@ Sets the name of the generated DbContext interface. Defaults to `IGeneratedDbCon
 --base-class MyCustomBaseDbContext
 ```
 
-Sets the base class that the generated DbContext will inherit from. Defaults to `DbContext`.
+Sets the base class that the generated DbContext will inherit from. When not specified it is left unset, and the generator uses its standard `DbContext` base class.
 
 ## Generated File Structure
 
@@ -202,15 +193,14 @@ Generated/
 ### Help System
 
 ```bash
-# Show all commands including EF commands
+# Show all commands including EF commands (run with no arguments)
 shift
 
-# Show EF-specific help
-shift ef --help
-
-# Show specific EF command help
-shift ef sql --help
+# Show help, including the list of EF sub-commands, when no sub-command is given
+shift ef
 ```
+
+Help is printed when no command or EF sub-command is supplied, or when an unrecognized command/sub-command is used. There is no dedicated `--help` flag.
 
 ### Error Handling
 
@@ -254,7 +244,7 @@ shift ef sql --help
 
 ```bash
 # In build scripts
-shift ef sql "$CONNECTION_STRING" ./Generated \
+shift ef sql-custom "$CONNECTION_STRING" ./Generated \
   --namespace $PROJECT_NAMESPACE \
   --context ${PROJECT_NAME}DbContext
 ```
@@ -287,20 +277,13 @@ shift ef sql-custom "Server=localhost;Database=MyDb;" ./Generated \
 3. **Option Parsing Issues**
    - Use quotes around values with spaces
    - Ensure proper option syntax
-   - Check for typos in option names
+   - Check for typos in option names (unknown options are reported as warnings and ignored by `ef sql-custom`)
 
-### Debug Mode
-
-```bash
-# Enable verbose logging
-shift ef sql "connection_string" ./Generated --verbose
-```
-
-### Validation
+### Logging
 
 ```bash
-# Test connection without generation
-shift ef sql "connection_string" ./Generated --dry-run
+# Logging is configured via the host's logging settings (appsettings.json /
+# environment variables). The minimum level is Information by default.
 ```
 
 ## Best Practices
