@@ -92,11 +92,12 @@ public class YourTestClass
 **Configuration**:
 ```csharp
 // Container configuration
-.WithImage("mcr.microsoft.com/mssql/server:latest")
+.WithImage("mcr.microsoft.com/mssql/server:2022-latest")
 .WithEnvironment("ACCEPT_EULA", "Y")
 .WithEnvironment("MSSQL_SA_PASSWORD", password)
 .WithEnvironment("MSSQL_PID", "Express")
 .WithPortBinding(0, 1433)
+.WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
 ```
 
 ### **SqlServerTestHelper**
@@ -300,7 +301,7 @@ public async Task Test_WithInvalidData_ShouldHandleGracefully()
 
 ```csharp
 // Default configuration (in SqlServerContainerFixture)
-.WithImage("mcr.microsoft.com/mssql/server:latest")
+.WithImage("mcr.microsoft.com/mssql/server:2022-latest")
 .WithEnvironment("ACCEPT_EULA", "Y")
 .WithEnvironment("MSSQL_SA_PASSWORD", "Your_strong_password123!")
 .WithEnvironment("MSSQL_PID", "Express")
@@ -312,19 +313,26 @@ public async Task Test_WithInvalidData_ShouldHandleGracefully()
 
 ### **Test Classes Using Docker**
 
+All Docker-backed tests live under `src/test/Shift.Tests/Integration/` and use `[Collection("SqlServer")]`. Counts below are `[Fact]` counts (approximate; verify with `dotnet test`).
+
 | Test Class | Purpose | Test Count | Database Usage |
 |------------|---------|------------|----------------|
-| **SqlServerLoaderTests** | Schema loading tests | 12 tests | ✅ Uses Docker |
-| **SqlMigrationPlanRunnerTests** | SQL execution tests | 1 test | ✅ Uses Docker |
-| **SqlMigrationRunner_TypesAndConstraints_Tests** | Integration tests | 2 tests | ✅ Uses Docker |
-| **SqlMigrationRunner_Mixins_Tests** | Integration tests | 1 test | ✅ Uses Docker |
+| **SqlMigrationPlanRunnerTests** | SQL execution tests | ~22 tests | ✅ Uses Docker |
+| **SqlServerLoaderTests** | Schema loading tests | ~12 tests | ✅ Uses Docker |
+| **ShiftTests** | End-to-end workflow tests | ~12 tests | ✅ Uses Docker |
+| **SqlDataType_RoundTrip_Tests** | Type round-trip tests | ~10 tests | ✅ Uses Docker |
+| **SqlMigrationRunner_SafeShrink_Tests** | Safe-shrink tests | ~8 tests | ✅ Uses Docker |
+| **SqlMigrationPlanRunnerDataSafetyTests** | Data-safety tests | ~7 tests | ✅ Uses Docker |
+| **SqlMigrationRunner_TypesAndConstraints_Tests** | Integration tests | ~2 tests | ✅ Uses Docker |
+| **SqlMigrationRunner_Mixins_Tests** | Integration tests | ~1 test | ✅ Uses Docker |
 
 ### **Test Coverage**
 
-- **Total Tests**: 62 tests (verified by running all tests)
-- **Docker Tests**: 16 tests using containers (SqlServerLoaderTests: 12, SqlMigrationPlanRunnerTests: 1, Integration tests: 3)
-- **Isolation**: Each test gets unique database
+- **Docker (Integration) Tests**: ~74 `[Fact]` tests across the 8 integration classes listed above
+- **Isolation**: Each test gets a unique database
 - **Reliability**: All tests passing
+
+> Note: These figures are approximate and drift as tests are added; run `dotnet test` for the authoritative count.
 
 ## 🚀 **Advanced Usage**
 
@@ -333,7 +341,7 @@ public async Task Test_WithInvalidData_ShouldHandleGracefully()
 ```csharp
 // For specialized testing needs
 var customContainer = new ContainerBuilder()
-    .WithImage("mcr.microsoft.com/mssql/server:latest")
+    .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
     .WithEnvironment("ACCEPT_EULA", "Y")
     .WithEnvironment("MSSQL_SA_PASSWORD", "CustomPassword123!")
     .WithEnvironment("MSSQL_PID", "Developer")  // Full features

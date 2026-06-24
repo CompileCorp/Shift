@@ -245,8 +245,8 @@ model Order {
 #### One-to-Many Relationships
 ```dmd
 model Customer {
-  string(100) Name
-  string(255) Email
+  ustring(100) Name
+  ustring(255) Email
   models Order        // One-to-many relationship
 }
 ```
@@ -313,7 +313,7 @@ CREATE TABLE [Order] (
 model Task {
   model User as AssignedUser
   model User as CreatedBy
-  string Title
+  ustring Title
 }
 ```
 
@@ -340,8 +340,8 @@ Create reusable field sets in `.dmdx` files:
 mixin BaseEntity {
   datetime CreatedAt
   datetime UpdatedAt
-  string(50) CreatedBy
-  string(50) UpdatedBy
+  ustring(50) CreatedBy
+  ustring(50) UpdatedBy
   bool IsDeleted
 }
 ```
@@ -350,8 +350,8 @@ mixin BaseEntity {
 
 ```dmd
 model User with BaseEntity {
-  string(100) Username
-  string(256) Email
+  ustring(100) Username
+  ustring(256) Email
   bool IsActive
 }
 ```
@@ -386,8 +386,8 @@ mixin Auditable {
 
 ```dmd
 model Document with Auditable {
-  string(200) Title
-  string(max) Content
+  ustring(200) Title
+  ustring(max) Content
 }
 ```
 
@@ -399,8 +399,8 @@ model Document with Auditable {
 
 ```dmd
 model User {
-  string(100) Username
-  string(256) Email
+  ustring(100) Username
+  ustring(256) Email
   index (Email)
 }
 ```
@@ -414,8 +414,8 @@ CREATE INDEX [IX_User_Email] ON [dbo].[User]([Email])
 
 ```dmd
 model Product {
-  string(100) Name
-  string(50) Category
+  ustring(100) Name
+  ustring(50) Category
   bool IsActive
   index (Name, Category)
 }
@@ -430,8 +430,8 @@ CREATE INDEX [IX_Product_Name_Category] ON [dbo].[Product]([Name], [Category])
 
 ```dmd
 model User {
-  string(100) Username
-  string(256) Email
+  ustring(100) Username
+  ustring(256) Email
   index (Email) @unique
 }
 ```
@@ -447,8 +447,8 @@ Alternate keys are unique indexes that use the "AK" (Alternate Key) naming prefi
 
 ```dmd
 model User {
-  string(100) Username
-  string(256) Email
+  ustring(100) Username
+  ustring(256) Email
   key (Email)
 }
 ```
@@ -462,9 +462,9 @@ CREATE UNIQUE INDEX [AK_User_Email] ON [dbo].[User]([Email])
 
 ```dmd
 model Product {
-  string(100) Name
-  string(50) SKU
-  string(20) VendorCode
+  ustring(100) Name
+  ustring(50) SKU
+  ustring(20) VendorCode
   key (SKU, VendorCode)
 }
 ```
@@ -486,9 +486,9 @@ Alternate keys (`key()`) and unique indexes (`index() @unique`) are functionally
 **Example:**
 ```dmd
 model Customer {
-  string(100) Name
-  string(256) Email
-  string(20) PhoneNumber
+  ustring(100) Name
+  ustring(256) Email
+  ustring(20) PhoneNumber
   key (Email)                    // Business key with AK prefix
   index (PhoneNumber) @unique    // Unique index with IX prefix
   index (Name)                   // Regular index
@@ -506,9 +506,9 @@ CREATE INDEX [IX_Customer_Name] ON [dbo].[Customer]([Name])
 
 ```dmd
 model Product {
-  string(100) Name
-  string(50) SKU
-  string(50) Category
+  ustring(100) Name
+  ustring(50) SKU
+  ustring(50) Category
   bool IsActive
   index (SKU) @unique
   index (Name, IsActive)
@@ -525,7 +525,7 @@ When defining indexes in DMD files, you can use **model names** (the names of re
 ```dmd
 model Client {
   int ClientID
-  string(100) Email
+  ustring(100) Email
   int ClientStatusID
   int ClientTypeID
   
@@ -601,8 +601,8 @@ If a field name in an index definition doesn't match any foreign key target tabl
 
 ```dmd
 model User {
-  string(100) Username
-  string(256) Email
+  ustring(100) Username
+  ustring(256) Email
   int DepartmentID
   
   model Department
@@ -627,8 +627,8 @@ Disable IDENTITY property on primary key:
 
 ```dmd
 model User {
-  string Username
-  string Email
+  ustring Username
+  ustring Email
   @NoIdentity
 }
 ```
@@ -639,7 +639,7 @@ Mark index as unique:
 
 ```dmd
 model User {
-  string Email
+  ustring Email
   index (Email) @unique
 }
 ```
@@ -651,10 +651,10 @@ model User {
 **Customer.dmd:**
 ```dmd
 model Customer {
-  string(100) Name
-  string(255) Email
-  string(20)? Phone
-  string(500)? Address
+  ustring(100) Name
+  ustring(255) Email
+  ustring(20)? Phone
+  ustring(500)? Address
   bool IsActive
   key (Email)
 }
@@ -666,8 +666,8 @@ model Order {
   model Customer
   decimal(10,2) Amount
   datetime OrderDate
-  string(50) Status
-  string(1000)? Notes
+  ustring(50) Status
+  ustring(1000)? Notes
   index (OrderDate)
   index (Customer, Status)
 }
@@ -688,9 +688,9 @@ model OrderItem {
 **Product.dmd:**
 ```dmd
 model Product {
-  string(100) Name
-  string(50) SKU
-  string(500)? Description
+  ustring(100) Name
+  ustring(50) SKU
+  ustring(500)? Description
   decimal(10,2) Price
   bool IsActive
   key (SKU)
@@ -703,9 +703,9 @@ model Product {
 **User.dmd:**
 ```dmd
 model User guid {
-  string(100) Username
-  string(256) Email
-  string(255) PasswordHash
+  ustring(100) Username
+  ustring(256) Email
+  ustring(255) PasswordHash
   bool IsActive
   datetime? LastLoginDate
   key (Email)
@@ -716,8 +716,8 @@ model User guid {
 **Task.dmd:**
 ```dmd
 model Task with Auditable {
-  string(200) Title
-  string(1000)? Description
+  ustring(200) Title
+  ustring(1000)? Description
   bool IsCompleted
   datetime? DueDate
   model User as AssignedUser
@@ -759,7 +759,7 @@ mixin Auditable {
 ### Type Selection
 
 1. **Primary keys** - Use `guid` for distributed systems, `int` for single-server applications
-2. **Strings** - Use `string` for Unicode text, `astring` for ASCII-only data
+2. **Strings** - Use `ustring` for Unicode text, `astring` for ASCII-only data (the legacy `string`/`char` types are deprecated aliases for `ustring`/`uchar`)
 3. **Decimals** - Always specify precision and scale for monetary values
 4. **Nullable fields** - Be explicit about nullability with `?` modifier
 
@@ -789,23 +789,18 @@ model Order {
 }
 ```
 
-### Mixin Composition
+### Mixin Limitations
+
+A model applies a **single** mixin via the `with` keyword. Mixins **cannot** compose other mixins (there is no `mixin A with B` support), and a model cannot apply more than one mixin. To share a common set of fields, define one self-contained mixin that includes every field it needs:
 
 ```dmdx
-mixin Timestamps {
+mixin FullAudit {
   datetime CreatedAt
   datetime UpdatedAt
-}
-
-mixin SoftDelete {
-  bit IsDeleted
+  ustring(50) CreatedBy
+  ustring(50) UpdatedBy
+  bool IsDeleted
   datetime? DeletedAt
-}
-
-mixin FullAudit with Timestamps {
-  nvarchar(50) CreatedBy
-  nvarchar(50) UpdatedBy
-  bit IsDeleted
 }
 ```
 
@@ -813,9 +808,9 @@ mixin FullAudit with Timestamps {
 
 ```dmd
 model Product {
-  string(100) Name
-  string(50) Category
-  string(20) Brand
+  ustring(100) Name
+  ustring(50) Category
+  ustring(20) Brand
   bool IsActive
   index (Category, Brand, IsActive)
   index (Name, Category)
@@ -939,7 +934,7 @@ If you have existing DMD files using deprecated type names, you can migrate them
 ```dmd
 // Old (deprecated but still works)
 model User {
-  string Username
+  ustring Username
   astring Email
   bool IsActive
 }
@@ -951,10 +946,6 @@ model User {
   bool IsActive
 }
 ```
-
-## Future Enhancements
-
-For planned data types and language features, see the [Feature Development Backlog](../development/backlog-features.md).
 
 ## Troubleshooting
 

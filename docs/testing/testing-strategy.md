@@ -263,25 +263,36 @@ public class ShiftTests
 
 **Example Pattern**:
 ```csharp
-public class ModelExporterTests
+public class ModelExporterTests : UnitTestContext<ModelExporter>
 {
     [Fact]
-    public void GenerateDmdContent_WithSimpleTable_ShouldGenerateCorrectContent()
+    public async Task GenerateDmdContent_WithSimpleTable_ShouldGenerateCorrectContent()
     {
         // Arrange
-        var model = CreateDatabaseModelWithSimpleTable();
-        var exporter = new ModelExporter();
+        var model = CreateSimpleDatabaseModel();
 
-        // Act
-        var result = exporter.GenerateDmdContent(model);
+        // Export each table as a separate DMD file
+        foreach (var table in model.Tables.Values.OrderBy(x => x.Name))
+        {
+            // Act
+            var dmdContent = Sut.GenerateDmdContent(table, model.Mixins.Values.ToList());
 
-        // Assert - Verify against snapshot
-        Verify(result);
+            // Assert - Verify against snapshot (one verified file per table)
+            await Verify(dmdContent).UseTextForParameters($"{table.Name}.dmd");
+        }
     }
 }
 ```
 
 ## Testing Infrastructure
+
+### Test Projects
+
+The test suite is split across three projects under `src/test/`, all using **xUnit**:
+
+- **`Shift.Tests`** — Unit, integration, data-safety, E2E, and snapshot tests for the core `Shift` library. Uses Testcontainers, Verify, FluentAssertions, and Moq.AutoMock.
+- **`Shift.Cli.Tests`** — Tests for the `Shift.Cli` command-line tool (references `Shift.Cli`, `Shift`, and `Shift.Ef`). Uses FluentAssertions, Moq, and Moq.AutoMock.
+- **`Shift.Test.Framework`** — Shared test infrastructure (e.g. `UnitTestContext<T>`, `VnumTestingHelper`) referenced by the other two projects.
 
 ### Docker Containers
 - **Testcontainers** for SQL Server containers
@@ -406,7 +417,7 @@ dotnet test --filter "SqlServer"
 dotnet test --logger "console;verbosity=normal"
 
 # Run tests in specific project
-dotnet test test/Shift.Tests/
+dotnet test src/test/Shift.Tests/
 ```
 
 ### Test Execution Time

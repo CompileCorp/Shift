@@ -28,11 +28,15 @@ We currently have three GitHub Actions workflows that handle different aspects o
 ```
 Pull Request Created/Updated
     ↓
+Notify Slack on PR opened (SLACK_WEBHOOK_URL)
+    ↓
 Checkout Code
     ↓
 Setup .NET 9.0.x
     ↓
 Restore Dependencies
+    ↓
+Check Code Formatting (dotnet format --verify-no-changes)
     ↓
 Build Solution (Release)
     ↓
@@ -45,11 +49,13 @@ Publish Test Results to GitHub UI
 
 **Key Features**:
 - ✅ Automated build validation
+- ✅ Code formatting gate (`dotnet format src/Shift.slnx --verify-no-changes`) — fails the PR on pending formatting changes
 - ✅ Comprehensive test execution (all test projects)
 - ✅ Visual test results in GitHub PR interface
 - ✅ Clear failure reporting with detailed test results
 - ✅ Protected main branch integration
 - ✅ Professional test reporting using dorny/test-reporter@v2
+- ✅ Slack notification posted when a PR is opened (via `SLACK_WEBHOOK_URL`)
 
 ### 2. Build and Publish Workflow
 
@@ -159,19 +165,19 @@ Our pipeline uses two different version sources:
 | **Automated Publishing** | ✅ Implemented | Tag-based production releases + pre-release on release candidate tags |
 | **Version Management** | ✅ Implemented | Semantic versioning with git tags + pre-release versions |
 | **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on release candidate tags with run number-based versioning |
-| **Secure Secrets** | ✅ Implemented | GitHub secrets for API keys |
+| **Secure Secrets** | ✅ Implemented | GitHub secrets: `NUGET_API_KEY` (publishing) and `SLACK_WEBHOOK_URL` (PR notifications) |
 
 ### Current Gaps
 
 | Practice | Status | Impact |
 |----------|--------|--------|
 | **Security Scanning** | Not implemented | Medium risk |
-| **Code Quality Checks** | Not implemented | Medium risk |
+| **Code Quality Checks** | Basic (`dotnet format` gate on PRs); no static analysis (SonarCloud, analyzers) | Medium risk |
 | **Multi-Platform Testing** | Ubuntu only | Low risk |
 | **Test Coverage Reporting** | Not implemented | Low risk |
 | **Performance Testing** | Not implemented | Low risk |
 | **Documentation Generation** | Not implemented | Low risk |
-| **Notification System** | Not implemented | Low risk |
+| **Notification System** | Basic (Slack notification on PR open); no build-failure/release notifications | Low risk |
 | **Artifact Management** | Basic implementation | Low risk |
 
 ## Strengths
@@ -200,19 +206,18 @@ Our pipeline uses two different version sources:
 
 ### Missing Features
 - **Security Scanning**: No automated security vulnerability detection
-- **Code Quality Checks**: No automated code analysis or linting
+- **Code Quality Checks**: A `dotnet format src/Shift.slnx --verify-no-changes` formatting gate runs on every PR, but there is no deeper static analysis (e.g. SonarCloud, analyzer rulesets) or linting beyond formatting
 - **Multi-Platform Testing**: Currently only tests on Ubuntu
 - **Test Coverage Reporting**: No visibility into coverage trends
 - **Performance Testing**: No performance benchmarks
 - **Documentation Generation**: No automated API documentation
+- **Notification System**: A Slack notification is posted when a PR is opened (via `SLACK_WEBHOOK_URL`), but there are no notifications for build failures or releases
 
 ### Impact Assessment
 - **Security Risk**: Medium - No automated vulnerability detection
-- **Code Quality Risk**: Medium - No automated code analysis
+- **Code Quality Risk**: Medium - Formatting is enforced, but no deeper static code analysis
 - **Platform Risk**: Low - Single platform testing may miss platform-specific issues
 - **Maintenance Risk**: Low - Manual processes require more oversight
-
-> **Note**: For planned improvements and enhancements, see the [CI/CD Development Backlog](../development/backlog-ci-cd.md).
 
 ## Conclusion
 
@@ -224,6 +229,6 @@ The current pipeline successfully:
 - Provides visual test results in GitHub PR interface
 - Automatically publishes production NuGet packages on version tags
 - Automatically publishes pre-release NuGet packages when release candidate tags are pushed
-- Maintains secure API key management
+- Maintains secure secret management via GitHub secrets (`NUGET_API_KEY` for publishing, `SLACK_WEBHOOK_URL` for PR notifications)
 
-While there are opportunities for enhancement (as documented in the [CI/CD Development Backlog](../development/backlog-ci-cd.md)), the current pipeline effectively supports our development process and ensures code quality.
+While there are opportunities for enhancement, the current pipeline effectively supports our development process and ensures code quality.

@@ -22,44 +22,44 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 - Compares table names using case-insensitive matching
 - Creates `CreateTable` migration steps for missing tables
 - Automatically includes foreign key creation for tables that reference existing target tables
+- Automatically emits `AddIndex` steps for every index defined on the new table
 
 **Example**:
 ```csharp
 // Target model has "User" table, actual model is empty
-// Result: Creates MigrationStep with Action = CreateTable
+// Result: Creates MigrationStep with Action = CreateTable,
+//         plus AddForeignKey/AddIndex steps for the table's FKs and indexes
 ```
 
-### Step 2: Add Missing Columns to Existing Tables
-**Purpose**: Identify columns that exist in target tables but not in actual tables.
+### Step 2: Add Missing Columns and Detect Column Alterations
+**Purpose**: Identify columns that exist in target tables but not in actual tables, and detect columns whose size/precision differs between the target and actual models.
 
 **Detection Logic**:
 - For each target table, finds the corresponding actual table (case-insensitive)
 - Compares field names using case-insensitive matching
 - Creates `AddColumn` migration steps for missing fields
-- Detects safe widening operations for string/binary types (e.g., nvarchar(50) → nvarchar(100))
+- For fields that exist in both, detects type-size differences and emits `AlterColumn` steps:
+  - **String/binary types** (`varchar`, `nvarchar`, `char`, `nchar`, `binary`, `varbinary`): when the base type matches, any difference in `Precision` triggers an `AlterColumn` step. `null` and `-1` precision are treated as equivalent (both mean `MAX`). A warning is logged for each detected size change.
+  - **Decimal/numeric types** (`decimal`, `numeric`, treated as compatible): any difference in `Precision` or `Scale` triggers an `AlterColumn` step.
 
-**Safe Widening Rules**:
-- `varchar(n)` → `varchar(m)` where m > n
-- `nvarchar(n)` → `nvarchar(m)` where m > n
-- `varchar(n)` → `varchar(MAX)`
-- `binary(n)` → `binary(m)` where m > n
-- `varbinary(n)` → `varbinary(m)` where m > n
+**Important**: The planner flags size/precision changes in *either* direction; it does **not** restrict itself to "widening" only. The guard that prevents data-loss alterations (e.g., shrinking a column that holds longer values) lives in `SqlMigrationPlanRunner.IsAlterColumnPotentiallyUnsafe`, which probes the live data at execution time and skips the alter if it would truncate or round existing values. See the [SqlMigrationPlanRunner architecture](./sql-migration-plan-runner.md) for details.
 
 **Example**:
 ```csharp
-// Target: User table with Email field
-// Actual: User table without Email field
+// Target: User table with Email field; Actual: User table without Email field
 // Result: Creates MigrationStep with Action = AddColumn
+
+// Target: User.Name nvarchar(100); Actual: User.Name nvarchar(50)
+// Result: Creates MigrationStep with Action = AlterColumn (size change detected)
 ```
 
 ### Step 3: Add Missing Foreign Keys
 **Purpose**: Identify foreign key relationships that exist in the target model but not in the actual model.
 
 **Detection Logic**:
-- Compares foreign key definitions between target and actual tables
-- Uses case-insensitive matching for table and column names
-- Only creates foreign keys for tables that exist in the target model
-- Creates `AddForeignKey` migration steps
+- Only considers foreign keys whose `TargetTable` exists in the target model
+- A target FK is considered missing if the actual table has **no** foreign key referencing the same `TargetTable` (matched case-insensitively). Note: the match is on the referenced table only — the FK column name is not compared.
+- Creates `AddForeignKey` migration steps for the missing foreign keys
 
 **Example**:
 ```csharp
@@ -86,6 +86,8 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 - Field order matters for multi-column indexes
 - Unique vs non-unique indexes are treated as different
 - Extra indexes are reported but not included in migration steps
+
+**Step output note**: `AddIndex` migration steps carry the owning `TableModel` on `MigrationStep.Table` (in addition to `Index`). The runner uses this to resolve model names in index field lists to their actual foreign-key column names when generating SQL.
 
 **Example**:
 ```csharp
@@ -133,8 +135,10 @@ These extra indexes are reported in `plan.ExtrasInSqlServer.ExtraIndexes` but ar
 
 ### Basic Usage
 
+`MigrationPlanner` exposes an optional `ILogger? Logger { get; init; }`. When set, the planner logs a warning for each detected `AlterColumn` size change. Callers within Shift construct it as `new MigrationPlanner { Logger = Logger }`.
+
 ```csharp
-var migrationPlanner = new MigrationPlanner();
+var migrationPlanner = new MigrationPlanner { Logger = logger };
 var plan = migrationPlanner.GeneratePlan(targetModel, actualModel);
 
 // Process migration steps
@@ -212,7 +216,7 @@ The `SqlMigrationPlanRunner` supports the following actions:
 - ✅ `CreateTable` - Creates tables with fields and constraints
 - ✅ `AddColumn` - Adds columns to existing tables
 - ✅ `AddForeignKey` - Creates foreign key constraints
-- ✅ `AlterColumn` - Modifies column definitions (safe widening)
+- ✅ `AlterColumn` - Modifies column definitions (with a runtime data-loss guard that skips unsafe shrinks/rounding)
 - ✅ `AddIndex` - Creates single and multi-column indexes (unique and non-unique)
 
 ## Case-Insensitive Matching
@@ -231,7 +235,7 @@ The MigrationPlanner is designed to be robust and handle various edge cases:
 - **Missing Target Tables**: Foreign keys to non-existent tables are ignored
 - **Case Variations**: All comparisons are case-insensitive
 - **Extra Objects**: Objects in actual but not target are reported, not migrated
-- **Safe Operations**: Only safe widening operations are included in migration plans
+- **Alterations Flagged Both Ways**: Size/precision changes are detected in either direction; the data-loss guard that decides whether an `AlterColumn` is actually safe to execute lives in `SqlMigrationPlanRunner` (not the planner)
 
 ## Performance Considerations
 

@@ -71,15 +71,15 @@ The script automates the entire coverage reporting workflow:
 ```
 coverage-reports/
 ├── index.html              # Main coverage report (open this file)
-├── Summary.html            # Coverage summary
-├── index.htm               # Alternative format
-└── [additional report files]
+└── [additional HtmlInline_AzurePipelines assets]
 
 TestResults/
-├── [timestamp]/
-│   ├── coverage.cobertura.xml  # Raw coverage data
-│   └── [test result files]
+├── [guid]/
+│   └── coverage.cobertura.xml  # Raw coverage data
+└── [additional test result files]
 ```
+
+> The report is generated with `-reporttypes:HtmlInline_AzurePipelines`, whose entry point is `coverage-reports/index.html`. The exact set of supporting asset files is determined by ReportGenerator.
 
 ### Report Contents
 - **Line Coverage**: Percentage of code lines executed during tests

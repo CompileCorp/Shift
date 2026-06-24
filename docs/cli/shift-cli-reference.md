@@ -74,13 +74,16 @@ Apply DMD/DMDX files to a SQL Server database.
 
 #### Syntax
 ```bash
-shift apply <connection_string> <path1> [path2] ...
+shift apply <connection_string> <path1> [path2] ... [--schema <name>]
 ```
 
 #### Parameters
 - **`connection_string`** - SQL Server connection string
 - **`path1`** - Path to DMD files (file or directory)
 - **`path2`** - Additional paths (optional)
+
+#### Options
+- **`--schema <name>`** - Target database schema (optional, defaults to `dbo`)
 
 #### Examples
 
@@ -99,6 +102,11 @@ shift apply "Server=.;Database=MyDb;" ./Models/Core ./Models/Auth ./Models/Featu
 shift apply "Server=.;Database=MyDb;" ./Models/User.dmd ./Models/Order.dmd
 ```
 
+**Targeting a non-default schema:**
+```bash
+shift apply "Server=.;Database=MyDb;" ./Models --schema MySchema
+```
+
 #### Workflow
 1. **Load DMD files** from specified paths
 2. **Connect to database** using connection string
@@ -113,7 +121,7 @@ Apply embedded DMD resources from .NET assemblies to a database.
 
 #### Syntax
 ```bash
-shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ...
+shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ... [--schema <name>]
 ```
 
 #### Parameters
@@ -121,7 +129,10 @@ shift apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2]
 - **`dll1`, `dll2`, ...** - Paths to assemblies containing embedded DMD resources (files ending with `.dll`)
 - **`filter1`, `filter2`, ...** - Optional namespace filters to limit which resources are loaded (any argument not ending with `.dll`)
 
-**Note:** DLLs and filters can be specified in any order. Arguments ending with `.dll` are treated as assembly paths, all other arguments are treated as namespace filters. All filters apply to all assemblies.
+#### Options
+- **`--schema <name>`** - Target database schema (optional, defaults to `dbo`)
+
+**Note:** DLLs and filters can be specified in any order. Arguments ending with `.dll` are treated as assembly paths, all other non-option arguments are treated as namespace filters. All filters apply to all assemblies.
 
 #### Examples
 
@@ -150,6 +161,11 @@ shift apply-assemblies "Server=.;Database=MyDb;" ./Core.Models.dll ./Auth.Models
 **Mixed order (DLLs and filters can be interleaved):**
 ```bash
 shift apply-assemblies "Server=.;Database=MyDb;" ./Lib1.dll Namespace1 ./Lib2.dll Namespace2 Namespace3
+```
+
+**Targeting a non-default schema:**
+```bash
+shift apply-assemblies "Server=.;Database=MyDb;" ./MyApp.Models.dll --schema MySchema
 ```
 
 #### Namespace Filtering
@@ -198,23 +214,19 @@ shift export "Server=.;Database=MyDb;" "dbo" ./ExportedModels
 shift export "Server=.;Database=MyDb;" "MySchema" ./ExportedModels
 ```
 
-#### Status
-⚠️ **Partially implemented** - Core infrastructure exists but CLI command needs completion
+#### Workflow
+1. **Load the model** from the database for the specified schema (via `LoadFromSqlAsync`)
+2. **Generate DMD files** from the loaded model using `ModelExporter.ExportToDmd`
+3. **Write output** to the target directory
+4. **Report results** - logs `Database exported to <path>` on completion
 
-#### Available Commands
-- **Database loading** - `SqlServerLoader` can read database schemas
-- **DMD generation** - `ModelExporter` can create DMD files
-- **Schema analysis** - Full table, column, foreign key, and index support
-
-#### Implementation Status
-- ✅ **Core infrastructure** - `SqlServerLoader` and `ModelExporter` are complete
-- ✅ **Database model loading** - Can load complete database schemas
-- ✅ **DMD file generation** - Can export tables to DMD format
-- ⚠️ **CLI command** - `CommandExportAsync` throws `NotImplementedException`
-- ⚠️ **Mixin support** - Mixin detection and generation needs implementation
-- ⚠️ **Testing** - Export functionality needs comprehensive testing
+#### Notes
+- The export reads tables, columns, foreign keys, and indexes for the given schema.
+- All three arguments (`connection_string`, `schema`, `path`) are required; the command prints a help message if any are missing.
 
 ## Entity Framework Code Generation
+
+The `ef` command may also be invoked with the aliases `ef-generate` or `generate-ef` (e.g. `shift ef-generate sql ...`).
 
 ### EF SQL Command
 
@@ -298,6 +310,7 @@ shift ef sql-custom <connection-string> <output-path> [options]
 - **`--context <name>`** - Custom DbContext class name
 - **`--interface <name>`** - Custom interface name for DbContext
 - **`--base-class <name>`** - Custom base class for DbContext
+- **`--schema <name>`** - Database schema to read (optional, defaults to `dbo`)
 
 #### Examples
 
@@ -566,11 +579,9 @@ ls ./Models/*.dmd
 ### Exit Codes
 
 - **`0`** - Success
-- **`1`** - General error
-- **`2`** - Invalid arguments
-- **`3`** - Database connection failed
-- **`4`** - File system error
-- **`5`** - Assembly loading error
+- **`1`** - An error occurred (any unhandled exception, e.g. connection failure, missing file, or assembly load error). The error message is written to the console.
+
+Invalid arguments do not set a non-zero exit code; instead the CLI prints a help message describing the correct usage.
 
 ## Best Practices
 
@@ -706,7 +717,7 @@ services:
       - db
   
   db:
-    image: mcr.microsoft.com/mssql/server:latest
+    image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       - ACCEPT_EULA=Y
       - SA_PASSWORD=YourPassword

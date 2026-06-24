@@ -21,11 +21,16 @@ public class SqlMigrationPlanRunner
 {
     private readonly string _connectionString;
     private readonly MigrationPlan _plan;
+    private readonly string _schema;
     public required ILogger Logger { private get; init; }
-    
+
+    public SqlMigrationPlanRunner(string connectionString, MigrationPlan plan, string schema = "dbo");
+
     public List<(MigrationStep Step, Exception Exception)> Run();
 }
 ```
+
+The constructor takes a third `schema` parameter (default `"dbo"`). All generated SQL is schema-qualified using this value (e.g. `[dbo].[TableName]`).
 
 ### Execution Flow
 
@@ -44,8 +49,8 @@ Creates tables with fields, primary keys, and constraints.
 
 **SQL Generation**:
 ```sql
-CREATE TABLE [TableName] (
-  [FieldName] FieldType [CONSTRAINTS],
+CREATE TABLE [dbo].[TableName] (
+  [FieldName] FieldType [IDENTITY(1,1)] [NULL|NOT NULL],
   CONSTRAINT [PK_TableName] PRIMARY KEY ([PrimaryKeyField])
 )
 ```
@@ -61,35 +66,61 @@ Adds new columns to existing tables with smart defaults.
 
 **SQL Generation**:
 ```sql
-ALTER TABLE [TableName] ADD [FieldName] FieldType [CONSTRAINTS] [DEFAULT_VALUE]
+ALTER TABLE [dbo].[TableName] ADD [FieldName] FieldType [NULL|NOT NULL] [DEFAULT_VALUE]
 ```
 
-**Smart Defaults**:
-- **Numeric types**: `DEFAULT 0` (or `DEFAULT 1` for ID fields)
-- **Boolean types**: `DEFAULT 0`
-- **Date types**: `DEFAULT GETDATE()`
-- **String types**: `DEFAULT ''`
-- **GUID types**: `DEFAULT NEWID()`
+A `DEFAULT_VALUE` is only emitted for **non-nullable** columns (so existing rows get a valid value). Nullable columns are added without a default; if a default constraint was nonetheless created, a follow-up statement dynamically looks it up in `sys.default_constraints` and drops it:
+
+```sql
+DECLARE @dfname nvarchar(128);
+SELECT @dfname = df.name
+FROM sys.default_constraints df
+INNER JOIN sys.columns c ON df.parent_object_id = c.object_id AND df.parent_column_id = c.column_id
+WHERE df.parent_object_id = OBJECT_ID('dbo.TableName') AND c.name = 'FieldName';
+IF @dfname IS NOT NULL EXEC('ALTER TABLE [dbo].[TableName] DROP CONSTRAINT [' + @dfname + ']');
+```
+
+**Smart Defaults** (non-nullable columns only):
+- **Numeric types** (`int`, `bigint`, `smallint`, `tinyint`, `decimal`, `numeric`, `float`, `real`): `DEFAULT 0` (or `DEFAULT 1` for fields whose name ends in `ID`)
+- **Boolean types** (`bit`): `DEFAULT 0`
+- **Date types** (`datetime`, `smalldatetime`, `date`, `datetime2`, `datetimeoffset`): `DEFAULT GETDATE()`
+- **String types** (`char`, `nchar`, `varchar`, `nvarchar`, `text`, `ntext`): `DEFAULT ''`
+- **GUID types** (`uniqueidentifier`): `DEFAULT NEWID()`
 
 **Features**:
-- Automatic default constraint removal for nullable columns
+- Schema-qualified `ALTER TABLE`
+- Default value applied only to non-nullable columns; default constraint dropped for nullable columns
 - Type-specific default value selection
 - Precision and scale support
 
 ### ✅ AlterColumn
-Modifies existing column definitions (safe widening only).
+Modifies existing column definitions. The runner does **not** restrict alterations to "widening"; instead it guards against data loss at runtime (see below) and skips any alter that would truncate or round existing data.
 
-**SQL Generation**:
+**SQL Generation**: The `ALTER COLUMN` is wrapped in an `IF EXISTS` guard so it only runs when the live column actually differs (data type, size/precision, scale, or nullability):
+
 ```sql
-ALTER TABLE [dbo].[TableName] ALTER COLUMN [FieldName] FieldType [CONSTRAINTS]
+IF EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'dbo'
+      AND TABLE_NAME = 'TableName'
+      AND COLUMN_NAME = 'FieldName'
+      AND (
+          DATA_TYPE <> 'fieldtype'
+          OR COALESCE(CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, 0) <> <precision>
+          OR COALESCE(NUMERIC_SCALE, 0) <> <scale>
+          OR IS_NULLABLE <> 'YES'|'NO'
+      )
+)
+BEGIN
+    ALTER TABLE [dbo].[TableName] ALTER COLUMN [FieldName] FieldType [NULL|NOT NULL]
+END
 ```
 
-**Safe Widening Rules**:
-- `varchar(n)` → `varchar(m)` where m > n
-- `nvarchar(n)` → `nvarchar(m)` where m > n
-- `varchar(n)` → `varchar(MAX)`
-- `binary(n)` → `binary(m)` where m > n
-- `varbinary(n)` → `varbinary(m)` where m > n
+**Data-loss safety check**: Before generating the SQL above, `Run` calls `IsAlterColumnPotentiallyUnsafe`. This probes the live table data (using `WITH (READPAST)`) and **skips** the alter (logging a warning) when it would lose data:
+
+- **String/binary types** (`varchar`, `nvarchar`, `char`, `nchar`, `binary`, `varbinary`): if the new size is smaller and any existing value exceeds the new limit. Lengths are checked with `LEN` for `char`/`nchar` and `DATALENGTH` for the rest (unicode types count two bytes per character). Resizing to `MAX` (`-1`) is always considered safe.
+- **Decimal/numeric types**: if any existing value would not round-trip through `TRY_CONVERT(decimal(p,s), ...)` (i.e. would be truncated, rounded, or fail conversion).
 
 ### ✅ AddForeignKey
 Creates foreign key constraints between tables and automatically creates an index on the foreign key column.
@@ -142,14 +173,17 @@ Creates indexes on tables (single or multi-column) with defensive duplicate hand
 ```sql
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_TableName_Field1_Field2...' AND object_id = OBJECT_ID('dbo.TableName'))
 BEGIN
-    CREATE [UNIQUE] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Field1], [Field2], ...)
+    CREATE [UNIQUE ]NONCLUSTERED INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Field1], [Field2], ...)
 END
 ```
 
+The clustering keyword reflects `IndexModel.Kind`: `NonClustered` (the default) emits `NONCLUSTERED ` and `Clustered` emits `CLUSTERED `. Any other `IndexKind` value (e.g. columnstore, fulltext) currently throws `NotImplementedException`.
+
 **Features**:
 - **Defensive duplicate handling**: Uses `IF NOT EXISTS` to prevent errors when index already exists
-- Automatic index naming (`IX_TableName_Field1_Field2...`)
+- Automatic index naming (`IX_TableName_Field1_Field2...`), with a 128-character limit (see below)
 - Support for unique and non-unique indexes
+- `NONCLUSTERED`/`CLUSTERED` keyword emitted from `IndexModel.Kind`
 - Multi-column index support
 - Proper column ordering
 - Case-insensitive field name matching
@@ -160,36 +194,40 @@ END
 -- Single column index (defensive)
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_User_Email' AND object_id = OBJECT_ID('dbo.User'))
 BEGIN
-    CREATE INDEX [IX_User_Email] ON [dbo].[User]([Email])
+    CREATE NONCLUSTERED INDEX [IX_User_Email] ON [dbo].[User]([Email])
 END
 
 -- Unique index (defensive)
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_User_Username' AND object_id = OBJECT_ID('dbo.User'))
 BEGIN
-    CREATE UNIQUE INDEX [IX_User_Username] ON [dbo].[User]([Username])
+    CREATE UNIQUE NONCLUSTERED INDEX [IX_User_Username] ON [dbo].[User]([Username])
 END
 
 -- Multi-column index (defensive)
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Order_CustomerID_OrderDate' AND object_id = OBJECT_ID('dbo.Order'))
 BEGIN
-    CREATE INDEX [IX_Order_CustomerID_OrderDate] ON [dbo].[Order]([CustomerID], [OrderDate])
+    CREATE NONCLUSTERED INDEX [IX_Order_CustomerID_OrderDate] ON [dbo].[Order]([CustomerID], [OrderDate])
 END
 
 -- Unique multi-column index (defensive)
 IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_Product_SKU_Category' AND object_id = OBJECT_ID('dbo.Product'))
 BEGIN
-    CREATE UNIQUE INDEX [IX_Product_SKU_Category] ON [dbo].[Product]([SKU], [Category])
+    CREATE UNIQUE NONCLUSTERED INDEX [IX_Product_SKU_Category] ON [dbo].[Product]([SKU], [Category])
 END
 ```
 
 **Model Name Resolution**:
 ```sql
 -- DMD: index (Email, ClientStatus)
--- Resolves to: CREATE INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])
+-- Resolves to: CREATE NONCLUSTERED INDEX [IX_Client_Email_ClientStatusID] ON [dbo].[Client]([Email], [ClientStatusID])
 
--- DMD: index (User, OrderDate)  
--- Resolves to: CREATE INDEX [IX_Order_UserID_OrderDate] ON [dbo].[Order]([UserID], [OrderDate])
+-- DMD: index (User, OrderDate)
+-- Resolves to: CREATE NONCLUSTERED INDEX [IX_Order_UserID_OrderDate] ON [dbo].[Order]([UserID], [OrderDate])
 ```
+
+### Index Name Length Limit
+
+Index names are produced by `IndexNameHelper.GenerateIndexName`, which enforces SQL Server's 128-character identifier limit. When the natural name (`IX`/`AK` + table + fields) would exceed 128 characters, it is trimmed and an 8-character lowercase SHA-256 hash of the full name is appended (`_xxxxxxxx`) to keep the result unique and under the limit.
 
 ## Index Field Resolution
 
@@ -320,15 +358,17 @@ List<(MigrationStep Step, Exception Exception)> failures
 
 ### Logging
 ```csharp
-// Information level
-Logger.LogInformation($"{step.Action} {step.TableName} {details}");
+// Warning level — per-step progress (one line per step, including field/column details)
+Logger.LogWarning($"{step.Action} {step.TableName} {details}");
 
-// Debug level  
+// Debug level — the actual SQL being executed
 Logger.LogDebug(sql);
 
-// Error level
+// Error level — execution failures
 Logger.LogError(ex, "{action} failed {sql}", step.Action.ToString(), sql);
 ```
+
+> Note: per-step progress is logged at **Warning** level (not Information). SQL text is logged at Debug. Skipped data-loss alterations are also logged at Warning.
 
 ## Code Examples
 
@@ -479,6 +519,7 @@ else
 - Single connection per migration run
 - Connection is opened once and reused for all steps
 - Connection is properly disposed after completion
+- Each command runs with `CommandTimeout = 600` seconds to accommodate long-running schema changes on large tables
 
 ### SQL Optimization
 - Minimal SQL generation (only necessary statements)
