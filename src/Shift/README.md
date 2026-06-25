@@ -10,7 +10,7 @@ dotnet add package Compile.Shift
 
 ## Documentation
 
-For complete documentation, usage examples, and API reference, please visit the [Shift Wiki](https://github.com/CompileCorp/shift/wiki).
+For complete documentation, usage examples, and API reference, see the [Shift documentation](https://github.com/CompileCorp/shift/blob/main/docs/README.md).
 
 ## Quick Start
 

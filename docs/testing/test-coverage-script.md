@@ -2,6 +2,12 @@
 
 The `scripts/test-coverage-basic.ps1` script provides automated test coverage report generation for the Shift project. It uses the industry-standard ReportGenerator tool to create detailed HTML coverage reports that help identify untested code and measure testing effectiveness.
 
+> **Local convenience vs. the CI gate.** This script is for fast, interactive local reports. The **authoritative** coverage configuration lives in `src/coverlet.runsettings` (which assemblies are measured and what is excluded) and is enforced by the PR workflow, which fails the build below the agreed line-coverage threshold (currently **99%** — see [CI/CD Pipeline](../ci-cd/pipeline.md)). When in doubt, treat `coverlet.runsettings` and the CI gate as the source of truth; run this script the same way CI does to match its numbers:
+>
+> ```powershell
+> dotnet test src/Shift.slnx --settings src/coverlet.runsettings --collect:"XPlat Code Coverage"
+> ```
+
 ## Overview
 
 The script automates the entire coverage reporting workflow:
@@ -89,9 +95,11 @@ TestResults/
 - **Assembly Coverage**: Coverage breakdown by project assembly
 
 ### Coverage Metrics
-The script focuses on the core Shift project assemblies:
-- ✅ **Shift.dll** - Main library code
-- ❌ **Shift.Tests.dll** - Test code (excluded)
+Coverage focuses on the shipping product assemblies. The authoritative scope is defined in `src/coverlet.runsettings` (`Include` = `[Shift]*,[Shift.Cli]*,[Shift.Ef]*`):
+- ✅ **Shift.dll** - Core library code
+- ✅ **Shift.Cli.dll** - Command-line tool (the composition root is excluded via `[ExcludeFromCodeCoverage]`)
+- ✅ **Shift.Ef.dll** - Entity Framework code generators (the `Examples/` sample code is excluded)
+- ❌ **Shift.Tests.dll / Shift.Cli.Tests.dll / Shift.Ef.Tests.dll** - Test code (excluded)
 - ❌ **Shift.Test.Framework.dll** - Test framework (excluded)
 - ❌ **Testcontainers.*** - External dependencies (excluded)
 - ❌ **Microsoft.*** - Framework dependencies (excluded)
@@ -125,14 +133,14 @@ The script focuses on the core Shift project assemblies:
 ### Development Workflow
 1. **Run unit tests frequently**: `dotnet test --filter "Category!=Integration"`
 2. **Generate coverage reports before commits**: `.\scripts\test-coverage-basic.ps1`
-3. **Aim for >80% line coverage** on core business logic
+3. **Don't regress the gate**: the PR build fails below the `COVERAGE_THRESHOLD` (currently 99% line coverage), so new code generally needs accompanying tests
 4. **Review uncovered code** to identify missing test scenarios
 
 ### Coverage Goals
-- **Core logic**: >90% line coverage (Parser, MigrationPlanner, ModelExporter)
-- **Integration points**: >80% line coverage (SqlServerLoader, SqlMigrationPlanRunner)
-- **Utility classes**: >70% line coverage (helpers and utilities)
-- **Overall project**: >80% line coverage
+The project currently sits at ~99.5% line coverage and the CI gate enforces ≥99% (see [CI/CD Pipeline](../ci-cd/pipeline.md)). The remaining uncovered lines are intentionally unreachable/defensive (generic catch blocks, exhaustive-switch defaults, a parser-unreachable null guard). Code that genuinely cannot or should not be tested is marked `[ExcludeFromCodeCoverage]` or excluded in `src/coverlet.runsettings` rather than left to drag the number down.
+
+- **Threshold**: ≥99% line coverage across the product assemblies (`COVERAGE_THRESHOLD` in the PR workflow; ratchet upward as gaps close)
+- **New code**: add tests with the change so the gate stays green
 
 ### Report Analysis
 1. **Open `coverage-reports/index.html`** in your browser

@@ -2,86 +2,88 @@
 
 ## Overview
 
-Shift employs a comprehensive multi-level testing strategy designed to ensure reliability, data safety, and regression prevention. Our testing approach follows the testing pyramid principle, with a strong foundation of unit tests, complemented by integration tests, specialized data safety tests, and end-to-end verification.
+Shift uses a layered strategy built on the testing pyramid: a broad base of fast unit
+tests, narrowing through integration and end-to-end tests that run against a real SQL
+Server. Two concerns run through every level — **data safety** (a migration must never
+silently lose data) and **regression prevention** (generated output is pinned with
+snapshot tests so any change is deliberate and reviewed).
 
-### Testing Philosophy
+Principles:
 
-- **Data Safety First**: Protecting production data is our highest priority
-- **Realistic Testing**: Using actual SQL Server via Docker containers, not in-memory alternatives
-- **Comprehensive Coverage**: Multiple testing levels provide confidence in all scenarios
-- **Maintainable Patterns**: Clear, consistent testing patterns across the codebase
+- **Test against real SQL Server** via Testcontainers, not in-memory substitutes.
+- **Prefer fast, isolated unit tests** for logic; reserve database-backed tests for
+  behaviour that genuinely depends on the engine.
+- **Each database test is self-contained** — it creates and drops its own uniquely
+  named database.
 
-## Testing Pyramid
+## Test Levels
+
+| Level | Purpose | Tooling | Representative areas |
+|-------|---------|---------|----------------------|
+| **Unit** | Pure logic, no external dependencies | `UnitTestContext<T>` + AutoMocker | Migration planning, DMD parsing, model export, assembly loading |
+| **Integration** | Component behaviour against real SQL Server | Testcontainers (`SqlServerContainerFixture`) | Schema loading, SQL execution, type/constraint handling |
+| **Data safety** | Block destructive migrations before they run | Real SQL Server + seeded data | String / decimal / binary / char truncation detection |
+| **End-to-end** | Full workflow: assembly → plan → apply → verify | Real SQL Server | Complete migrations, mixin application, safe shrink |
+| **Snapshot** | Prevent regressions in generated output | Verify (`.verified.txt`) | DMD generation, parser and export output |
+
+Unit tests carry most of the coverage; the database-backed levels target behaviour that
+can only be validated against the engine and are correspondingly fewer.
+
+## Test Projects
+
+The suite is split across four projects under `src/test/`, all using **xUnit**:
+
+- **`Shift.Tests`** — Unit, integration, data-safety, E2E, and snapshot tests for the core
+  `Shift` library. Uses Testcontainers, Verify, FluentAssertions, and Moq.AutoMock.
+- **`Shift.Cli.Tests`** — Tests for the `Shift.Cli` command-line tool. Includes a
+  dependency-graph test that builds the real service provider and resolves every command
+  handler, guarding against unregistered interface dependencies.
+- **`Shift.Ef.Tests`** — Tests for the Entity Framework code generators in `Shift.Ef`
+  (entity, entity-map, DbContext, interface, and type-mapping generation).
+- **`Shift.Test.Framework`** — Shared test infrastructure (`UnitTestContext<T>`,
+  `VnumTestingHelper`, etc.) referenced by the other projects.
+
+## Infrastructure
+
+- **`SqlServerContainerFixture`** — shared SQL Server container; tests opt in with
+  `[Collection("SqlServer")]` to reuse it and share the fixture.
+- **`SqlServerTestHelper`** — database create/drop utilities and connection-string
+  construction.
+- **`DatabaseModelBuilder`** — fluent builder for test models; **`TestModels`** provides
+  prebuilt scenarios.
+- **`UnitTestContext<T>`** — base class exposing a mocked `Sut` via AutoMocker.
+
+Containers are managed automatically (start, readiness check, cleanup) with dynamic port
+binding.
+
+## Conventions
+
+**Naming** — `MethodName_Scenario_ExpectedResult`:
 
 ```
-        /\
-       /  \     E2E Tests - Complete workflows
-      /____\
-     /      \   
-    /        \  Integration Tests - Real database operations
-   /__________\
-  /            \
- /              \  Unit Tests - Pure logic testing
-/________________\
+GeneratePlan_WithNewTables_ShouldCreateTableSteps
+LoadDatabaseAsync_WithInvalidConnectionString_ShouldThrowException
+IsAlterColumnPotentiallyUnsafe_WithStringTruncation_ShouldReturnTrue
 ```
 
-## Level 1: Unit Tests
+**Unit test** — arrange via the mocked `Sut`, assert with FluentAssertions:
 
-**Purpose**: Test pure logic without external dependencies
-
-**Framework**: `UnitTestContext<T>` with AutoMocker for dependency injection
-
-**Examples**:
-- Migration planning logic
-- DMD parsing logic  
-- Model export logic
-- Assembly loading logic
-
-**Benefits**:
-- ⚡ **Fast execution** (milliseconds)
-- 🔒 **Isolated** - no external dependencies
-- 🎯 **Deterministic** - same result every time
-- 🧪 **Easy to debug** - clear failure points
-
-**Example Pattern**:
 ```csharp
 public class MigrationPlannerTests : UnitTestContext<MigrationPlanner>
 {
     [Fact]
     public void GeneratePlan_WithNewTables_ShouldCreateTableSteps()
     {
-        // Arrange
-        var targetModel = CreateTargetModelWithTables();
-        var actualModel = new DatabaseModel();
+        var plan = Sut.GeneratePlan(CreateTargetModelWithTables(), new DatabaseModel());
 
-        // Act
-        var plan = Sut.GeneratePlan(targetModel, actualModel);
-
-        // Assert
-        plan.Steps.Should().Contain(step => 
-            step.Action == MigrationAction.CreateTable);
+        plan.Steps.Should().Contain(s => s.Action == MigrationAction.CreateTable);
     }
 }
 ```
 
-## Level 2: Integration Tests with Real Database
+**Database test** — each test owns a uniquely named database and drops it in `finally`,
+keeping tests fully isolated:
 
-**Purpose**: Test components with actual SQL Server database
-
-**Framework**: Docker containers via `SqlServerContainerFixture`
-
-**Examples**:
-- Schema loading from database
-- SQL execution and migration
-- Type and constraint handling
-
-**Benefits**:
-- 🗄️ **Realistic behavior** - actual SQL Server features
-- 🔧 **SQL Server specific** - tests real database constraints
-- 🚀 **Production-like** - mirrors real deployment scenarios
-- 🐳 **Isolated** - each test gets unique database
-
-**Example Pattern**:
 ```csharp
 [Collection("SqlServer")]
 public class SqlServerLoaderTests
@@ -91,352 +93,60 @@ public class SqlServerLoaderTests
     [Fact]
     public async Task LoadDatabaseAsync_ShouldLoadTablesFromDatabase()
     {
-        // Arrange
-        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
         var connectionString = SqlServerTestHelper.BuildDbConnectionString(
-            _fixture.ConnectionStringMaster, databaseName);
-        
-        await SqlServerTestHelper.CreateDatabaseAsync(
-            _fixture.ConnectionStringMaster, databaseName);
-        
+            _fixture.ConnectionStringMaster, dbName);
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         try
         {
-            // Act & Assert
-            var loader = new SqlServerLoader(connectionString);
-            var result = await loader.LoadDatabaseAsync();
-            
+            var result = await new SqlServerLoader(connectionString).LoadDatabaseAsync();
+
             result.Tables.Should().NotBeEmpty();
         }
         finally
         {
-            await SqlServerTestHelper.DropDatabaseAsync(
-                _fixture.ConnectionStringMaster, databaseName);
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         }
     }
 }
 ```
 
-## Level 3: Data Safety Tests
-
-**Purpose**: Specialized tests for data loss prevention during migrations
-
-**Framework**: Data safety test classes
-
-**Examples**:
-- String truncation detection
-- Decimal precision reduction detection  
-- Binary data truncation
-- Char/nchar data truncation
-
-**Benefits**:
-- 🛡️ **Data Protection** - prevents destructive migrations
-- ⚠️ **Early Warning** - catches unsafe operations before execution
-- 🔍 **Comprehensive** - covers all data types and scenarios
-- 📊 **Real Data** - tests with actual data that would be affected
-
-**Example Pattern**:
-```csharp
-[Collection("SqlServer")]
-public class SqlMigrationPlanRunnerDataSafetyTests
-{
-    [Fact]
-    public async Task IsAlterColumnPotentiallyUnsafe_WithStringTruncation_ShouldReturnTrue()
-    {
-        // Arrange - Create table with data that would be truncated
-        await using var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
-        await using var createTableCmd = new SqlCommand(
-            "CREATE TABLE TestUser (Username nvarchar(200) NOT NULL)", connection);
-        await createTableCmd.ExecuteNonQueryAsync();
-        
-        await using var insertCmd = new SqlCommand(
-            "INSERT INTO TestUser (Username) VALUES ('Very long username that exceeds target precision')", 
-            connection);
-        await insertCmd.ExecuteNonQueryAsync();
-
-        // Act - Try to reduce precision (unsafe)
-        var plan = new MigrationPlan();
-        plan.Steps.Add(new MigrationStep
-        {
-            Action = MigrationAction.AlterColumn,
-            TableName = "TestUser",
-            Fields = new List<FieldModel>
-            {
-                new() { Name = "Username", Type = "nvarchar", Precision = 50 }
-            }
-        });
-
-        var runner = new SqlMigrationPlanRunner(connectionString, plan);
-        var result = runner.Run();
-
-        // Assert - Operation should be skipped
-        result.Should().BeEmpty("Unsafe operation should be skipped");
-        
-        // Verify column was NOT altered
-        var checkQuery = "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'TestUser'";
-        var precision = (int)await new SqlCommand(checkQuery, connection).ExecuteScalarAsync();
-        precision.Should().Be(200, "Column should retain original precision");
-    }
-}
-```
-
-## Level 4: End-to-End Tests
-
-**Purpose**: Test complete workflows from assembly loading to database execution
-
-**Framework**: End-to-end test classes
-
-**Examples**:
-- Complete migration workflows
-- Assembly loading → planning → execution → verification
-- Mixin application workflows
-- Safe shrink operations
-
-**Benefits**:
-- 🔄 **Complete Workflows** - tests entire user journeys
-- 🎯 **User-Focused** - validates real usage patterns
-- 🔗 **Component Integration** - tests how components work together
-- 📋 **Business Logic** - validates complete business processes
-
-**Example Pattern**:
-```csharp
-[Collection("SqlServer")]
-public class ShiftTests
-{
-    [Fact]
-    public async Task CompleteWorkflow_ModelToDatabase_ShouldWorkEndToEnd()
-    {
-        // Arrange
-        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
-        var connectionString = SqlServerTestHelper.BuildDbConnectionString(
-            _containerFixture.ConnectionStringMaster, databaseName);
-        
-        await SqlServerTestHelper.CreateDatabaseAsync(
-            _containerFixture.ConnectionStringMaster, databaseName);
-        
-        try
-        {
-            // Act - Complete workflow
-            var shift = new Shift { Logger = _logger };
-            
-            // 1. Load from assembly
-            var targetModel = await shift.LoadFromAssembly(assembly);
-            
-            // Or with namespace filtering
-            // var targetModel = await shift.LoadFromAssembly(assembly, new[] { "Test.Models" });
-            
-            // 2. Apply to database
-            await shift.ApplyToSqlAsync(targetModel, connectionString);
-            
-            // 3. Verify by loading back
-            var actualModel = await shift.LoadFromSqlAsync(connectionString);
-            
-            // Assert
-            actualModel.Tables.Should().HaveCount(targetModel.Tables.Count);
-            actualModel.Tables.Keys.Should().BeEquivalentTo(targetModel.Tables.Keys);
-        }
-        finally
-        {
-            await SqlServerTestHelper.DropDatabaseAsync(
-                _containerFixture.ConnectionStringMaster, databaseName);
-        }
-    }
-}
-```
-
-## Level 5: Snapshot/Verification Tests
-
-**Purpose**: Prevent regression in output format and content
-
-**Framework**: Verify library with `.verified.txt` files
-
-**Examples**:
-- Model export output verification
-- Parser output format verification
-- DMD content generation verification
-
-**Benefits**:
-- 📸 **Regression Prevention** - catches unintended output changes
-- 📝 **Documentation** - verified files serve as examples
-- 🔍 **Format Validation** - ensures consistent output formatting
-- ⚡ **Fast Feedback** - quickly identifies output changes
-
-**Example Pattern**:
-```csharp
-public class ModelExporterTests : UnitTestContext<ModelExporter>
-{
-    [Fact]
-    public async Task GenerateDmdContent_WithSimpleTable_ShouldGenerateCorrectContent()
-    {
-        // Arrange
-        var model = CreateSimpleDatabaseModel();
-
-        // Export each table as a separate DMD file
-        foreach (var table in model.Tables.Values.OrderBy(x => x.Name))
-        {
-            // Act
-            var dmdContent = Sut.GenerateDmdContent(table, model.Mixins.Values.ToList());
-
-            // Assert - Verify against snapshot (one verified file per table)
-            await Verify(dmdContent).UseTextForParameters($"{table.Name}.dmd");
-        }
-    }
-}
-```
-
-## Testing Infrastructure
-
-### Test Projects
-
-The test suite is split across three projects under `src/test/`, all using **xUnit**:
-
-- **`Shift.Tests`** — Unit, integration, data-safety, E2E, and snapshot tests for the core `Shift` library. Uses Testcontainers, Verify, FluentAssertions, and Moq.AutoMock.
-- **`Shift.Cli.Tests`** — Tests for the `Shift.Cli` command-line tool (references `Shift.Cli`, `Shift`, and `Shift.Ef`). Uses FluentAssertions, Moq, and Moq.AutoMock.
-- **`Shift.Test.Framework`** — Shared test infrastructure (e.g. `UnitTestContext<T>`, `VnumTestingHelper`) referenced by the other two projects.
-
-### Docker Containers
-- **Testcontainers** for SQL Server containers
-- **Automatic lifecycle** management (start/stop/cleanup)
-- **Port binding** for dynamic port allocation
-- **Readiness checks** to ensure SQL Server is ready
-
-### Test Helpers
-- **`SqlServerTestHelper`** - Database creation/cleanup utilities
-- **`DatabaseModelBuilder`** - Fluent API for test data creation
-- **`TestModels`** - Pre-built test scenarios
-- **`UnitTestContext<T>`** - Base class for unit tests with AutoMocker
-
-### Shared Fixtures
-- **`SqlServerContainerFixture`** - Shared SQL Server container
-- **`[Collection("SqlServer")]`** - xUnit collection for test isolation
-- **Performance optimization** - Reuse containers across tests
-
-## Best Practices
-
-### When to Use Each Testing Level
-
-| Level | Use For | Don't Use For |
-|-------|---------|---------------|
-| **Unit Tests** | Pure logic, algorithms, business rules | Database operations, external APIs |
-| **Integration Tests** | Database operations, SQL execution | Pure logic, fast feedback |
-| **Data Safety Tests** | Migration safety, data loss prevention | General functionality |
-| **E2E Tests** | Complete workflows, user scenarios | Individual component testing |
-| **Snapshot Tests** | Output format, content generation | Logic testing, database operations |
-
-### Test Naming Conventions
+**Snapshot test** — assert generated output against a reviewed baseline:
 
 ```csharp
-// Pattern: MethodName_Scenario_ExpectedResult
-[Fact]
-public void GeneratePlan_WithNewTables_ShouldCreateTableSteps()
-
-[Fact] 
-public void LoadDatabaseAsync_WithInvalidConnectionString_ShouldThrowException()
-
-[Fact]
-public void IsAlterColumnPotentiallyUnsafe_WithStringTruncation_ShouldReturnTrue()
+var dmd = Sut.GenerateDmdContent(table, model.Mixins.Values.ToList());
+await Verify(dmd).UseTextForParameters($"{table.Name}.dmd");
 ```
 
-### Database Cleanup Patterns
+To update a baseline after an intentional change, run the test, review the generated
+`.received.txt`, and promote it to `.verified.txt`.
 
-```csharp
-[Fact]
-public async Task Test_WithDatabase_ShouldWork()
-{
-    var databaseName = SqlServerTestHelper.GenerateDatabaseName();
-    var connectionString = SqlServerTestHelper.BuildDbConnectionString(
-        _fixture.ConnectionStringMaster, databaseName);
-    
-    await SqlServerTestHelper.CreateDatabaseAsync(
-        _fixture.ConnectionStringMaster, databaseName);
-    
-    try
-    {
-        // Test logic here
-    }
-    finally
-    {
-        // Always clean up, even on failure
-        await SqlServerTestHelper.DropDatabaseAsync(
-            _fixture.ConnectionStringMaster, databaseName);
-    }
-}
-```
+## Coverage
 
-### Parallel Test Execution
+Coverage is collected on every PR and enforced by CI:
 
-- ✅ **Unit tests** - Can run in parallel safely
-- ✅ **Integration tests** - Each gets unique database
-- ✅ **Data safety tests** - Isolated by database name
-- ✅ **E2E tests** - Independent workflows
+- **Collection** — `dotnet test --settings src/coverlet.runsettings --collect:"XPlat Code Coverage"` (Cobertura output).
+- **Scope** — `src/coverlet.runsettings` is the single source of truth. Only product
+  assemblies are measured (`[Shift]*`, `[Shift.Cli]*`, `[Shift.Ef]*`); test projects,
+  `Examples/` sample code, auto-properties, and `[ExcludeFromCodeCoverage]` members
+  (e.g. the CLI composition root) are excluded.
+- **Gate** — ReportGenerator publishes an HTML artifact and a job-summary table; the build
+  fails below `COVERAGE_THRESHOLD` (currently **99%** line coverage). See
+  [CI/CD Pipeline](../ci-cd/pipeline.md).
 
-## Test Coverage
-
-### Test Distribution by Level
-
-| Level | Coverage | Focus Areas |
-|-------|----------|-------------|
-| **Unit Tests** | Extensive | Core business logic, parsing, planning algorithms |
-| **Integration Tests** | Moderate | Database operations, SQL execution, schema loading |
-| **Data Safety Tests** | Focused | Migration safety, data loss prevention |
-| **E2E Tests** | Key Scenarios | Complete workflows, user scenarios |
-| **Snapshot Tests** | Output Critical | Format verification, content generation |
-
-### Coverage by Component
-
-| Component | Unit Tests | Integration Tests | Data Safety | E2E | Focus |
-|-----------|------------|-------------------|-------------|-----|-------|
-| **MigrationPlanner** | Extensive | - | - | - | Plan generation logic |
-| **SqlMigrationPlanRunner** | Moderate | - | Focused | - | SQL execution safety |
-| **Parser** | Extensive | - | - | - | DMD parsing accuracy |
-| **ModelExporter** | Extensive | - | - | - | Output format consistency |
-| **SqlServerLoader** | - | Extensive | - | - | Database schema loading |
-| **Shift (E2E)** | - | - | - | Key Scenarios | Complete workflows |
-| **Integration** | - | Moderate | - | - | Cross-component testing |
+For an interactive local report, `scripts/test-coverage-basic.ps1` produces the same HTML
+output ([details](./test-coverage-script.md)); CI remains authoritative for scope and
+threshold.
 
 ## Running Tests
 
-### Prerequisites
-- **Docker Desktop** must be running
-- **.NET 9.0** SDK installed
-- **Testcontainers** NuGet package (included)
-
-### Commands
+**Prerequisites**: .NET 9.0 SDK and a running Docker Desktop (for the database-backed levels).
 
 ```bash
-# Run all tests
-dotnet test
-
-# Run specific test class
-dotnet test --filter "MigrationPlanner"
-
-# Run integration tests only
-dotnet test --filter "SqlServer"
-
-# Run with verbose output
-dotnet test --logger "console;verbosity=normal"
-
-# Run tests in specific project
-dotnet test src/test/Shift.Tests/
+dotnet test                                   # everything
+dotnet test --filter "MigrationPlanner"       # one class
+dotnet test --filter "SqlServer"              # database-backed tests
+dotnet test src/test/Shift.Tests              # one project
 ```
 
-### Test Execution Time
-- **Unit Tests**: Fast execution (seconds)
-- **Integration Tests**: Moderate execution (includes Docker startup)
-- **All Tests**: Complete test suite runs in reasonable time
-
-## Test Maintenance
-
-### Updating Snapshot Tests
-When output format changes intentionally:
-1. Delete the `.verified.txt` file
-2. Run the test - it will fail
-3. Review the new output in the `.received.txt` file
-4. Rename `.received.txt` to `.verified.txt`
-5. Commit the updated verification file
-
-### Managing Test Data
-- Use `DatabaseModelBuilder` for consistent test data
-- Leverage `TestModels` for common scenarios
-- Keep test data minimal and focused
-- Use unique database names to avoid conflicts
+Unit tests complete in seconds; database-backed tests add the cost of container startup.

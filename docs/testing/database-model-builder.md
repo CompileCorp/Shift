@@ -137,7 +137,7 @@ var model = DatabaseModelBuilder.Create()
         .WithField("Name", "nvarchar", f => f.Precision(200).Nullable(false))
         .WithField("Price", "decimal", f => f.Precision(10, 2).Nullable(false))
         .WithField("CategoryID", "int", f => f.Nullable(false))
-        .WithForeignKey("CategoryID", "Category", "CategoryID", RelationshipType.ManyToOne)
+        .WithForeignKey("CategoryID", "Category", "CategoryID", RelationshipType.OneToMany)
         .WithIndex("IX_Product_CategoryID", "CategoryID", isUnique: false))
     
     .WithTable("Order", table => table
@@ -145,7 +145,7 @@ var model = DatabaseModelBuilder.Create()
         .WithField("UserID", "int", f => f.Nullable(false))
         .WithField("OrderDate", "datetime", f => f.Nullable(false))
         .WithField("TotalAmount", "decimal", f => f.Precision(10, 2).Nullable(false))
-        .WithForeignKey("UserID", "User", "UserID", RelationshipType.ManyToOne)
+        .WithForeignKey("UserID", "User", "UserID", RelationshipType.OneToMany)
         .WithIndex("IX_Order_UserID", "UserID", isUnique: false)
         .WithIndex("IX_Order_OrderDate", "OrderDate", isUnique: false))
     
