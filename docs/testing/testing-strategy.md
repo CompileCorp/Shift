@@ -134,9 +134,9 @@ Coverage is collected on every PR and enforced by CI:
   fails below `COVERAGE_THRESHOLD` (currently **99%** line coverage). See
   [CI/CD Pipeline](../ci-cd/pipeline.md).
 
-For an interactive local report, `scripts/test-coverage-basic.ps1` produces the same HTML
-output ([details](./test-coverage-script.md)); CI remains authoritative for scope and
-threshold.
+To inspect coverage locally, run the collection command above and feed the resulting
+`coverage.cobertura.xml` to [ReportGenerator](https://github.com/danielpalme/ReportGenerator)
+for an HTML report; CI remains authoritative for scope and threshold.
 
 ## Running Tests
 
