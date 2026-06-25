@@ -1,5 +1,9 @@
 root=true
 
+# Enforce LF line endings everywhere so `dotnet format` matches .gitattributes.
+[*]
+end_of_line = lf
+
 [*.cs]
 indent_style=space
 indent_size=4

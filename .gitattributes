@@ -1,0 +1,24 @@
+# Authoritative line-ending policy for the repo.
+# This file is the single source of truth and overrides each developer's local
+# core.autocrlf / core.eol settings, so endings are deterministic on every
+# machine and in CI. All text files are stored as LF in git AND checked out as
+# LF in the working tree on every OS (eol=lf), so `dotnet format` agrees
+# everywhere — Windows, macOS, and the Linux CI runner. Visual Studio, Rider
+# and VS Code all handle LF files on Windows without issue.
+* text=auto eol=lf
+
+# Verify snapshot files: must stay LF on every OS or snapshot comparisons break
+# across platforms. (received files are git-ignored but normalized defensively.)
+*.verified.txt text eol=lf
+*.received.txt text eol=lf
+
+# Binary assets git must never normalize.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.snk  binary
+*.dll  binary
+*.exe  binary
+*.pdf  binary

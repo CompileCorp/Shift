@@ -17,13 +17,9 @@ jobs:
           --data '{"text":"🔔 New Pull Request: <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}> by ${{ github.event.pull_request.user.login }}"}' \
           ${{ secrets.SLACK_WEBHOOK_URL }}
 
-    # Configure Git line endings so files are checked out with CRLF per .editorconfig
-    - name: Configure Git line endings
-      run: |
-        git config --global core.autocrlf false
-        git config --global core.eol crlf
-
-    # Checkout the repository code
+    # Checkout the repository code.
+    # Line endings are governed by the committed .gitattributes (LF everywhere),
+    # so no per-runner git config is needed.
     - name: Checkout code
       uses: actions/checkout@v4
 
