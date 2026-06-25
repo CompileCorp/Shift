@@ -42,7 +42,6 @@ This directory contains the project's reference and developer documentation, org
 | [testing/database-model-builder.md](testing/database-model-builder.md) | The fluent `DatabaseModelBuilder` test helper for constructing model fixtures. |
 | [testing/migration-plan-builder.md](testing/migration-plan-builder.md) | The fluent `MigrationPlanBuilder` test helper for constructing migration-plan fixtures. |
 | [testing/docker-testing-setup.md](testing/docker-testing-setup.md) | The SQL Server Testcontainers setup used by the integration tests. |
-| [testing/test-coverage-script.md](testing/test-coverage-script.md) | The `test-coverage-basic.ps1` script for running coverage and generating HTML reports. |
 
 ## CI/CD
 
