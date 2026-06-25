@@ -40,9 +40,15 @@ Check Code Formatting (dotnet format --verify-no-changes)
     ↓
 Build Solution (Release)
     ↓
-Run All Tests (with TRX output)
+Run All Tests (TRX output + code coverage via src/coverlet.runsettings)
     ↓
 Publish Test Results to GitHub UI
+    ↓
+Generate Coverage Report (ReportGenerator: HTML + summaries)
+    ↓
+Publish Coverage Summary to Job Summary + Upload HTML Artifact
+    ↓
+Enforce Coverage Threshold (fail if line coverage < 99%)
     ↓
 ✅ Pass / ❌ Fail
 ```
@@ -50,8 +56,11 @@ Publish Test Results to GitHub UI
 **Key Features**:
 - ✅ Automated build validation
 - ✅ Code formatting gate (`dotnet format src/Shift.slnx --verify-no-changes`) — fails the PR on pending formatting changes
-- ✅ Comprehensive test execution (all test projects)
+- ✅ Comprehensive test execution (all test projects) — a test failure now fails the build (no `continue-on-error`)
 - ✅ Visual test results in GitHub PR interface
+- ✅ Code coverage collection (`--collect:"XPlat Code Coverage"` scoped by `src/coverlet.runsettings`)
+- ✅ Coverage report published to the job summary and uploaded as an HTML artifact (ReportGenerator)
+- ✅ Coverage gate — fails the PR when line coverage drops below the `COVERAGE_THRESHOLD` (currently 99%)
 - ✅ Clear failure reporting with detailed test results
 - ✅ Protected main branch integration
 - ✅ Professional test reporting using dorny/test-reporter@v2
@@ -166,6 +175,7 @@ Our pipeline uses two different version sources:
 | **Version Management** | ✅ Implemented | Semantic versioning with git tags + pre-release versions |
 | **Pre-release Publishing** | ✅ Implemented | Automatic pre-release packages on release candidate tags with run number-based versioning |
 | **Secure Secrets** | ✅ Implemented | GitHub secrets: `NUGET_API_KEY` (publishing) and `SLACK_WEBHOOK_URL` (PR notifications) |
+| **Test Coverage Reporting** | ✅ Implemented | Coverage collected on every PR, published as a job summary + HTML artifact, and gated at ≥99% line coverage |
 
 ### Current Gaps
 
@@ -174,7 +184,6 @@ Our pipeline uses two different version sources:
 | **Security Scanning** | Not implemented | Medium risk |
 | **Code Quality Checks** | Basic (`dotnet format` gate on PRs); no static analysis (SonarCloud, analyzers) | Medium risk |
 | **Multi-Platform Testing** | Ubuntu only | Low risk |
-| **Test Coverage Reporting** | Not implemented | Low risk |
 | **Performance Testing** | Not implemented | Low risk |
 | **Documentation Generation** | Not implemented | Low risk |
 | **Notification System** | Basic (Slack notification on PR open); no build-failure/release notifications | Low risk |
@@ -190,6 +199,11 @@ Our pipeline uses two different version sources:
 ### 2. Comprehensive Test Coverage with Visual Reporting
 - **Benefit**: All test projects run on every PR with visual results in GitHub UI
 - **Impact**: High confidence in code quality with clear visibility into test outcomes
+- **Industry Alignment**: ✅ Best practice
+
+### 2a. Code Coverage Measurement and Gate
+- **Benefit**: Coverage is collected on every PR (scoped to product assemblies by `src/coverlet.runsettings`), published as a job-summary table and an HTML artifact, and enforced by a threshold gate (`COVERAGE_THRESHOLD`, currently 99%)
+- **Impact**: Prevents coverage regressions; the threshold can be ratcheted upward as gaps close
 - **Industry Alignment**: ✅ Best practice
 
 ### 3. Automated Publishing
@@ -208,7 +222,6 @@ Our pipeline uses two different version sources:
 - **Security Scanning**: No automated security vulnerability detection
 - **Code Quality Checks**: A `dotnet format src/Shift.slnx --verify-no-changes` formatting gate runs on every PR, but there is no deeper static analysis (e.g. SonarCloud, analyzer rulesets) or linting beyond formatting
 - **Multi-Platform Testing**: Currently only tests on Ubuntu
-- **Test Coverage Reporting**: No visibility into coverage trends
 - **Performance Testing**: No performance benchmarks
 - **Documentation Generation**: No automated API documentation
 - **Notification System**: A Slack notification is posted when a PR is opened (via `SLACK_WEBHOOK_URL`), but there are no notifications for build failures or releases
@@ -225,8 +238,9 @@ Our CI/CD pipeline provides a solid foundation with core best practices implemen
 
 The current pipeline successfully:
 - Validates all code changes through PR requirements
-- Executes comprehensive test suites on every change
+- Executes comprehensive test suites on every change (a test failure fails the build)
 - Provides visual test results in GitHub PR interface
+- Measures code coverage and gates merges below the agreed threshold (≥99% line coverage)
 - Automatically publishes production NuGet packages on version tags
 - Automatically publishes pre-release NuGet packages when release candidate tags are pushed
 - Maintains secure secret management via GitHub secrets (`NUGET_API_KEY` for publishing, `SLACK_WEBHOOK_URL` for PR notifications)

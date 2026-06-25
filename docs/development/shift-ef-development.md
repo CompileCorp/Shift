@@ -87,13 +87,13 @@ builder.Property(e => e.Name)
 
 ### 1. File-Based Model Loading
 
-**Feature**: Added support for generating EF code from file-based models (YAML/JSON).
+**Feature**: Added support for generating EF code from file-based models (DMD/DMDX).
 
 **Implementation**:
 ```csharp
 // New extension methods
 await shift.GenerateEfCodeFromPathAsync(
-    paths: new[] { "./Models/User.yaml", "./Models/Order.yaml" },
+    paths: new[] { "./Models/User.dmd", "./Models/Order.dmd" },
     outputPath: "./Generated",
     logger: logger,
     options: options
@@ -101,7 +101,7 @@ await shift.GenerateEfCodeFromPathAsync(
 ```
 
 **Benefits**:
-- Support for multiple model formats
+- Generate EF code directly from `.dmd`/`.dmdx` files (no database required)
 - Integration with existing Shift file loading
 - Consistent API across all generation methods
 

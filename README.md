@@ -4,9 +4,19 @@ A comprehensive tool for parsing domain model files, generating database migrati
 
 ## Installation
 
+The CLI is not published as a .NET global tool — run it from the repository source. The core
+library is published to NuGet as `Compile.Shift`.
+
 ```bash
-dotnet tool install -g Shift.Cli
+# Run the CLI from source (-- separates dotnet's args from the CLI's args)
+dotnet run --project src/Shift.Cli -- apply "Server=localhost;Database=example;" ./models/
+
+# Add the library to your own project
+dotnet add package Compile.Shift
 ```
+
+In the examples below, `shift` is shorthand for `dotnet run --project src/Shift.Cli --`
+(or a built/published executable).
 
 ## Quick Start
 
@@ -15,8 +25,8 @@ dotnet tool install -g Shift.Cli
 # Apply migrations to database
 shift apply "Server=localhost;Database=example;Trusted_Connection=true;TrustServerCertificate=true;" ./models/
 
-# Export current database schema
-shift export "Server=localhost;Database=example;Trusted_Connection=true;" ./exported/
+# Export current database schema (connection string, schema, output directory)
+shift export "Server=localhost;Database=example;Trusted_Connection=true;" dbo ./exported/
 ```
 
 ### Entity Framework Code Generation
@@ -25,7 +35,7 @@ shift export "Server=localhost;Database=example;Trusted_Connection=true;" ./expo
 shift ef sql "Server=localhost;Database=MyDb;Integrated Security=true;" ./Generated
 
 # Generate EF code from model files
-shift ef files ./Models/User.yaml ./Models/Order.yaml ./Generated
+shift ef files ./Models/User.dmd ./Models/Order.dmd ./Generated
 
 # Generate with custom options
 shift ef sql-custom "Server=localhost;Database=MyDb;" ./Generated \
@@ -64,7 +74,7 @@ shift apply-assemblies "Server=localhost;Database=MyDb;" ./MyModels.dll ./OtherM
 
 ### Database Management
 - `shift apply <connection_string> <model_path>` - Apply migrations to database
-- `shift export <connection_string> <output_path>` - Export database schema to model files
+- `shift export <connection_string> <schema> <output_path>` - Export database schema to model files
 
 ### Entity Framework Code Generation
 - `shift ef sql <connection_string> <output_path>` - Generate EF code from SQL Server database
@@ -75,8 +85,10 @@ shift apply-assemblies "Server=localhost;Database=MyDb;" ./MyModels.dll ./OtherM
 - `shift apply-assemblies <connection_string> <dll_files>` - Load models from assembly resources
 
 ### Help
-- `shift --help` - Show all available commands
-- `shift ef --help` - Show EF-specific commands
+- `shift` (no arguments) - Print help listing all commands
+- `shift ef` (no sub-command) - List the EF sub-commands
+
+Help is also printed for any unrecognised command or sub-command; there is no dedicated `--help` flag.
 
 ## File Structure Specifications
 

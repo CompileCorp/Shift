@@ -23,7 +23,7 @@ src/Shift.Ef/
     └── EfGeneratorExample.cs          # Usage examples
 ```
 
-> Note: `EfCodeGenerator.cs` also declares an `IEfCodeGenerator` interface, but the `EfCodeGenerator` class does not currently implement it — it only exposes matching `GenerateEfCodeAsync` overloads. Consumers integrate through the `ShiftEfExtensions` extension methods rather than the interface.
+> `EfCodeGenerator` implements `IEfCodeGenerator` (both `GenerateEfCodeAsync` overloads) and is registered in the CLI's DI container via `AddShiftCli`. Consumers can resolve the interface directly or use the `ShiftEfExtensions` helper methods.
 
 ### Dependencies
 
@@ -321,34 +321,16 @@ public class MyService
 
 ### File Organization
 
+All files are written **flat** into the output directory (created if missing); each carries a
+`.g.cs` suffix. The generator does not create subfolders. Because the classes are `partial`,
+add hand-written extensions in your own files alongside them.
+
 ```
-Generated/
-├── Entities/
-│   ├── ClientEntity.g.cs
-│   └── OrderEntity.g.cs
-├── Maps/
-│   ├── ClientEntityMap.g.cs
-│   └── OrderEntityMap.g.cs
-├── Contexts/
-│   ├── MyAppDbContext.g.cs
-│   └── IMyAppDbContext.g.cs
-└── Extensions/
-    ├── ClientEntity.cs          # Custom extensions
-    └── MyAppDbContext.cs        # Custom extensions
+Generated/                        # output directory passed to the generator
+├── ClientEntity.g.cs             # {TableName}Entity.g.cs
+├── OrderEntity.g.cs
+├── ClientEntityMap.g.cs          # {TableName}EntityMap.g.cs
+├── OrderEntityMap.g.cs
+├── MyAppDbContext.g.cs           # {ContextClassName}.g.cs   (default GeneratedDbContext)
+└── IMyAppDbContext.g.cs          # {InterfaceName}.g.cs      (default IGeneratedDbContext)
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Compilation Errors**: Ensure all generated files are included in the project
-2. **Missing Dependencies**: Verify Entity Framework packages are installed
-3. **Type Mapping Issues**: Check TypeMapper.cs for custom type mappings
-4. **Relationship Errors**: Verify foreign key relationships are properly defined
-
-### Debugging
-
-- Enable detailed logging to see generation process
-- Check generated files for syntax errors
-- Verify database model is correctly loaded
-- Test with simple models first

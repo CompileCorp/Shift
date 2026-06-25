@@ -172,9 +172,15 @@ foreach (var extraIndex in plan.ExtrasInSqlServer.ExtraIndexes)
 }
 ```
 
-### Using with DatabaseModelBuilder
+### Using with DatabaseModelBuilder (test helper)
+
+> `DatabaseModelBuilder` is a **test-only** fluent helper (namespace `Compile.Shift.Tests.Helpers`),
+> not part of the shipping `Compile.Shift` library — this example only compiles inside the test
+> projects. See [DatabaseModelBuilder](../testing/database-model-builder.md).
 
 ```csharp
+var migrationPlanner = new MigrationPlanner { Logger = logger };
+
 // Create target model with indexes
 var targetModel = DatabaseModelBuilder.Create()
     .WithTable("User", table => table
@@ -213,11 +219,11 @@ var failures = runner.Run();
 ### Supported Migration Actions
 
 The `SqlMigrationPlanRunner` supports the following actions:
-- ✅ `CreateTable` - Creates tables with fields and constraints
-- ✅ `AddColumn` - Adds columns to existing tables
-- ✅ `AddForeignKey` - Creates foreign key constraints
-- ✅ `AlterColumn` - Modifies column definitions (with a runtime data-loss guard that skips unsafe shrinks/rounding)
-- ✅ `AddIndex` - Creates single and multi-column indexes (unique and non-unique)
+- `CreateTable` - Creates tables with fields and constraints
+- `AddColumn` - Adds columns to existing tables
+- `AddForeignKey` - Creates foreign key constraints
+- `AlterColumn` - Modifies column definitions (with a runtime data-loss guard that skips unsafe shrinks/rounding)
+- `AddIndex` - Creates single and multi-column indexes (unique and non-unique)
 
 ## Case-Insensitive Matching
 
