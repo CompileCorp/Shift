@@ -49,6 +49,12 @@ This directory contains the project's reference and developer documentation, org
 |-----|----------------|
 | [ci-cd/pipeline.md](ci-cd/pipeline.md) | Overview of the GitHub Actions workflows: PR build/test, release publishing, and pre-release publishing. |
 
+## Proposals — design documents under consideration
+
+| Doc | What it covers |
+|-----|----------------|
+| [proposals/dmd-ef-codegen.md](proposals/dmd-ef-codegen.md) | Making DMD-driven EF code generation first-class per module, and letting one module's generated `DbContext` derive from another's. |
+
 ---
 
 > New to Shift? Start with the [DMD language reference](dsl/dmd-file-format.md) to learn the schema syntax, then the [CLI reference](cli/shift-cli-reference.md) to apply it.
