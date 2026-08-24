@@ -109,6 +109,14 @@ calls `IsAlterColumnPotentiallyUnsafe`, which probes the live data (with `WITH (
   new size is smaller and an existing value exceeds it. Lengths use `LEN` for `char`/`nchar`
   and `DATALENGTH` otherwise (Unicode counts two bytes per character). Resizing to `MAX`
   (`-1`) is always safe.
+- **Integer becoming a string** (`int` to `varchar(n)` and the rest of the
+  `SqlTypeConversion` allow-list): the probe reads the column's current `DATA_TYPE` from
+  `INFORMATION_SCHEMA.COLUMNS` first, and when the source is an integer it measures the
+  *rendered character length* instead — `LEN(CONVERT(varchar(50), [col])) > n`. `DATALENGTH`
+  would be wrong here: it reports the integer's storage size (always 4 bytes for an `int`),
+  so it would wave through `int` to `varchar(2)`. A character count is the correct limit for
+  both `varchar` (where `CHARACTER_MAXIMUM_LENGTH` counts bytes) and `nvarchar` (where it
+  counts characters), because a rendered integer is ASCII.
 - **Decimal/numeric**: when an existing value would not round-trip through
   `TRY_CONVERT(decimal(p,s), ...)` (truncation, rounding, or conversion failure).
 

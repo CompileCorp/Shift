@@ -254,6 +254,20 @@ END";
                 return false; // to MAX is never unsafe
             }
 
+            // A change of base type is measured in rendered characters, not storage bytes:
+            // DATALENGTH on an int is always 4 and would wave through a target too narrow to
+            // hold the rendered value. CHARACTER_MAXIMUM_LENGTH counts characters for nvarchar
+            // and bytes for varchar, and a rendered integer is ASCII, so a character count is
+            // the correct limit for both.
+            var actualType = GetActualColumnDataType(connection, tableName, field.Name);
+            if (actualType != null && SqlTypeConversion.IsSupportedInPlaceConversion(actualType, baseType))
+            {
+                var conversionSql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND LEN(CONVERT(varchar(50), [{field.Name}])) > @limitChars";
+                using var conversionCmd = new SqlCommand(conversionSql, connection);
+                conversionCmd.Parameters.AddWithValue("@limitChars", field.Precision.Value);
+                return conversionCmd.ExecuteScalar() != null;
+            }
+
             targetBytes = isUnicode ? field.Precision.Value * 2 : field.Precision.Value;
 
             // For char/nchar use LEN to avoid fixed padding interference for equality
@@ -295,6 +309,25 @@ END";
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Reads the base type the column currently has, so the safety probe can tell an existing
+    /// string apart from a value that is only about to become one. Returns null when the column
+    /// does not exist.
+    /// </summary>
+    private string? GetActualColumnDataType(SqlConnection connection, string tableName, string columnName)
+    {
+        const string sql = @"
+SELECT DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
+
+        using var cmd = new SqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@schema", _schema);
+        cmd.Parameters.AddWithValue("@table", tableName);
+        cmd.Parameters.AddWithValue("@column", columnName);
+        return cmd.ExecuteScalar() as string;
     }
 
     internal IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index, TableModel? table = null)
