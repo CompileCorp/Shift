@@ -484,4 +484,129 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
         }
     }
+
+    /// <summary>
+    /// Tests that the data safety check flags an int column holding a value wider than the target
+    /// string. DATALENGTH on an int is always 4, so this can only be caught by measuring the
+    /// rendered character length of the source value.
+    /// </summary>
+    [Fact]
+    public async Task IsAlterColumnPotentiallyUnsafe_WithIntWiderThanTargetString_ShouldReturnTrue()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var createTableCmd = new SqlCommand("CREATE TABLE TestWidget (WidgetID int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)", connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            // 123456 renders as 6 characters, which does not fit in varchar(2)
+            await using var insertCmd = new SqlCommand("INSERT INTO TestWidget (Code) VALUES (123456)", connection);
+            await insertCmd.ExecuteNonQueryAsync();
+
+            var plan = new MigrationPlan();
+            plan.Steps.Add(new MigrationStep
+            {
+                Action = MigrationAction.AlterColumn,
+                TableName = "TestWidget",
+                Fields = new List<FieldModel>
+                {
+                    new() { Name = "Code", Type = "varchar", Precision = 2, IsNullable = false }
+                }
+            });
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
+
+            var checkColumnQuery = @"
+                SELECT DATA_TYPE
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'TestWidget' AND COLUMN_NAME = 'Code'";
+            await using var command = new SqlCommand(checkColumnQuery, connection);
+            var dataType = (string?)await command.ExecuteScalarAsync();
+
+            dataType.Should().Be("int", "Code column should stay an int because the conversion would truncate 123456");
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
+
+    /// <summary>
+    /// Tests that the data safety check allows an int to string conversion when every stored value
+    /// fits in the target width, even though the target is narrower than the widest possible int.
+    /// </summary>
+    [Fact]
+    public async Task IsAlterColumnPotentiallyUnsafe_WithIntValuesThatFitTargetString_ShouldReturnFalse()
+    {
+        // Arrange
+        var databaseName = SqlServerTestHelper.GenerateDatabaseName();
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_containerFixture.ConnectionStringMaster, databaseName);
+
+        await SqlServerTestHelper.CreateDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+
+        try
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var createTableCmd = new SqlCommand("CREATE TABLE TestWidget (WidgetID int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)", connection);
+            await createTableCmd.ExecuteNonQueryAsync();
+
+            // Both values render within 4 characters
+            await using var insertCmd = new SqlCommand("INSERT INTO TestWidget (Code) VALUES (7), (-999)", connection);
+            await insertCmd.ExecuteNonQueryAsync();
+
+            var plan = new MigrationPlan();
+            plan.Steps.Add(new MigrationStep
+            {
+                Action = MigrationAction.AlterColumn,
+                TableName = "TestWidget",
+                Fields = new List<FieldModel>
+                {
+                    new() { Name = "Code", Type = "varchar", Precision = 4, IsNullable = false }
+                }
+            });
+
+            var runner = new SqlMigrationPlanRunner(connectionString, plan)
+            {
+                Logger = _logger
+            };
+
+            // Act
+            var result = runner.Run();
+
+            // Assert
+            result.Should().BeEmpty("Migration should complete without failures");
+
+            var checkColumnQuery = @"
+                SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_NAME = 'TestWidget' AND COLUMN_NAME = 'Code'";
+            await using var command = new SqlCommand(checkColumnQuery, connection);
+            await using var reader = await command.ExecuteReaderAsync();
+            (await reader.ReadAsync()).Should().BeTrue();
+
+            reader.GetString(0).Should().Be("varchar", "Code column should be converted because every value fits");
+            reader.GetInt32(1).Should().Be(4);
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_containerFixture.ConnectionStringMaster, databaseName);
+        }
+    }
 }

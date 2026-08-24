@@ -1,6 +1,7 @@
 using Compile.Shift.Model;
 using Compile.Shift.Tests.Helpers;
 using Compile.Shift.Tests.Infrastructure;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 
 namespace Compile.Shift.Integration;
@@ -145,5 +146,115 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
         {
             await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
         }
+    }
+
+    [Fact]
+    public async Task Changing_Int_To_AString_Should_Apply_AlterColumn()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+            var planner = new MigrationPlanner();
+
+            // 1) Apply an int column
+            var initialModel = BuildSingleColumnModel("Widget", "Code", "int");
+            var actualEmpty = await shift.LoadFromSqlAsync(connectionString);
+            var plan1 = planner.GeneratePlan(initialModel, actualEmpty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            Assert.Empty(runner1.Run());
+
+            await InsertIntAsync(connectionString, "Widget", "Code", 4242);
+
+            // 2) Target the dmd equivalent of astring(50), i.e. varchar(50)
+            var stringModel = BuildSingleColumnModel("Widget", "Code", "varchar", 50);
+            var modelAfterFirstApply = await shift.LoadFromSqlAsync(connectionString);
+            var plan2 = planner.GeneratePlan(stringModel, modelAfterFirstApply);
+
+            Assert.Contains(plan2.Steps, step => step.Action == MigrationAction.AlterColumn);
+
+            var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
+            Assert.Empty(runner2.Run());
+
+            // 3) The column is now a varchar(50) and the stored value survived
+            var reloaded = await shift.LoadFromSqlAsync(connectionString);
+            var code = reloaded.Tables["Widget"].Fields.First(f => f.Name == "Code");
+            Assert.Equal("varchar", code.Type, ignoreCase: true);
+            Assert.Equal(50, code.Precision);
+            Assert.Equal("4242", await SelectSingleStringAsync(connectionString, "Widget", "Code"));
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
+
+    [Fact]
+    public async Task Changing_AString_To_Int_Should_Not_Apply_AlterColumn()
+    {
+        var dbName = SqlServerTestHelper.GenerateDatabaseName();
+        await SqlServerTestHelper.CreateDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        var connectionString = SqlServerTestHelper.BuildDbConnectionString(_fixture.ConnectionStringMaster, dbName);
+
+        try
+        {
+            var shift = new Shift { Logger = _logger };
+            var planner = new MigrationPlanner();
+
+            var initialModel = BuildSingleColumnModel("Widget", "Code", "varchar", 50);
+            var actualEmpty = await shift.LoadFromSqlAsync(connectionString);
+            var plan1 = planner.GeneratePlan(initialModel, actualEmpty);
+            var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
+            Assert.Empty(runner1.Run());
+
+            // The reverse direction is not on the allow-list, so nothing is planned
+            var intModel = BuildSingleColumnModel("Widget", "Code", "int");
+            var modelAfterFirstApply = await shift.LoadFromSqlAsync(connectionString);
+            var plan2 = planner.GeneratePlan(intModel, modelAfterFirstApply);
+
+            Assert.DoesNotContain(plan2.Steps, step => step.Action == MigrationAction.AlterColumn);
+
+            var reloaded = await shift.LoadFromSqlAsync(connectionString);
+            var code = reloaded.Tables["Widget"].Fields.First(f => f.Name == "Code");
+            Assert.Equal("varchar", code.Type, ignoreCase: true);
+        }
+        finally
+        {
+            await SqlServerTestHelper.DropDatabaseAsync(_fixture.ConnectionStringMaster, dbName);
+        }
+    }
+
+    private static DatabaseModel BuildSingleColumnModel(string tableName, string columnName, string type, int? precision = null)
+    {
+        var model = new DatabaseModel();
+        model.Tables[tableName] = new TableModel
+        {
+            Name = tableName,
+            Fields =
+            {
+                new FieldModel { Name = columnName, Type = type, Precision = precision, IsNullable = true }
+            }
+        };
+        return model;
+    }
+
+    private static async Task InsertIntAsync(string connectionString, string table, string column, int value)
+    {
+        await using var conn = new SqlConnection(connectionString);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand($"INSERT INTO [dbo].[{table}] ([{column}]) VALUES (@v)", conn);
+        cmd.Parameters.AddWithValue("@v", value);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<string?> SelectSingleStringAsync(string connectionString, string table, string column)
+    {
+        await using var conn = new SqlConnection(connectionString);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand($"SELECT TOP 1 [{column}] FROM [dbo].[{table}]", conn);
+        return (string?)await cmd.ExecuteScalarAsync();
     }
 }
