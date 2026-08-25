@@ -475,6 +475,156 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
     #endregion
 
+    #region decimal and numeric, which are one type with two spellings
+
+    /// <summary>
+    /// Tests that a precision change on a numeric column still applies when nothing depends on it.
+    /// The planner treats decimal and numeric as compatible, but the two spellings differ as
+    /// strings, so the runner classifies this as a base-type change and runs the dependency check
+    /// over it. With no dependencies present it must still go through.
+    /// </summary>
+    [Fact]
+    public async Task Numeric_PrecisionChangeToDecimal_ShouldApply()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Amount numeric(18,2) NOT NULL)",
+                "INSERT INTO Widget (Amount) VALUES (1.23)");
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+
+            Assert.Empty(failures);
+
+            var column = await GetColumnAsync(connectionString, "Widget", "Amount");
+            Assert.Equal("decimal", column.DataType, ignoreCase: true);
+            Assert.Equal("1.2300", await ScalarAsync(connectionString, "SELECT TOP 1 CAST(Amount AS varchar(20)) FROM Widget"));
+        });
+    }
+
+    /// <summary>
+    /// Tests that a numeric-to-decimal precision change is skipped when any dependent object is
+    /// present. SQL Server rejects this with error 4922 — changing the spelling counts as a type
+    /// change to the engine, and even a bare default constraint is enough to block it — so
+    /// skipping and naming the dependency is the informative outcome rather than a lost migration.
+    /// A default constraint is included explicitly because it does *not* block a same-spelling
+    /// precision change, which is what makes it the surprising case.
+    /// </summary>
+    [Theory]
+    [InlineData("default constraint", "ALTER TABLE Widget ADD CONSTRAINT DF_Widget_Amount DEFAULT 0 FOR Amount")]
+    [InlineData("nonclustered index", "CREATE NONCLUSTERED INDEX IX_Widget_Amount ON Widget(Amount)")]
+    [InlineData("check constraint", "ALTER TABLE Widget ADD CONSTRAINT CK_Widget_Amount CHECK (Amount >= 0)")]
+    [InlineData("user statistics", "CREATE STATISTICS ST_Widget_Amount ON Widget(Amount)")]
+    [InlineData("computed column", "ALTER TABLE Widget ADD Doubled AS (Amount * 2)")]
+    public async Task Numeric_PrecisionChangeToDecimalWithDependentObject_ShouldSkip(
+        string _, string dependencySql)
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Amount numeric(18,2) NOT NULL)",
+                "INSERT INTO Widget (Amount) VALUES (1.23)",
+                dependencySql);
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+
+            Assert.Empty(failures);
+            Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
+        });
+    }
+
+    /// <summary>
+    /// Tests that a same-spelling precision change is not subjected to the dependency check at all.
+    /// SQL Server applies decimal(18,2) to decimal(19,4) with a default constraint in place, so
+    /// treating the default as a blocker here would refuse a migration that works.
+    /// </summary>
+    [Fact]
+    public async Task Decimal_PrecisionChangeWithDefaultConstraint_ShouldStillApply()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Amount decimal(18,2) NOT NULL CONSTRAINT DF_Widget_Amount DEFAULT 0)",
+                "INSERT INTO Widget DEFAULT VALUES");
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+
+            Assert.Empty(failures);
+
+            var column = await GetColumnAsync(connectionString, "Widget", "Amount");
+            Assert.Equal("decimal", column.DataType, ignoreCase: true);
+            Assert.Equal("19", await ScalarAsync(connectionString,
+                "SELECT CAST(NUMERIC_PRECISION AS varchar(10)) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='Widget' AND COLUMN_NAME='Amount'"));
+        });
+    }
+
+    /// <summary>
+    /// Tests that an identity column converting to a type that can also carry an identity is not
+    /// refused. SQL Server allows a numeric(18,0) identity to become decimal(19,0), because
+    /// decimal with a scale of 0 is a legal identity type, so treating IDENTITY as an
+    /// unconditional blocker would strand this column.
+    /// </summary>
+    [Fact]
+    public async Task Numeric_IdentityColumnToDecimalWithScaleZero_ShouldApply()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Amount numeric(18,0) IDENTITY(1,1) NOT NULL, Other int NULL)",
+                "INSERT INTO Widget (Other) VALUES (1)");
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 0));
+
+            Assert.Empty(failures);
+            Assert.Equal("decimal", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
+        });
+    }
+
+    /// <summary>
+    /// Tests that an identity column is still refused when the target cannot carry an identity, so
+    /// narrowing the identity blocker did not open the door to a conversion SQL Server rejects
+    /// with error 2749.
+    /// </summary>
+    [Fact]
+    public async Task Numeric_IdentityColumnToDecimalWithNonZeroScale_ShouldSkip()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Amount numeric(18,0) IDENTITY(1,1) NOT NULL, Other int NULL)",
+                "INSERT INTO Widget (Other) VALUES (1)");
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+
+            Assert.Empty(failures);
+            Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
+        });
+    }
+
+    /// <summary>
+    /// Tests that dependencies which do not block a base-type change do not block this one either.
+    /// </summary>
+    [Fact]
+    public async Task Numeric_PrecisionChangeWithNonBlockingDependencies_ShouldApply()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Amount numeric(18,2) NOT NULL)",
+                "INSERT INTO Widget (Amount) VALUES (1.23)");
+            await ExecuteAsync(connectionString,
+                "CREATE VIEW V_Widget AS SELECT Id, Amount FROM dbo.Widget");
+            await ExecuteAsync(connectionString, "SELECT * FROM Widget WHERE Amount = 1.23");
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+
+            Assert.Empty(failures);
+            Assert.Equal("decimal", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
+        });
+    }
+
+    #endregion
+
     #region Existing behaviour that must not regress
 
     /// <summary>
@@ -689,6 +839,16 @@ public class SqlMigrationRunner_TypeConversion_Tests
             Type = type,
             Precision = precision,
             IsNullable = isNullable
+        });
+
+    private static DatabaseModel DecimalModel(string type, int precision, int scale) =>
+        ModelWith("Widget", new FieldModel
+        {
+            Name = "Amount",
+            Type = type,
+            Precision = precision,
+            Scale = scale,
+            IsNullable = false
         });
 
     private static DatabaseModel ModelWith(string table, FieldModel field)

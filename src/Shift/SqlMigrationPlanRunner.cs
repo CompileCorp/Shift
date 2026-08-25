@@ -64,11 +64,11 @@ public class SqlMigrationPlanRunner
                         // and blocking it here would refuse alters that work today.
                         if (IsBaseTypeChange(actualDataType, field))
                         {
-                            var blockers = GetAlterColumnBlockers(connection, step.TableName, field.Name);
+                            var blockers = GetAlterColumnBlockers(connection, step.TableName, field);
                             if (blockers.Count > 0)
                             {
                                 Logger.LogWarning(
-                                    "Skipping ALTER COLUMN {table}.{column}: cannot convert {actualType} to {targetType} because {blockers} depend(s) on it. Drop the dependent object(s) and re-apply.",
+                                    "Skipping ALTER COLUMN {table}.{column}: SQL Server rejects changing {actualType} to {targetType} while {blockers} depend(s) on it. Drop the dependent object(s) and re-apply.",
                                     step.TableName, field.Name, actualDataType, field.Type, string.Join(", ", blockers));
                                 continue;
                             }
@@ -368,12 +368,16 @@ WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
     /// identity column) rather than doing anything useful, so the alter is skipped and the
     /// dependency named instead of being attempted and failing.
     ///
-    /// Every entry here was confirmed against SQL Server 2022 to block an int-to-varchar
-    /// conversion. Auto-created statistics are excluded because SQL Server drops and recreates
-    /// them itself; only explicitly created statistics block. Views that are not schema-bound do
-    /// not block either.
+    /// Every entry here was confirmed against SQL Server 2022 to block both an int-to-varchar
+    /// conversion and a numeric-to-decimal one. Auto-created statistics are excluded because SQL
+    /// Server drops and recreates them itself; only explicitly created statistics block. Views
+    /// that are not schema-bound do not block either.
+    ///
+    /// The IDENTITY property is the one conditional entry: it blocks only when the target type
+    /// cannot itself carry an identity, so a numeric(18,0) identity column converting to
+    /// decimal(19,0) is left alone to succeed.
     /// </summary>
-    internal List<string> GetAlterColumnBlockers(SqlConnection connection, string tableName, string columnName)
+    internal List<string> GetAlterColumnBlockers(SqlConnection connection, string tableName, FieldModel field)
     {
         const string sql = @"
 DECLARE @objectId int = OBJECT_ID(QUOTENAME(@schema) + '.' + QUOTENAME(@table));
@@ -383,6 +387,7 @@ SELECT DISTINCT Blocker FROM (
     SELECT 'the IDENTITY property' AS Blocker
     FROM sys.columns
     WHERE object_id = @objectId AND column_id = @columnId AND is_identity = 1
+      AND @identityBlocks = 1
 
     UNION ALL
     SELECT 'index [' + i.name + ']'
@@ -435,7 +440,10 @@ ORDER BY Blocker";
         using var cmd = new SqlCommand(sql, connection);
         cmd.Parameters.AddWithValue("@schema", _schema);
         cmd.Parameters.AddWithValue("@table", tableName);
-        cmd.Parameters.AddWithValue("@column", columnName);
+        cmd.Parameters.AddWithValue("@column", field.Name);
+        // The IDENTITY property only blocks when the target cannot itself be an identity type: a
+        // numeric(18,0) identity converts to decimal(19,0) quite happily.
+        cmd.Parameters.AddWithValue("@identityBlocks", SqlTypeConversion.CanBeIdentity(field) ? 0 : 1);
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
