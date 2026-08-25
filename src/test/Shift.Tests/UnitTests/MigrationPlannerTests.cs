@@ -656,21 +656,24 @@ model Document with Auditable {
     }
 
     /// <summary>
-    /// Tests that SQL types which round-trip to the same dmd type are not reported as drift.
-    /// A legacy text column exports to dmd astring(max), which comes back as varchar, so warning
-    /// about it on every plan would be pure noise.
+    /// Tests that a target which is exactly Shift's own round-trip of the actual type is not
+    /// reported as drift. A legacy text column exports to dmd astring(max) and comes back as
+    /// varchar(max), so warning about it on every plan would be pure noise. The actual precisions
+    /// here are the ones SQL Server reports for these types (verified against SQL Server 2022).
     /// </summary>
     [Theory]
-    [InlineData("text", "varchar")]
-    [InlineData("ntext", "nvarchar")]
-    [InlineData("money", "decimal")]
-    [InlineData("smallmoney", "decimal")]
-    public void GeneratePlan_WithDmdEquivalentTypes_ShouldNotWarnOrCreateStep(string actualType, string targetType)
+    [InlineData("text", 2147483647, null, "varchar", -1, null)]
+    [InlineData("ntext", 1073741823, null, "nvarchar", -1, null)]
+    [InlineData("money", 19, 4, "decimal", 19, 4)]
+    [InlineData("smallmoney", 10, 4, "decimal", 10, 4)]
+    public void GeneratePlan_WithExactRoundTripEquivalent_ShouldNotWarnOrCreateStep(
+        string actualType, int? actualPrecision, int? actualScale,
+        string targetType, int? targetPrecision, int? targetScale)
     {
         // Arrange
         var (planner, warnings) = CreatePlannerCapturingWarnings();
-        var targetModel = CreateSingleColumnModel(targetType);
-        var actualModel = CreateSingleColumnModel(actualType);
+        var targetModel = CreateSingleColumnModel(targetType, targetPrecision, targetScale);
+        var actualModel = CreateSingleColumnModel(actualType, actualPrecision, actualScale);
 
         // Act
         var plan = planner.GeneratePlan(targetModel, actualModel);
@@ -678,6 +681,162 @@ model Document with Auditable {
         // Assert
         plan.Steps.Should().BeEmpty();
         warnings.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Tests that the round-trip exemption is precision-aware: a target that maps to the same dmd
+    /// type but a different width or scale is a real change of intent, so it must still be
+    /// reported rather than swallowed along with the round-trip noise.
+    /// </summary>
+    [Theory]
+    [InlineData("text", 2147483647, null, "varchar", 50, null)]
+    [InlineData("ntext", 1073741823, null, "nvarchar", 50, null)]
+    [InlineData("money", 19, 4, "decimal", 18, 4)]
+    [InlineData("money", 19, 4, "decimal", 19, 2)]
+    [InlineData("smallmoney", 10, 4, "decimal", 19, 4)]
+    public void GeneratePlan_WithSameDmdTypeButDifferentPrecision_ShouldWarnWithoutCreatingStep(
+        string actualType, int? actualPrecision, int? actualScale,
+        string targetType, int? targetPrecision, int? targetScale)
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel(targetType, targetPrecision, targetScale);
+        var actualModel = CreateSingleColumnModel(actualType, actualPrecision, actualScale);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().BeEmpty();
+        warnings.Should().Contain(w =>
+            w.Contains("Unmigrated type change Widget.Code") &&
+            w.Contains(actualType) &&
+            w.Contains(targetType));
+    }
+
+    /// <summary>
+    /// Tests that every integer type on the allow-list is migrated to a variable-width string, and
+    /// that the warning names the widest rendering of that specific integer type.
+    /// </summary>
+    [Theory]
+    [InlineData("tinyint", 3)]
+    [InlineData("smallint", 6)]
+    [InlineData("int", 11)]
+    [InlineData("bigint", 20)]
+    public void GeneratePlan_WithEachIntegerTypeTooNarrowTarget_ShouldWarnWithRenderedWidth(
+        string actualType, int expectedWidth)
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel("varchar", precision: 2);
+        var actualModel = CreateSingleColumnModel(actualType);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
+        warnings.Should().Contain(w =>
+            w.Contains($"narrower than the widest {actualType} value ({expectedWidth} characters)"));
+    }
+
+    /// <summary>
+    /// Tests that every integer type on the allow-list migrates to both string flavours when the
+    /// target is wide enough to hold any value of that type.
+    /// </summary>
+    [Theory]
+    [InlineData("tinyint", "varchar")]
+    [InlineData("tinyint", "nvarchar")]
+    [InlineData("smallint", "varchar")]
+    [InlineData("smallint", "nvarchar")]
+    [InlineData("int", "varchar")]
+    [InlineData("int", "nvarchar")]
+    [InlineData("bigint", "varchar")]
+    [InlineData("bigint", "nvarchar")]
+    public void GeneratePlan_WithEachIntegerTypeToWideEnoughString_ShouldCreateAlterColumnStep(
+        string actualType, string targetType)
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel(targetType, precision: 50);
+        var actualModel = CreateSingleColumnModel(actualType);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
+        warnings.Should().Contain(w => w.Contains($"converting {actualType} to {targetType}"));
+    }
+
+    /// <summary>
+    /// Tests that a MAX target is treated as wide enough for any integer, so it takes the plain
+    /// conversion warning rather than the too-narrow one.
+    /// </summary>
+    [Fact]
+    public void GeneratePlan_WithIntToVarcharMax_ShouldCreateStepWithoutNarrowWarning()
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel("varchar", precision: -1);
+        var actualModel = CreateSingleColumnModel("int");
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
+        warnings.Should().Contain(w => w.Contains("converting int to varchar"));
+        warnings.Should().NotContain(w => w.Contains("narrower than the widest"));
+    }
+
+    /// <summary>
+    /// Tests that fixed-width and binary targets stay off the allow-list, because SQL Server would
+    /// right-pad (char/nchar) or reject (binary) the converted value.
+    /// </summary>
+    [Theory]
+    [InlineData("char")]
+    [InlineData("nchar")]
+    [InlineData("binary")]
+    [InlineData("varbinary")]
+    public void GeneratePlan_WithIntToNonVariableWidthStringTarget_ShouldWarnWithoutCreatingStep(string targetType)
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel(targetType, precision: 20);
+        var actualModel = CreateSingleColumnModel("int");
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AlterColumn);
+        warnings.Should().Contain(w => w.Contains("Unmigrated type change"));
+    }
+
+    /// <summary>
+    /// Tests that non-integer sources are never migrated to a string, however convertible SQL
+    /// Server might consider them.
+    /// </summary>
+    [Theory]
+    [InlineData("bit")]
+    [InlineData("datetime")]
+    [InlineData("uniqueidentifier")]
+    [InlineData("float")]
+    [InlineData("decimal")]
+    public void GeneratePlan_WithNonIntegerSourceToString_ShouldWarnWithoutCreatingStep(string actualType)
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel("varchar", precision: 50);
+        var actualModel = CreateSingleColumnModel(actualType, precision: actualType == "decimal" ? 18 : null, scale: actualType == "decimal" ? 2 : null);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AlterColumn);
+        warnings.Should().Contain(w => w.Contains("Unmigrated type change"));
     }
 
     #endregion

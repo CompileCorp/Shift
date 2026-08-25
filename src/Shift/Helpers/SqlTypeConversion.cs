@@ -1,3 +1,5 @@
+using Compile.Shift.Model;
+using Compile.Shift.Model.Helpers;
 using Compile.Shift.Model.Vnums;
 using Compile.VnumEnumeration;
 
@@ -39,20 +41,44 @@ internal static class SqlTypeConversion
     /// True when a column of <paramref name="fromType"/> may be converted to
     /// <paramref name="toType"/> by an in-place ALTER COLUMN, also reporting the widest rendering
     /// of <paramref name="fromType"/> in characters so callers can spot a target too narrow to
-    /// hold every possible value.
+    /// hold every possible value. <paramref name="maxRenderedWidth"/> is only meaningful when this
+    /// returns true; it is zero otherwise.
     /// </summary>
-    public static bool IsSupportedInPlaceConversion(string fromType, string toType, out int maxRenderedWidth) =>
-        IntegerMaxRenderedWidths.TryGetValue(fromType, out maxRenderedWidth)
-        && VariableWidthStringTypes.Contains(toType);
+    public static bool IsSupportedInPlaceConversion(string fromType, string toType, out int maxRenderedWidth)
+    {
+        maxRenderedWidth = 0;
+
+        if (!IntegerMaxRenderedWidths.TryGetValue(fromType, out var width))
+            return false;
+
+        if (!VariableWidthStringTypes.Contains(toType))
+            return false;
+
+        maxRenderedWidth = width;
+        return true;
+    }
 
     /// <summary>
-    /// True when two SQL types are different spellings of the same dmd type, for example
-    /// <c>text</c> and <c>varchar</c> (both dmd <c>astring</c>) or <c>money</c> and
-    /// <c>decimal</c>. Shift's own round-trip produces these pairs on purpose, so they are not
-    /// model drift and must not be reported as unmigrated type changes.
+    /// True when <paramref name="targetField"/> is precisely what Shift's own dmd round-trip
+    /// produces for <paramref name="actualField"/>, and so is not model drift: a <c>text</c>
+    /// column exports as dmd <c>astring(max)</c> and comes back as <c>varchar(max)</c>, and
+    /// <c>money</c> comes back as <c>decimal(19,4)</c>. Warning about those pairs would fire on
+    /// every plan for any schema holding a legacy <c>text</c> or <c>money</c> column.
+    ///
+    /// The comparison is on the fully rendered type, precision and scale included, so only the
+    /// exact round-trip is exempt. A <c>text</c> column targeting <c>varchar(50)</c>, or a
+    /// <c>money</c> column targeting <c>decimal(18,4)</c>, is a real change of intent and is still
+    /// reported.
     /// </summary>
-    public static bool AreSameDmdType(string firstSqlType, string secondSqlType) =>
-        Vnum.TryFromCode<SqlFieldType>(firstSqlType, ignoreCase: true, out var first)
-        && Vnum.TryFromCode<SqlFieldType>(secondSqlType, ignoreCase: true, out var second)
-        && first.DmdType.Code == second.DmdType.Code;
+    public static bool IsRoundTripEquivalent(FieldModel actualField, FieldModel targetField) =>
+        string.Equals(RenderSqlType(actualField), RenderSqlType(targetField), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Renders a field the way Shift would emit it in DDL, so two fields can be compared on the
+    /// type they actually resolve to rather than on the spelling they were declared with.
+    /// </summary>
+    private static string RenderSqlType(FieldModel field) =>
+        Vnum.TryFromCode<SqlFieldType>(field.Type, ignoreCase: true, out var sqlFieldType)
+            ? SqlTypeHelper.GetSqlTypeString(field, sqlFieldType)
+            : SqlTypeHelper.GetUnknownSqlTypeString(field);
 }
