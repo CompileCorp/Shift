@@ -602,6 +602,37 @@ public class SqlMigrationRunner_TypeConversion_Tests
     }
 
     /// <summary>
+    /// Tests that an identity column is refused when the target is nullable, even though its type
+    /// would otherwise be identity-capable. SQL Server will not carry an IDENTITY on a nullable
+    /// column and fails with error 8147, so a model declaring the column nullable must be caught
+    /// by the dependency check rather than left to fail at execution time.
+    /// </summary>
+    [Fact]
+    public async Task Numeric_IdentityColumnToNullableDecimal_ShouldSkip()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Amount numeric(18,0) IDENTITY(1,1) NOT NULL, Other int NULL)",
+                "INSERT INTO Widget (Other) VALUES (1)");
+
+            var nullableIdentity = new FieldModel
+            {
+                Name = "Amount",
+                Type = "decimal",
+                Precision = 19,
+                Scale = 0,
+                IsNullable = true
+            };
+
+            var (_, failures) = await PlanAndRunAsync(connectionString, ModelWith("Widget", nullableIdentity));
+
+            Assert.Empty(failures);
+            Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
+        });
+    }
+
+    /// <summary>
     /// Tests that dependencies which do not block a base-type change do not block this one either.
     /// </summary>
     [Fact]

@@ -189,6 +189,21 @@ public class SqlTypeConversionTests
         SqlTypeConversion.CanBeIdentity(Field(type, precision: 19, scale: scale)).Should().BeFalse();
     }
 
-    private static FieldModel Field(string type, int? precision = null, int? scale = null) =>
-        new() { Name = "Code", Type = type, Precision = precision, Scale = scale };
+    /// <summary>
+    /// Tests that a nullable target is rejected whatever its type. SQL Server will not carry an
+    /// IDENTITY on a nullable column and fails with error 8147, so a model declaring an identity
+    /// column nullable must be caught here rather than at execution time.
+    /// </summary>
+    [Theory]
+    [InlineData("int", null)]
+    [InlineData("bigint", null)]
+    [InlineData("decimal", 0)]
+    [InlineData("numeric", 0)]
+    public void CanBeIdentity_WithNullableTarget_ShouldBeFalse(string type, int? scale)
+    {
+        SqlTypeConversion.CanBeIdentity(Field(type, precision: 19, scale: scale, isNullable: true)).Should().BeFalse();
+    }
+
+    private static FieldModel Field(string type, int? precision = null, int? scale = null, bool isNullable = false) =>
+        new() { Name = "Code", Type = type, Precision = precision, Scale = scale, IsNullable = isNullable };
 }
