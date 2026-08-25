@@ -59,19 +59,21 @@ internal static class SqlTypeConversion
     }
 
     /// <summary>
-    /// True when SQL Server permits an IDENTITY column to have this type. Identity columns must be
-    /// an integer type, or <c>decimal</c>/<c>numeric</c> with a scale of 0. Converting an identity
-    /// column to one of those is allowed — a <c>numeric(18,0)</c> identity can become
-    /// <c>decimal(19,0)</c> — while any other target is rejected outright with error 2749.
+    /// True when SQL Server permits an IDENTITY column to take this field's shape. Identity
+    /// columns must be an integer type, or <c>decimal</c>/<c>numeric</c> with a scale of 0, and
+    /// must be non-nullable. Converting an identity column to a shape that satisfies all of that
+    /// is allowed — a <c>numeric(18,0)</c> identity can become <c>decimal(19,0)</c> — while any
+    /// other target is rejected: error 2749 for the type, error 8147 for nullability.
     ///
     /// The integer set is the allow-list's own key set: both are simply SQL Server's integer
     /// types, and keeping one list avoids the two drifting apart.
     /// </summary>
     public static bool CanBeIdentity(FieldModel field) =>
-        IntegerMaxRenderedWidths.ContainsKey(field.Type)
-        || ((string.Equals(field.Type, "decimal", StringComparison.OrdinalIgnoreCase)
-             || string.Equals(field.Type, "numeric", StringComparison.OrdinalIgnoreCase))
-            && (field.Scale ?? 0) == 0);
+        !field.IsNullable
+        && (IntegerMaxRenderedWidths.ContainsKey(field.Type)
+            || ((string.Equals(field.Type, "decimal", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(field.Type, "numeric", StringComparison.OrdinalIgnoreCase))
+                && (field.Scale ?? 0) == 0));
 
     /// <summary>
     /// True when <paramref name="targetField"/> is precisely what Shift's own dmd round-trip
