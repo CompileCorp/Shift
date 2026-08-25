@@ -59,6 +59,21 @@ internal static class SqlTypeConversion
     }
 
     /// <summary>
+    /// True when SQL Server permits an IDENTITY column to have this type. Identity columns must be
+    /// an integer type, or <c>decimal</c>/<c>numeric</c> with a scale of 0. Converting an identity
+    /// column to one of those is allowed — a <c>numeric(18,0)</c> identity can become
+    /// <c>decimal(19,0)</c> — while any other target is rejected outright with error 2749.
+    ///
+    /// The integer set is the allow-list's own key set: both are simply SQL Server's integer
+    /// types, and keeping one list avoids the two drifting apart.
+    /// </summary>
+    public static bool CanBeIdentity(FieldModel field) =>
+        IntegerMaxRenderedWidths.ContainsKey(field.Type)
+        || ((string.Equals(field.Type, "decimal", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(field.Type, "numeric", StringComparison.OrdinalIgnoreCase))
+            && (field.Scale ?? 0) == 0);
+
+    /// <summary>
     /// True when <paramref name="targetField"/> is precisely what Shift's own dmd round-trip
     /// produces for <paramref name="actualField"/>, and so is not model drift: a <c>text</c>
     /// column exports as dmd <c>astring(max)</c> and comes back as <c>varchar(max)</c>, and

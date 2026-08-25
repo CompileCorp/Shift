@@ -153,6 +153,42 @@ public class SqlTypeConversionTests
         SqlTypeConversion.IsRoundTripEquivalent(Field(actualType), Field(targetType, 50)).Should().BeFalse();
     }
 
+    /// <summary>
+    /// Tests the types SQL Server permits an IDENTITY column to have. This decides whether the
+    /// IDENTITY property blocks a conversion: converting an identity column to one of these
+    /// succeeds, so refusing it would strand the column.
+    /// </summary>
+    [Theory]
+    [InlineData("tinyint", null)]
+    [InlineData("smallint", null)]
+    [InlineData("int", null)]
+    [InlineData("bigint", null)]
+    [InlineData("decimal", 0)]
+    [InlineData("numeric", 0)]
+    [InlineData("DECIMAL", 0)]
+    [InlineData("decimal", null)]   // an absent scale means 0
+    public void CanBeIdentity_WithIdentityCapableType_ShouldBeTrue(string type, int? scale)
+    {
+        SqlTypeConversion.CanBeIdentity(Field(type, precision: 19, scale: scale)).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Tests that everything else is rejected, including decimal and numeric carrying a scale,
+    /// which SQL Server refuses with error 2749.
+    /// </summary>
+    [Theory]
+    [InlineData("decimal", 2)]
+    [InlineData("numeric", 4)]
+    [InlineData("varchar", null)]
+    [InlineData("nvarchar", null)]
+    [InlineData("float", null)]
+    [InlineData("datetime", null)]
+    [InlineData("bit", null)]
+    public void CanBeIdentity_WithNonIdentityCapableType_ShouldBeFalse(string type, int? scale)
+    {
+        SqlTypeConversion.CanBeIdentity(Field(type, precision: 19, scale: scale)).Should().BeFalse();
+    }
+
     private static FieldModel Field(string type, int? precision = null, int? scale = null) =>
         new() { Name = "Code", Type = type, Precision = precision, Scale = scale };
 }
