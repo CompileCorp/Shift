@@ -189,7 +189,7 @@ public class Shift : IShift
         var migrationPlanner = new MigrationPlanner { Logger = Logger };
         var plan = migrationPlanner.GeneratePlan(targetModel, sourceModel);
         var sql = new SqlMigrationPlanRunner(connectionString, plan, schema) { Logger = Logger };
-        sql.Run();
+        var failures = sql.Run();
 
         var effects = plan.Steps
             .OrderBy(x => x.Action)
@@ -199,7 +199,21 @@ public class Shift : IShift
 
         if (effects.Count > 0)
         {
-            Logger.LogInformation("Apply completed");
+            // Steps that threw are reported here as well as by the runner: without this the apply
+            // announces "Apply completed" whether or not every step failed.
+            if (failures.Count > 0)
+            {
+                Logger.LogError("Apply completed with {count} failed step(s)", failures.Count);
+                foreach (var (step, exception) in failures)
+                {
+                    Logger.LogError("{action} {table} failed: {message}", step.Action, step.TableName, exception.Message);
+                }
+            }
+            else
+            {
+                Logger.LogInformation("Apply completed");
+            }
+
             foreach (var effect in effects)
             {
                 Logger.LogInformation("{action} {count}", effect.Key, effect.Item2);
