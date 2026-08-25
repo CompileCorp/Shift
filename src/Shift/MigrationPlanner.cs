@@ -147,9 +147,11 @@ public class MigrationPlanner
                     {
                         if (!SqlTypeConversion.IsSupportedInPlaceConversion(actualType, targetType, out var maxRenderedWidth))
                         {
-                            // Types that map to the same dmd type (text/varchar, money/decimal) are
-                            // Shift's own round-trip, not drift, so they are not worth reporting.
-                            if (!SqlTypeConversion.AreSameDmdType(actualType, targetType))
+                            // A target that is exactly Shift's own round-trip of the actual type
+                            // (text -> varchar(max), money -> decimal(19,4)) is not drift, so it is
+                            // not worth reporting. Precision and scale are part of that comparison:
+                            // text -> varchar(50) is a real change of intent and is still reported.
+                            if (!SqlTypeConversion.IsRoundTripEquivalent(actualField, targetField))
                             {
                                 Logger?.LogWarning(
                                     "Unmigrated type change {Table}.{Column}: actual type {ActualType} does not match target type {TargetType}, and that conversion is not supported in place. The column is left unchanged.",

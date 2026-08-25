@@ -116,9 +116,42 @@ calls `IsAlterColumnPotentiallyUnsafe`, which probes the live data (with `WITH (
   would be wrong here: it reports the integer's storage size (always 4 bytes for an `int`),
   so it would wave through `int` to `varchar(2)`. A character count is the correct limit for
   both `varchar` (where `CHARACTER_MAXIMUM_LENGTH` counts bytes) and `nvarchar` (where it
-  counts characters), because a rendered integer is ASCII.
+  counts characters), because a rendered integer is ASCII. This probe is load-bearing rather
+  than advisory: SQL Server does **not** raise when converting an integer to a string too
+  narrow to hold it — it stores `*` in place of the number — so without the probe the value
+  would be destroyed and the apply would still report success.
 - **Decimal/numeric**: when an existing value would not round-trip through
   `TRY_CONVERT(decimal(p,s), ...)` (truncation, rounding, or conversion failure).
+
+### Columns other objects depend on
+
+SQL Server rejects a change of base type outright when anything else depends on the column,
+failing with error 4922 (or 2749 for an identity column). Before a base-type change the runner
+calls `GetAlterColumnBlockers`, which reads the live catalog and **skips the alter, naming the
+dependency**, rather than emitting SQL that is certain to fail. The blockers are:
+
+| Blocker | Source |
+|---|---|
+| `IDENTITY` property | `sys.columns.is_identity` |
+| Index, including the one backing a PK or unique constraint, and `INCLUDE` columns | `sys.index_columns` |
+| Foreign key, on either side of the relationship | `sys.foreign_key_columns` |
+| Default constraint | `sys.default_constraints` |
+| Check constraint | `sys.check_constraints` |
+| Computed column referencing the column | `sys.sql_expression_dependencies` |
+| Explicitly created statistics | `sys.stats` where `user_created = 1` |
+| Schema-bound view or function | `sys.sql_expression_dependencies` |
+
+Two things deliberately do **not** block: **auto-created statistics**, which SQL Server drops and
+recreates itself, and **views without `SCHEMABINDING`**.
+
+The check applies only to base-type changes, not to plain resizes. Widening an indexed string
+column succeeds on SQL Server even though a base-type change on the same column fails, so
+applying the check to every alter would refuse migrations that work today. Every entry in the
+table above was confirmed against SQL Server 2022 in
+`SqlMigrationRunner_TypeConversion_Tests`.
+
+Because the alter is skipped rather than attempted, this is reported as a warning and not as a
+step failure. Migrating such a column means dropping the dependent object first and re-applying.
 
 ### AddForeignKey
 
