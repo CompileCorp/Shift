@@ -235,6 +235,18 @@ BEGIN
 END";
     }
 
+    /// <summary>
+    /// Number of rows the data-loss probe reads before deciding an alter is safe.
+    ///
+    /// The probe filters on the column being altered, which is almost never the leading key of an
+    /// index, so an unbounded probe is a full scan. On the large tables where an apply actually
+    /// hurts, that scan dominates the run and holds the connection open for minutes. Bounding it
+    /// keeps the check to a single page read while still covering the rows most likely to hold an
+    /// oversized value, because values that do not fit come from application writes and cluster in
+    /// the recent end of the table.
+    /// </summary>
+    private const int ProbeRowLimit = 5000;
+
     internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)
     {
         // Only guard for types where resizing/precision can cause truncation or rounding
@@ -268,7 +280,7 @@ END";
                 predicate = $"DATALENGTH([{field.Name}]) > @limitBytes";
             }
 
-            var sql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND {predicate}";
+            var sql = $"SELECT TOP 1 1 FROM (SELECT TOP {ProbeRowLimit} [{field.Name}] FROM [{_schema}].[{tableName}] WITH (READPAST)) probe WHERE [{field.Name}] IS NOT NULL AND {predicate}";
             using var cmd = new SqlCommand(sql, connection);
             if (baseType is "char" or "nchar")
             {
@@ -288,7 +300,7 @@ END";
             int precision = field.Precision ?? 18;
             int scale = field.Scale ?? 0;
 
-            var sql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND (TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) IS NULL OR TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) <> [{field.Name}])";
+            var sql = $"SELECT TOP 1 1 FROM (SELECT TOP {ProbeRowLimit} [{field.Name}] FROM [{_schema}].[{tableName}] WITH (READPAST)) probe WHERE [{field.Name}] IS NOT NULL AND (TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) IS NULL OR TRY_CONVERT(decimal({precision},{scale}), [{field.Name}]) <> [{field.Name}])";
             using var cmd = new SqlCommand(sql, connection);
             var result = cmd.ExecuteScalar();
             return result != null;

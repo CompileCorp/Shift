@@ -1,6 +1,4 @@
 using System;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Compile.Shift.Helpers;
 
@@ -49,14 +47,14 @@ public static class IndexNameHelper
     }
 
     /// <summary>
-    /// Computes a short hash of the input string using SHA256.
-    /// Returns the first 8 hexadecimal characters of the hash.
+    /// Computes a short discriminator for the input string. Returns 8 hexadecimal characters.
+    ///
+    /// The suffix exists only to tell two names apart once they have been trimmed to the same
+    /// prefix — it is not a security boundary and is never verified against anything, so there is
+    /// nothing for a cryptographic digest to buy here. The runtime's ordinal string hash gives the
+    /// same 32 bits over the same alphabet without standing up (and disposing) a SHA256 instance,
+    /// and without the UTF-8 encode, for every long index name in the plan.
     /// </summary>
-    private static string ComputeHash(string input)
-    {
-        using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
-        var hashString = Convert.ToHexString(hashBytes).ToLowerInvariant();
-        return hashString.Substring(0, HashLength);
-    }
+    private static string ComputeHash(string input) =>
+        ((uint)input.GetHashCode(StringComparison.Ordinal)).ToString("x8");
 }
