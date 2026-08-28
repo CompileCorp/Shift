@@ -133,7 +133,9 @@ public class DbmlExporter : IDbmlExporter
         sb.AppendLine();
         sb.AppendLine($"Table {EscapeIdentifier(table.Name)}{RenderTableSettings(table)} {{");
 
-        foreach (var field in table.Fields.Where(f => visibleColumns.Contains(f.Name)))
+        // Filtered on the field's own attributes rather than through visibleColumns, so a hidden
+        // field is dropped even in a model that carries two fields whose names differ only in case.
+        foreach (var field in table.Fields.Where(f => !IsHidden(f.Attributes)))
         {
             AppendColumn(sb, table, field);
         }
