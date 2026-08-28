@@ -234,7 +234,7 @@ model User {
         pkField.Name.Should().Be("UserID");
         pkField.Type.Should().Be("int");
         pkField.IsIdentity.Should().BeFalse();
-        table.Attributes.Should().ContainKey("NoIdentity");
+        table.Attributes.Should().ContainSingle().Which.Should().Be(new AttributeModel("NoIdentity", null));
 
 
     }

@@ -108,11 +108,11 @@ public class TableModelBuilder
     }
 
     /// <summary>
-    /// Adds an attribute to the table.
+    /// Adds a plugin attribute to the table. Omit <paramref name="value"/> for a flag attribute.
     /// </summary>
-    public TableModelBuilder WithAttribute(string key, bool value)
+    public TableModelBuilder WithAttribute(string name, string? value = null)
     {
-        _table.Attributes.Add(key, value);
+        _table.Attributes.Add(new AttributeModel(name, value));
         return this;
     }
 
@@ -173,13 +173,11 @@ public class FieldModelBuilder
     }
 
     /// <summary>
-    /// Adds an attribute to the field.
-    /// Note: FieldModel doesn't support attributes in the current implementation.
+    /// Adds a plugin attribute to the field. Omit <paramref name="value"/> for a flag attribute.
     /// </summary>
-    public FieldModelBuilder WithAttribute(string key, string value)
+    public FieldModelBuilder WithAttribute(string name, string? value = null)
     {
-        // FieldModel doesn't have Attributes property in current implementation
-        // This method is kept for API compatibility but does nothing
+        _field.Attributes.Add(new AttributeModel(name, value));
         return this;
     }
 
@@ -209,6 +207,15 @@ public class MixinModelBuilder
         var fieldBuilder = new FieldModelBuilder(name, type);
         configure?.Invoke(fieldBuilder);
         _mixin.Fields.Add(fieldBuilder.Build());
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a plugin attribute to the mixin. Omit <paramref name="value"/> for a flag attribute.
+    /// </summary>
+    public MixinModelBuilder WithAttribute(string name, string? value = null)
+    {
+        _mixin.Attributes.Add(new AttributeModel(name, value));
         return this;
     }
 
