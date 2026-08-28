@@ -1,6 +1,7 @@
 using Compile.Shift.Model;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.RegularExpressions;
 using static Compile.Shift.Dbml.Tests.TestModels;
 
 namespace Compile.Shift.Dbml.Tests;
@@ -221,6 +222,48 @@ public class DbmlExporterTests
         dbml.Should().NotContain("note:");
     }
 
+    [Fact]
+    public void GenerateDbml_GroupNameStartingWithADigit_IsPrefixedToAValidIdentifier()
+    {
+        // A leading digit passes DmdAttributeValidator but is not a legal bare DBML identifier, and
+        // dbdiagram.io fails the whole document over it rather than just the one group.
+        var model = Database(
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "2024Billing")]));
+
+        var dbml = _sut.GenerateDbml(model);
+
+        dbml.Should().Contain("TableGroup _2024Billing [note: '2024Billing'] {");
+        AssertEveryTableGroupIdentifierIsValidDbml(dbml);
+    }
+
+    [Fact]
+    public void GenerateDbml_GroupNamesSlugifyingToTheSameIdentifier_ProduceOneBlockWithEveryTable()
+    {
+        // "Billing Ops" and "Billing_Ops" are different @erd-group values that DBML cannot tell
+        // apart, so they have to become one TableGroup: two blocks of one name is a parse error.
+        var model = Database(
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing Ops")]),
+            Table("Payment", [Field("PaymentID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing_Ops")]));
+
+        var dbml = _sut.GenerateDbml(model);
+
+        dbml.Should().Contain("TableGroup Billing_Ops [note: 'Billing Ops'] {\n  Invoice\n  Payment\n}".ReplaceLineEndings());
+        CountOccurrences(dbml, "TableGroup ").Should().Be(1);
+        AssertEveryTableGroupIdentifierIsValidDbml(dbml);
+    }
+
+    [Fact]
+    public void GenerateDbml_GroupNameThatSlugifiesToNothingUsable_StillEmitsAValidIdentifier()
+    {
+        var model = Database(
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "!!!")]));
+
+        var dbml = _sut.GenerateDbml(model);
+
+        dbml.Should().Contain("TableGroup _ [note: '!!!'] {");
+        AssertEveryTableGroupIdentifierIsValidDbml(dbml);
+    }
+
     // ---- @erd-note and @erd-color -------------------------------------------
 
     [Fact]
@@ -436,5 +479,47 @@ public class DbmlExporterTests
         var act = () => _sut.GenerateDbml(model);
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*DBML identifier*");
+    }
+
+    [Fact]
+    public void GenerateDbml_NameContainingABackslash_HasItDoubled()
+    {
+        // A backslash escapes the next character inside a quoted DBML identifier, so a trailing one
+        // would escape the closing quote and break the document.
+        var model = Database(Table("Odd\\", [Field("Id\\x", "int", primaryKey: true)]));
+
+        var dbml = _sut.GenerateDbml(model);
+
+        dbml.Should().Contain("Table \"Odd\\\\\" {");
+        dbml.Should().Contain("\"Id\\\\x\" int");
+    }
+
+    // ---- helpers -------------------------------------------------------------
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        var count = 0;
+
+        for (var i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+             i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Every TableGroup name in the document must be something DBML accepts bare, otherwise
+    /// dbdiagram.io rejects the whole file rather than the one group.
+    /// </summary>
+    private static void AssertEveryTableGroupIdentifierIsValidDbml(string dbml)
+    {
+        var identifiers = Regex.Matches(dbml, @"^TableGroup (?<id>\S+)", RegexOptions.Multiline)
+            .Select(m => m.Groups["id"].Value)
+            .ToList();
+
+        identifiers.Should().NotBeEmpty();
+        identifiers.Should().OnlyContain(id => Regex.IsMatch(id, "^[A-Za-z_][A-Za-z0-9_]*$"));
     }
 }
