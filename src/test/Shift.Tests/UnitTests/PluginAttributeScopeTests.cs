@@ -112,6 +112,29 @@ public class PluginAttributeScopeTests
     }
 
     /// <summary>
+    /// A declaration composes its authored spelling from the two halves it carries, so the CLI can
+    /// print a line that can be copied into a .dmd file.
+    /// </summary>
+    [Fact]
+    public void PluginAttributeDefinition_Namespaced_ComposesTheAuthoredName()
+    {
+        var definition = new PluginAttributeDefinition("erd", "hide", AttributeScope.Both, true, "Hides it");
+
+        definition.Name.Should().Be("erd:hide");
+    }
+
+    /// <summary>
+    /// An un-namespaced declaration is just its local name — no stray leading colon.
+    /// </summary>
+    [Fact]
+    public void PluginAttributeDefinition_UnNamespaced_IsJustTheLocalName()
+    {
+        var definition = new PluginAttributeDefinition(null, "NoIdentity", AttributeScope.Model, true, "A flag");
+
+        definition.Name.Should().Be("NoIdentity");
+    }
+
+    /// <summary>
     /// An attribute in a namespace no plugin claims is preserved on the model but delivered to
     /// nobody: it is absent from every claimed namespace's view.
     /// </summary>
