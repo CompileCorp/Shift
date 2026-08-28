@@ -48,14 +48,29 @@ public class AttributesCommandHandler : IRequestHandler<AttributesCommand, Unit>
                 continue;
             }
 
-            foreach (var attribute in plugin.SupportedAttributes.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+            // Grouped by namespace so the structure of the vocabulary is visible in the listing: a
+            // plugin normally declares one namespace, but grouping is on the attribute's own
+            // namespace rather than the plugin's claim, so an un-namespaced declaration still lists.
+            var namespaces = plugin.SupportedAttributes
+                .GroupBy(attribute => attribute.Namespace, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(group => group.Key ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var attributeNamespace in namespaces)
             {
                 _logger.LogInformation(
-                    "  @{AttributeName} scope={Scope} kind={Kind} - {AttributeDescription}",
-                    attribute.Name,
-                    DescribeScope(attribute.Scope),
-                    attribute.IsFlag ? "flag" : "valued",
-                    attribute.Description);
+                    "  namespace: {AttributeNamespace}",
+                    attributeNamespace.Key ?? "(none)");
+
+                foreach (var attribute in attributeNamespace.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+                {
+                    // The full spelling, so the line can be copied straight into a .dmd file.
+                    _logger.LogInformation(
+                        "    @{AttributeName} scope={Scope} kind={Kind} - {AttributeDescription}",
+                        attribute.Name,
+                        DescribeScope(attribute.Scope),
+                        attribute.IsFlag ? "flag" : "valued",
+                        attribute.Description);
+                }
             }
         }
 

@@ -143,7 +143,7 @@ shift dbml ./Models ./Diagrams                 # writes ./Diagrams/model.dbml
 shift dbml ./Models ./Mixins ./schema.dbml     # writes ./schema.dbml
 ```
 
-Paste the result into [dbdiagram.io](https://dbdiagram.io). The diagram is shaped by the `erd-*`
+Paste the result into [dbdiagram.io](https://dbdiagram.io). The diagram is shaped by the `erd:*`
 plugin attributes — see [architecture/shift-dbml-exporter.md](../architecture/shift-dbml-exporter.md).
 
 ### attributes
@@ -160,18 +160,23 @@ shift attributes            # every plugin
 shift attributes dbml       # just the DBML exporter
 ```
 
-Each line shows the attribute name, its scope (`model`, `field` or `both`), whether it is a flag or
-takes a value, and what the plugin does with it:
+Attributes are grouped by namespace. Each line shows the full attribute name as you would write it,
+its scope (`model`, `field` or `both`), whether it is a flag or takes a value, and what the plugin
+does with it:
 
 ```text
 dbml - Exports the model as a DBML diagram for dbdiagram.io
-  @erd-color scope=model kind=valued - Sets the table header colour, as rgb or rrggbb hex digits
-  @erd-group scope=model kind=valued - Puts the table in the named TableGroup; ignored on a field because DBML has no column groups
-  @erd-hide scope=both kind=flag - Omits the table (with its relationships and group membership) or the column from the diagram
-  @erd-note scope=both kind=valued - Adds the text as a DBML note on the table or column
+  namespace: erd
+    @erd:color scope=model kind=valued - Sets the table header colour, as rgb or rrggbb hex digits
+    @erd:group scope=model kind=valued - Puts the table in the named TableGroup; ignored on a field because DBML has no column groups
+    @erd:hide scope=both kind=flag - Omits the table (with its relationships and group membership) or the column from the diagram
+    @erd:note scope=both kind=valued - Adds the text as a DBML note on the table or column
 ef - Generates Entity Framework entities, maps and a DbContext
   (no plugin attributes)
 ```
+
+A plugin claims one namespace and is handed only that namespace's attributes. The `ef` generator
+consumes none, so it claims no namespace and lists nothing.
 
 See the [plugin attributes section of the DMD reference](../dsl/dmd-file-format.md#plugin-attributes)
 for the syntax and validation rules.
