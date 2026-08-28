@@ -71,8 +71,8 @@ public class AttributesCommandHandlerTests
             output.Should().Contain(attribute.Description);
         }
 
-        output.Should().Contain("@erd-hide scope=both kind=flag");
-        output.Should().Contain("@erd-group scope=model kind=valued");
+        output.Should().Contain("@erd:hide scope=both kind=flag");
+        output.Should().Contain("@erd:group scope=model kind=valued");
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public class AttributesCommandHandlerTests
     [Fact]
     public async Task Handle_FieldScopedAttribute_RendersAsField()
     {
-        var plugin = new StubPlugin("stub", [new PluginAttributeDefinition("only-field", AttributeScope.Field, false, "Field only")]);
+        var plugin = new StubPlugin("stub", [new PluginAttributeDefinition(null, "only-field", AttributeScope.Field, false, "Field only")]);
         var (handler, logger) = Build(plugin);
 
         await handler.Handle(new AttributesCommand(), CancellationToken.None);
@@ -122,7 +122,10 @@ public class AttributesCommandHandlerTests
         string.Join("\n", logger.Messages).Should().Contain("@only-field scope=field kind=valued");
     }
 
-    private sealed record StubPlugin(string Name, IReadOnlyList<PluginAttributeDefinition> SupportedAttributes)
+    private sealed record StubPlugin(
+        string Name,
+        IReadOnlyList<PluginAttributeDefinition> SupportedAttributes,
+        string? AttributeNamespace = null)
         : IShiftPlugin
     {
         public string Description => "A stub plugin";

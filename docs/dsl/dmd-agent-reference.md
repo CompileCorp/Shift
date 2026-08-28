@@ -199,31 +199,37 @@ model Order {
 
 ### Plugin attributes
 
-Any other `@name` is a plugin attribute: Shift parses, validates and preserves it but does not
-interpret it. Three placements:
+Any other `@namespace:name` is a plugin attribute: Shift parses, validates and preserves it but does
+not interpret it. The namespace addresses the annotation to a plugin — the DBML exporter claims `erd`.
+Three placements:
 
 ```dmd
 model Invoice {
-  @erd-group 'Billing Ops'          // model level: its own line
-  ustring(100) Email @erd-hide      // field level: trailing tokens, repeatable
-  model User? as CreatedBy @erd-hide
+  @erd:group 'Billing Ops'          // model level: its own line
+  ustring(100) Email @erd:hide      // field level: trailing tokens, repeatable
+  model User? as CreatedBy @erd:hide
 }
 ```
 
 ```dmdx
 mixin Auditable {
-  @erd-group Audit                  // mixin level: inherited by every model using it
+  @erd:group Audit                  // mixin level: inherited by every model using it
   datetime CreatedDateTime
 }
 ```
 
-- `@name` is a flag, `@name value` is valued, `@name 'value with spaces'` quotes a value containing
-  spaces.
-- Name: `^[A-Za-z][A-Za-z0-9_-]{0,63}$`. Value: letters, digits, spaces, `.`, `_`, `-` only (no
-  quotes, brackets, braces, slashes, colons, `..`, `@`, `#` or `,`). Anything else fails the parse.
+- `@ns:name` is a flag, `@ns:name value` is valued, `@ns:name 'value with spaces'` quotes a value
+  containing spaces.
+- Name: at most one `:`; each half must match `^[A-Za-z][A-Za-z0-9_-]*$`; 64 characters overall
+  including the `:`. A name with no `:` is un-namespaced and still valid — `@NoIdentity` is one.
+- Value: letters, digits, spaces, `.`, `_`, `-` only (no quotes, brackets, braces, slashes, colons,
+  `..`, `@`, `#` or `,`). Anything else fails the parse. The `:` is a name character only.
+- Each plugin declares one namespace and is handed only that namespace's attributes, prefix stripped.
+- An attribute in a namespace no installed plugin claims is **preserved, not rejected** — it parses,
+  round trips and reaches the model; it is just delivered to nobody.
 - Model wins over mixin on a same-name collision.
 - Not stored in SQL, so `shift export` cannot emit them.
-- `shift attributes` lists every attribute the installed plugins understand.
+- `shift attributes` lists every attribute the installed plugins understand, grouped by namespace.
 
 ---
 
