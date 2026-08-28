@@ -17,6 +17,17 @@ public interface IShiftPlugin
     /// <summary>One line describing what the plugin produces.</summary>
     string Description { get; }
 
+    /// <summary>
+    /// The attribute namespace this plugin claims — <c>erd</c> for the DBML exporter, so that
+    /// <c>@erd:hide</c> is understood to be addressed to it. <c>null</c> when the plugin claims no
+    /// namespace, which is what a plugin consuming no attributes declares.
+    ///
+    /// Shift does not enforce the claim: an attribute in an unclaimed namespace parses, round-trips
+    /// and reaches the model unchanged, because a .dmd file must stay readable by a Shift build that
+    /// has never heard of the plugin it was annotated for.
+    /// </summary>
+    string? AttributeNamespace { get; }
+
     /// <summary>Every plugin attribute this plugin interprets.</summary>
     IReadOnlyList<PluginAttributeDefinition> SupportedAttributes { get; }
 }

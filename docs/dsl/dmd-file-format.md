@@ -668,13 +668,33 @@ to read plugin source to find the names.
 ### Syntax
 
 ```text
-@name                       # flag: no value
-@name value                 # valued: a bare token
-@name 'value with spaces'   # valued: single-quoted
+@namespace:name                       # flag: no value
+@namespace:name value                 # valued: a bare token
+@namespace:name 'value with spaces'   # valued: single-quoted
 ```
 
 A value is single-quoted only when it contains spaces. Shift writes it back the same way, so a file
 round trips unchanged.
+
+### Namespaces
+
+An attribute name is `namespace:name` — the namespace says which plugin the annotation is addressed
+to, and the name says what it means to that plugin. The DBML exporter claims `erd`, so its attributes
+are `@erd:hide`, `@erd:group`, `@erd:note` and `@erd:color`.
+
+The namespace is structural, not a naming convention. Each plugin declares its namespace once, and
+Shift hands it only the attributes in that namespace, with the prefix already stripped — so no plugin
+matches prefixes itself, and two plugins can both use a short name like `note` without colliding.
+
+An attribute in a namespace **no installed plugin claims is not an error.** It parses, it is
+preserved, and it survives an export round trip untouched — it is simply delivered to nobody. A .dmd
+file annotated for a plugin you do not have installed stays readable, and running `shift export` over
+it will not silently strip those annotations.
+
+A name with **no** colon means "no namespace". This stays valid: `@NoIdentity` is un-namespaced,
+because it is read by Shift itself rather than by a plugin.
+
+Run `shift attributes` to see the installed plugins' attributes grouped by namespace.
 
 ### Model level
 
@@ -685,8 +705,8 @@ model Invoice {
   ustring(50) Reference
   decimal(19,4) Total
 
-  @erd-group 'Billing Ops'
-  @erd-color 3498DB
+  @erd:group 'Billing Ops'
+  @erd:color 3498DB
 }
 ```
 
@@ -699,7 +719,7 @@ mixin Auditable {
   datetime CreatedDateTime
   datetime LastModifiedDateTime
 
-  @erd-group Audit
+  @erd:group Audit
 }
 ```
 
@@ -714,9 +734,9 @@ preserved:
 
 ```dmd
 model User {
-  ustring(100) Email @erd-hide @erd-note 'PII'
-  model User? as CreatedBy @erd-hide
-  models Task @erd-group 'Work Items'
+  ustring(100) Email @erd:hide @erd:note 'PII'
+  model User? as CreatedBy @erd:hide
+  models Task @erd:group 'Work Items'
 }
 ```
 
@@ -729,8 +749,12 @@ An attribute that does not satisfy these rules fails the parse, naming the offen
 
 | Part | Rule |
 |------|------|
-| Name | `^[A-Za-z][A-Za-z0-9_-]{0,63}$` — starts with a letter, then letters, digits, `_` or `-`. |
+| Name | At most one `:`, splitting the name into a namespace and a local name. Each half must match `^[A-Za-z][A-Za-z0-9_-]*$` — starts with a letter, then letters, digits, `_` or `-`. A name with no `:` is the whole local name and must match the same rule. The whole spelling, `:` included, is at most 64 characters. |
 | Value | `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,255}$` after trimming and unquoting, and may not contain `..`. |
+
+So `@:hide`, `@erd:`, `@erd:sub:hide` and `@erd:1hide` are all rejected, each naming the offending
+line. The `:` is a **name** character only — it remains forbidden in a value, so a value can never be
+mistaken for a namespaced name or read as a path.
 
 The characters left out are the point. An attribute value ends up inside whatever a plugin
 generates — a quoted note, an identifier, a settings list — so it must not be able to break out of

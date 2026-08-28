@@ -40,21 +40,21 @@ public class DbmlFromDmdTests
         const string user = """
             model User {
               ustring(256) Email
-              ustring(64) PasswordHash @erd-hide
-              ustring(100)? DisplayName @erd-note 'Shown in the UI'
+              ustring(64) PasswordHash @erd:hide
+              ustring(100)? DisplayName @erd:note 'Shown in the UI'
               key (Email)
-              @erd-note 'Application user'
-              @erd-color 3498DB
+              @erd:note 'Application user'
+              @erd:color 3498DB
             }
             """;
 
         const string invoice = """
             model Invoice {
-              model User? as RaisedBy @erd-note 'Who raised it'
+              model User? as RaisedBy @erd:note 'Who raised it'
               ustring(50) Reference
               decimal(19,4) Total
               index (Reference)
-              @erd-group 'Billing Ops'
+              @erd:group 'Billing Ops'
             }
             """;
 
@@ -62,14 +62,14 @@ public class DbmlFromDmdTests
             model Payment {
               model Invoice
               decimal(19,4) Amount
-              @erd-group 'Billing Ops'
+              @erd:group 'Billing Ops'
             }
             """;
 
         const string auditLog = """
             model AuditLog {
               ustring(200) Message
-              @erd-hide
+              @erd:hide
             }
             """;
 
@@ -87,7 +87,7 @@ public class DbmlFromDmdTests
         const string auditable = """
             mixin Auditable {
               datetime CreatedDateTime
-              @erd-group Audit
+              @erd:group Audit
             }
             """;
 
@@ -107,13 +107,13 @@ public class DbmlFromDmdTests
         const string auditable = """
             mixin Auditable {
               datetime CreatedDateTime
-              @erd-group Audit
+              @erd:group Audit
             }
             """;
 
         var model = Parse(
             auditable,
-            "model User with Auditable {\n  @erd-group Billing\n  ustring(50) Name\n}");
+            "model User with Auditable {\n  @erd:group Billing\n  ustring(50) Name\n}");
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -128,7 +128,7 @@ public class DbmlFromDmdTests
     [Fact]
     public void Dmd_ColorWithoutAHash_ParsesAndGainsTheHashOnOutput()
     {
-        var model = Parse("", "model User {\n  ustring(50) Name\n  @erd-color 38D\n}");
+        var model = Parse("", "model User {\n  ustring(50) Name\n  @erd:color 38D\n}");
 
         _sut.GenerateDbml(model).Should().Contain("Table User [headercolor: #38D] {");
     }
@@ -136,7 +136,7 @@ public class DbmlFromDmdTests
     [Fact]
     public void Dmd_ColorWithAHash_IsRejectedByTheParser()
     {
-        var act = () => Parse("", "model User {\n  ustring(50) Name\n  @erd-color #3498DB\n}");
+        var act = () => Parse("", "model User {\n  ustring(50) Name\n  @erd:color #3498DB\n}");
 
         act.Should().Throw<InvalidOperationException>().WithMessage("*Invalid value*");
     }

@@ -11,7 +11,7 @@ namespace Compile.Shift.Dbml.Tests;
 /// for dbdiagram.io.
 ///
 /// Intent: every table becomes a Table block in Name order, every foreign key becomes one
-/// standalone Ref oriented with the FK second, and the erd-* plugin attributes shape what is shown
+/// standalone Ref oriented with the FK second, and the erd:* plugin attributes shape what is shown
 /// (hiding, grouping, notes and colour) without any of that vocabulary leaking into Shift core.
 /// </summary>
 public class DbmlExporterTests
@@ -30,7 +30,7 @@ public class DbmlExporterTests
                     Field("Balance", "decimal", precision: 12, scale: 2)
                 ],
                 indexes: [Index(unique: true, "Email")],
-                attributes: [Attr("erd-note", "Application user"), Attr("erd-color", "#3498DB")]),
+                attributes: [Attr("erd:note", "Application user"), Attr("erd:color", "#3498DB")]),
             Table("Invoice",
                 fields:
                 [
@@ -39,7 +39,7 @@ public class DbmlExporterTests
                     Field("Reference", "varchar", precision: -1)
                 ],
                 foreignKeys: [ForeignKey("UserID", "User", "UserID")],
-                attributes: [Attr("erd-group", "Billing Ops")]),
+                attributes: [Attr("erd:group", "Billing Ops")]),
             Table("Payment",
                 fields:
                 [
@@ -48,7 +48,7 @@ public class DbmlExporterTests
                     Field("Amount", "money")
                 ],
                 foreignKeys: [ForeignKey("InvoiceID", "Invoice", "InvoiceID", RelationshipType.OneToOne)],
-                attributes: [Attr("erd-group", "Billing Ops")]));
+                attributes: [Attr("erd:group", "Billing Ops")]));
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public class DbmlExporterTests
             .Should().BeLessThan(dbml.IndexOf("Table Zebra", StringComparison.Ordinal));
     }
 
-    // ---- @erd-hide -----------------------------------------------------------
+    // ---- @erd:hide -----------------------------------------------------------
 
     [Fact]
     public void GenerateDbml_HiddenModel_OmitsTheTableItsRefsAndItsGroupMembership()
@@ -87,11 +87,11 @@ public class DbmlExporterTests
         var model = Database(
             Table("Secret",
                 fields: [Field("SecretID", "int", primaryKey: true)],
-                attributes: [Attr("erd-hide"), Attr("erd-group", "Billing")]),
+                attributes: [Attr("erd:hide"), Attr("erd:group", "Billing")]),
             Table("Invoice",
                 fields: [Field("InvoiceID", "int", primaryKey: true), Field("SecretID", "int")],
                 foreignKeys: [ForeignKey("SecretID", "Secret", "SecretID")],
-                attributes: [Attr("erd-group", "Billing")]));
+                attributes: [Attr("erd:group", "Billing")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -111,7 +111,7 @@ public class DbmlExporterTests
                 fields:
                 [
                     Field("InvoiceID", "int", primaryKey: true),
-                    Field("UserID", "int", attributes: Attr("erd-hide")),
+                    Field("UserID", "int", attributes: Attr("erd:hide")),
                     Field("Total", "money")
                 ],
                 foreignKeys: [ForeignKey("UserID", "User", "UserID")]));
@@ -128,7 +128,7 @@ public class DbmlExporterTests
     public void GenerateDbml_HiddenTargetColumn_DropsTheRefRatherThanDangling()
     {
         var model = Database(
-            Table("User", [Field("UserID", "int", primaryKey: true, attributes: Attr("erd-hide"))]),
+            Table("User", [Field("UserID", "int", primaryKey: true, attributes: Attr("erd:hide"))]),
             Table("Invoice",
                 fields: [Field("InvoiceID", "int", primaryKey: true), Field("UserID", "int")],
                 foreignKeys: [ForeignKey("UserID", "User", "UserID")]));
@@ -146,7 +146,7 @@ public class DbmlExporterTests
             fields:
             [
                 Field("UserID", "int", primaryKey: true),
-                Field("TenantID", "int", attributes: Attr("erd-hide")),
+                Field("TenantID", "int", attributes: Attr("erd:hide")),
                 Field("Email", "nvarchar", precision: 256)
             ],
             indexes: [Index(unique: false, "Email", "TenantID")]));
@@ -156,15 +156,15 @@ public class DbmlExporterTests
         dbml.Should().NotContain("indexes");
     }
 
-    // ---- @erd-group ----------------------------------------------------------
+    // ---- @erd:group ----------------------------------------------------------
 
     [Fact]
     public void GenerateDbml_Groups_OneTableGroupPerDistinctValueWithTheRightMembers()
     {
         var model = Database(
-            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing")]),
-            Table("Payment", [Field("PaymentID", "int", primaryKey: true)], attributes: [Attr("erd-group", "billing")]),
-            Table("Task", [Field("TaskID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Work")]),
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd:group", "Billing")]),
+            Table("Payment", [Field("PaymentID", "int", primaryKey: true)], attributes: [Attr("erd:group", "billing")]),
+            Table("Task", [Field("TaskID", "int", primaryKey: true)], attributes: [Attr("erd:group", "Work")]),
             Table("Loose", [Field("LooseID", "int", primaryKey: true)]));
 
         var dbml = _sut.GenerateDbml(model);
@@ -190,7 +190,7 @@ public class DbmlExporterTests
         var model = Database(Table("User",
         [
             Field("UserID", "int", primaryKey: true),
-            Field("Email", "nvarchar", precision: 256, attributes: Attr("erd-group", "Contact"))
+            Field("Email", "nvarchar", precision: 256, attributes: Attr("erd:group", "Contact"))
         ]));
 
         var dbml = _sut.GenerateDbml(model);
@@ -203,7 +203,7 @@ public class DbmlExporterTests
     public void GenerateDbml_GroupNameWithSpaces_IsSlugifiedWithTheOriginalInANote()
     {
         var model = Database(
-            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing Ops")]));
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd:group", "Billing Ops")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -214,7 +214,7 @@ public class DbmlExporterTests
     public void GenerateDbml_GroupNameNeedingNoSlug_HasNoRedundantNote()
     {
         var model = Database(
-            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing")]));
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd:group", "Billing")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -228,7 +228,7 @@ public class DbmlExporterTests
         // A leading digit passes DmdAttributeValidator but is not a legal bare DBML identifier, and
         // dbdiagram.io fails the whole document over it rather than just the one group.
         var model = Database(
-            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "2024Billing")]));
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd:group", "2024Billing")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -239,11 +239,11 @@ public class DbmlExporterTests
     [Fact]
     public void GenerateDbml_GroupNamesSlugifyingToTheSameIdentifier_ProduceOneBlockWithEveryTable()
     {
-        // "Billing Ops" and "Billing_Ops" are different @erd-group values that DBML cannot tell
+        // "Billing Ops" and "Billing_Ops" are different @erd:group values that DBML cannot tell
         // apart, so they have to become one TableGroup: two blocks of one name is a parse error.
         var model = Database(
-            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing Ops")]),
-            Table("Payment", [Field("PaymentID", "int", primaryKey: true)], attributes: [Attr("erd-group", "Billing_Ops")]));
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd:group", "Billing Ops")]),
+            Table("Payment", [Field("PaymentID", "int", primaryKey: true)], attributes: [Attr("erd:group", "Billing_Ops")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -256,7 +256,7 @@ public class DbmlExporterTests
     public void GenerateDbml_GroupNameThatSlugifiesToNothingUsable_StillEmitsAValidIdentifier()
     {
         var model = Database(
-            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd-group", "!!!")]));
+            Table("Invoice", [Field("InvoiceID", "int", primaryKey: true)], attributes: [Attr("erd:group", "!!!")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -264,7 +264,7 @@ public class DbmlExporterTests
         AssertEveryTableGroupIdentifierIsValidDbml(dbml);
     }
 
-    // ---- @erd-note and @erd-color -------------------------------------------
+    // ---- @erd:note and @erd:color -------------------------------------------
 
     [Fact]
     public void GenerateDbml_ModelAndFieldNotes_AreEmitted()
@@ -273,9 +273,9 @@ public class DbmlExporterTests
             fields:
             [
                 Field("UserID", "int", primaryKey: true),
-                Field("Email", "nvarchar", precision: 256, attributes: Attr("erd-note", "PII"))
+                Field("Email", "nvarchar", precision: 256, attributes: Attr("erd:note", "PII"))
             ],
-            attributes: [Attr("erd-note", "Application user")]));
+            attributes: [Attr("erd:note", "Application user")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -288,7 +288,7 @@ public class DbmlExporterTests
     {
         var model = Database(Table("User",
             fields: [Field("UserID", "int", primaryKey: true)],
-            attributes: [Attr("erd-note", "Chris's model")]));
+            attributes: [Attr("erd:note", "Chris's model")]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -302,7 +302,7 @@ public class DbmlExporterTests
     public void GenerateDbml_Color_IsEmittedWithALeadingHash(string value, string expected)
     {
         var model = Database(
-            Table("User", [Field("UserID", "int", primaryKey: true)], attributes: [Attr("erd-color", value)]));
+            Table("User", [Field("UserID", "int", primaryKey: true)], attributes: [Attr("erd:color", value)]));
 
         var dbml = _sut.GenerateDbml(model);
 
@@ -316,11 +316,11 @@ public class DbmlExporterTests
     public void GenerateDbml_BadColor_Throws(string value)
     {
         var model = Database(
-            Table("User", [Field("UserID", "int", primaryKey: true)], attributes: [Attr("erd-color", value)]));
+            Table("User", [Field("UserID", "int", primaryKey: true)], attributes: [Attr("erd:color", value)]));
 
         var act = () => _sut.GenerateDbml(model);
 
-        act.Should().Throw<InvalidOperationException>().WithMessage("*erd-color*User*");
+        act.Should().Throw<InvalidOperationException>().WithMessage("*erd:color*User*");
     }
 
     // ---- column settings -----------------------------------------------------

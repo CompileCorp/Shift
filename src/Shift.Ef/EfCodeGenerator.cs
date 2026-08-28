@@ -24,6 +24,13 @@ public class EfCodeGenerator : IEfCodeGenerator
     public string Description => "Generates Entity Framework entities, maps and a DbContext";
 
     /// <summary>
+    /// The generator claims no attribute namespace, because it consumes no attributes: <c>null</c>
+    /// rather than a reserved-but-empty <c>"ef"</c>, so the CLI does not advertise a namespace that
+    /// nothing would answer to. Claiming <c>ef</c> is the obvious first step if it ever grows one.
+    /// </summary>
+    public string? AttributeNamespace => null;
+
+    /// <summary>
     /// The generator consumes no plugin attributes today. It still implements the plugin contract so
     /// the CLI presents one uniform surface for every plugin, and so declaring an attribute here is
     /// the obvious next step if it ever grows one.

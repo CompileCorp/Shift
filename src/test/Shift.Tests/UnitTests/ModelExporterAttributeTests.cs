@@ -22,13 +22,13 @@ public class ModelExporterAttributeTests : UnitTestContext<ModelExporter>
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
                 .WithField("Email", "nvarchar", f => f
                     .Precision(256)
-                    .WithAttribute("erd-hide")
-                    .WithAttribute("erd-note", "PII"))
+                    .WithAttribute("erd:hide")
+                    .WithAttribute("erd:note", "PII"))
                 .WithField("Nickname", "nvarchar", f => f.Precision(50).Nullable())
                 .WithForeignKey("CreatedByUserID", "User", "UserID", RelationshipType.OneToOne)
-                .WithAttribute("erd-hide")
-                .WithAttribute("erd-group", "Billing Ops")
-                .WithAttribute("erd-color", "3498DB"))
+                .WithAttribute("erd:hide")
+                .WithAttribute("erd:group", "Billing Ops")
+                .WithAttribute("erd:color", "3498DB"))
             .Build();
 
         var table = model.Tables["User"];
@@ -36,7 +36,7 @@ public class ModelExporterAttributeTests : UnitTestContext<ModelExporter>
         {
             Name = "CreatedByUserID",
             Type = "int",
-            Attributes = [new AttributeModel("erd-hide", null)]
+            Attributes = [new AttributeModel("erd:hide", null)]
         });
 
         var dmd = Sut.GenerateDmdContent(table, []);
@@ -50,16 +50,16 @@ public class ModelExporterAttributeTests : UnitTestContext<ModelExporter>
         var model = DatabaseModelBuilder.Create()
             .WithTable("User", t => t
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
-                .WithAttribute("erd-hide")
-                .WithAttribute("erd-group", "Billing")
-                .WithAttribute("erd-note", "Two words"))
+                .WithAttribute("erd:hide")
+                .WithAttribute("erd:group", "Billing")
+                .WithAttribute("erd:note", "Two words"))
             .Build();
 
         var dmd = Sut.GenerateDmdContent(model.Tables["User"], []);
 
-        dmd.Should().Contain("  @erd-hide");
-        dmd.Should().Contain("  @erd-group Billing");
-        dmd.Should().Contain("  @erd-note 'Two words'");
+        dmd.Should().Contain("  @erd:hide");
+        dmd.Should().Contain("  @erd:group Billing");
+        dmd.Should().Contain("  @erd:note 'Two words'");
     }
 
     /// <summary>
@@ -71,15 +71,15 @@ public class ModelExporterAttributeTests : UnitTestContext<ModelExporter>
     {
         const string dmd = """
             model Task {
-              model User? as CreatedBy @erd-hide
-              models Comment @erd-group 'Work Items'
-              ustring(100) Title @erd-note 'Short title'
-              ustring(500)? Description @erd-hide @erd-note PII
+              model User? as CreatedBy @erd:hide
+              models Comment @erd:group 'Work Items'
+              ustring(100) Title @erd:note 'Short title'
+              ustring(500)? Description @erd:hide @erd:note PII
               decimal(10,2) Estimate
               index (Title)
-              @erd-hide
-              @erd-group 'Work Items'
-              @erd-note 'A unit of work'
+              @erd:hide
+              @erd:group 'Work Items'
+              @erd:note 'A unit of work'
             }
             """;
 
@@ -117,22 +117,22 @@ public class ModelExporterAttributeTests : UnitTestContext<ModelExporter>
         {
             Name = "Auditable",
             Fields = [new FieldModel { Name = "CreatedDateTime", Type = "datetime" }],
-            Attributes = [new AttributeModel("erd-group", "Audit")]
+            Attributes = [new AttributeModel("erd:group", "Audit")]
         };
 
         var model = DatabaseModelBuilder.Create()
             .WithTable("User", t => t
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
                 .WithField("CreatedDateTime", "datetime")
-                .WithAttribute("erd-group", "Audit")
-                .WithAttribute("erd-hide"))
+                .WithAttribute("erd:group", "Audit")
+                .WithAttribute("erd:hide"))
             .Build();
 
         var dmd = Sut.GenerateDmdContent(model.Tables["User"], [mixin]);
 
         dmd.Should().Contain("model User with Auditable {");
-        dmd.Should().NotContain("@erd-group");
-        dmd.Should().Contain("@erd-hide");
+        dmd.Should().NotContain("@erd:group");
+        dmd.Should().Contain("@erd:hide");
     }
 
     [Fact]
@@ -142,18 +142,18 @@ public class ModelExporterAttributeTests : UnitTestContext<ModelExporter>
         {
             Name = "Auditable",
             Fields = [new FieldModel { Name = "CreatedDateTime", Type = "datetime" }],
-            Attributes = [new AttributeModel("erd-group", "Audit")]
+            Attributes = [new AttributeModel("erd:group", "Audit")]
         };
 
         var model = DatabaseModelBuilder.Create()
             .WithTable("User", t => t
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
                 .WithField("CreatedDateTime", "datetime")
-                .WithAttribute("erd-group", "Billing"))
+                .WithAttribute("erd:group", "Billing"))
             .Build();
 
         var dmd = Sut.GenerateDmdContent(model.Tables["User"], [mixin]);
 
-        dmd.Should().Contain("@erd-group Billing");
+        dmd.Should().Contain("@erd:group Billing");
     }
 }

@@ -24,7 +24,7 @@ public interface IDbmlExporter : IShiftPlugin
 /// <summary>
 /// Exports a <see cref="DatabaseModel"/> as a DBML document for https://dbdiagram.io.
 ///
-/// The diagram is shaped by the <c>erd-*</c> plugin attributes listed in
+/// The diagram is shaped by the <c>erd:*</c> plugin attributes listed in
 /// <see cref="DbmlErdAttributes"/>; everything else comes from the model itself. Each diagram
 /// concern is routed through a single private resolver so there is exactly one place to change when
 /// its policy changes.
@@ -58,24 +58,55 @@ public class DbmlExporter : IDbmlExporter
 
     public string Description => "Exports the model as a DBML diagram for dbdiagram.io";
 
+    /// <summary>
+    /// The exporter claims the <c>erd</c> namespace, so every attribute it interprets is spelled
+    /// <c>@erd:&lt;name&gt;</c>. Taken from <see cref="DbmlErdAttributes.Namespace"/> so the claim and
+    /// the attribute constants cannot disagree.
+    /// </summary>
+    public string? AttributeNamespace => DbmlErdAttributes.Namespace;
+
+    /// <summary>
+    /// This exporter's own attributes, filtered to its namespace and with the prefix stripped, so
+    /// every lookup below names a bare local attribute (<c>hide</c>) and no lookup site knows the
+    /// prefix. Attributes in any other namespace are simply not delivered here — they stay on the
+    /// model untouched for round-tripping.
+    /// </summary>
+    private static IReadOnlyList<AttributeModel> ErdAttributes(IEnumerable<AttributeModel> attributes)
+    {
+        return attributes.InNamespace(DbmlErdAttributes.Namespace);
+    }
+
+    /// <summary>
+    /// Declares one attribute in this exporter's namespace, so the namespace is applied in one place
+    /// rather than repeated per declaration.
+    /// </summary>
+    private static PluginAttributeDefinition Erd(
+        string localName,
+        AttributeScope scope,
+        bool IsFlag,
+        string description)
+    {
+        return new PluginAttributeDefinition(DbmlErdAttributes.Namespace, localName, scope, IsFlag, description);
+    }
+
     public IReadOnlyList<PluginAttributeDefinition> SupportedAttributes { get; } =
     [
-        new PluginAttributeDefinition(
+        Erd(
             DbmlErdAttributes.Hide,
             AttributeScope.Both,
             IsFlag: true,
             "Omits the table (with its relationships and group membership) or the column from the diagram"),
-        new PluginAttributeDefinition(
+        Erd(
             DbmlErdAttributes.Group,
             AttributeScope.Model,
             IsFlag: false,
             "Puts the table in the named TableGroup; ignored on a field because DBML has no column groups"),
-        new PluginAttributeDefinition(
+        Erd(
             DbmlErdAttributes.Note,
             AttributeScope.Both,
             IsFlag: false,
             "Adds the text as a DBML note on the table or column"),
-        new PluginAttributeDefinition(
+        Erd(
             DbmlErdAttributes.Color,
             AttributeScope.Model,
             IsFlag: false,
@@ -142,7 +173,7 @@ public class DbmlExporter : IDbmlExporter
 
         AppendIndexes(sb, table, visibleColumns);
 
-        var note = table.Attributes.AttributeValue(DbmlErdAttributes.Note);
+        var note = ErdAttributes(table.Attributes).AttributeValue(DbmlErdAttributes.Note);
         if (!string.IsNullOrWhiteSpace(note))
         {
             sb.AppendLine();
@@ -184,7 +215,7 @@ public class DbmlExporter : IDbmlExporter
             settings.Add("unique");
         }
 
-        var note = field.Attributes.AttributeValue(DbmlErdAttributes.Note);
+        var note = ErdAttributes(field.Attributes).AttributeValue(DbmlErdAttributes.Note);
         if (!string.IsNullOrWhiteSpace(note))
         {
             settings.Add($"note: {QuoteString(note)}");
@@ -258,7 +289,7 @@ public class DbmlExporter : IDbmlExporter
 
     private static string RenderTableSettings(TableModel table)
     {
-        var color = table.Attributes.AttributeValue(DbmlErdAttributes.Color);
+        var color = ErdAttributes(table.Attributes).AttributeValue(DbmlErdAttributes.Color);
 
         if (string.IsNullOrWhiteSpace(color))
         {
@@ -270,7 +301,7 @@ public class DbmlExporter : IDbmlExporter
         if (!match.Success)
         {
             throw new InvalidOperationException(
-                $"Invalid @{DbmlErdAttributes.Color} value '{color}' on model '{table.Name}'. Expected 3 or 6 hex digits, such as 3498DB or 38D.");
+                $"Invalid @{DbmlErdAttributes.Namespace}:{DbmlErdAttributes.Color} value '{color}' on model '{table.Name}'. Expected 3 or 6 hex digits, such as 3498DB or 38D.");
         }
 
         return $" [headercolor: #{match.Groups[1].Value}]";
@@ -328,7 +359,7 @@ public class DbmlExporter : IDbmlExporter
 
     private static void AppendTableGroups(StringBuilder sb, List<TableModel> visibleTables)
     {
-        // Grouped by the DBML identifier, not by the raw @erd-group value: two distinct values can
+        // Grouped by the DBML identifier, not by the raw @erd:group value: two distinct values can
         // slugify to the same identifier ('Billing Ops' and Billing_Ops both give Billing_Ops), and
         // two TableGroup blocks sharing one name is a DBML parse error that takes the whole document
         // with it. Names DBML cannot tell apart therefore become one group rather than two blocks.
@@ -370,12 +401,12 @@ public class DbmlExporter : IDbmlExporter
     /// <summary>
     /// The group a table belongs to, or null when it belongs to none. This is the single seam for
     /// group resolution: a future fallback (deriving the group from the .dmd folder structure, say)
-    /// belongs here and must only be consulted when no explicit <c>@erd-group</c> is present, so an
+    /// belongs here and must only be consulted when no explicit <c>@erd:group</c> is present, so an
     /// explicit attribute always wins.
     /// </summary>
     private static string? ResolveGroup(TableModel table)
     {
-        return table.Attributes.AttributeValue(DbmlErdAttributes.Group);
+        return ErdAttributes(table.Attributes).AttributeValue(DbmlErdAttributes.Group);
     }
 
     /// <summary>
@@ -395,7 +426,7 @@ public class DbmlExporter : IDbmlExporter
 
     private static bool IsHidden(IEnumerable<AttributeModel> attributes)
     {
-        return attributes.HasAttribute(DbmlErdAttributes.Hide);
+        return ErdAttributes(attributes).HasAttribute(DbmlErdAttributes.Hide);
     }
 
     // ---- escaping ------------------------------------------------------------
