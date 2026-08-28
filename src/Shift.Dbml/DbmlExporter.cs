@@ -83,10 +83,10 @@ public class DbmlExporter : IDbmlExporter
     private static PluginAttributeDefinition Erd(
         string localName,
         AttributeScope scope,
-        bool IsFlag,
+        bool isFlag,
         string description)
     {
-        return new PluginAttributeDefinition(DbmlErdAttributes.Namespace, localName, scope, IsFlag, description);
+        return new PluginAttributeDefinition(DbmlErdAttributes.Namespace, localName, scope, isFlag, description);
     }
 
     public IReadOnlyList<PluginAttributeDefinition> SupportedAttributes { get; } =
@@ -94,22 +94,22 @@ public class DbmlExporter : IDbmlExporter
         Erd(
             DbmlErdAttributes.Hide,
             AttributeScope.Both,
-            IsFlag: true,
+            isFlag: true,
             "Omits the table (with its relationships and group membership) or the column from the diagram"),
         Erd(
             DbmlErdAttributes.Group,
             AttributeScope.Model,
-            IsFlag: false,
+            isFlag: false,
             "Puts the table in the named TableGroup; ignored on a field because DBML has no column groups"),
         Erd(
             DbmlErdAttributes.Note,
             AttributeScope.Both,
-            IsFlag: false,
+            isFlag: false,
             "Adds the text as a DBML note on the table or column"),
         Erd(
             DbmlErdAttributes.Color,
             AttributeScope.Model,
-            IsFlag: false,
+            isFlag: false,
             "Sets the table header colour, as rgb or rrggbb hex digits"),
     ];
 
