@@ -328,25 +328,35 @@ public class DbmlExporter : IDbmlExporter
 
     private static void AppendTableGroups(StringBuilder sb, List<TableModel> visibleTables)
     {
+        // Grouped by the DBML identifier, not by the raw @erd-group value: two distinct values can
+        // slugify to the same identifier ('Billing Ops' and Billing_Ops both give Billing_Ops), and
+        // two TableGroup blocks sharing one name is a DBML parse error that takes the whole document
+        // with it. Names DBML cannot tell apart therefore become one group rather than two blocks.
         var groups = visibleTables
-            .Select(table => (Table: table, Group: ResolveGroup(table)))
+            .Select(table => (Table: table, Group: ResolveGroup(table)?.Trim()))
             .Where(x => !string.IsNullOrWhiteSpace(x.Group))
-            .GroupBy(x => x.Group!, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(x => SlugifyGroupName(x.Group!), StringComparer.OrdinalIgnoreCase)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         foreach (var group in groups)
         {
-            var identifier = SlugifyGroupName(group.Key);
+            var identifier = group.Key;
 
             // The slug is what DBML can name; when it differs from what the author wrote, the
-            // original is kept in a note so the human string is not lost.
-            var settings = string.Equals(identifier, group.Key, StringComparison.Ordinal)
+            // original is kept in a note so the human string is not lost. Where several originals
+            // collapsed onto one slug, the first in sorted order is used so the output is stable.
+            var original = group
+                .Select(x => x.Group!)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .First();
+
+            var settings = string.Equals(identifier, original, StringComparison.Ordinal)
                 ? string.Empty
-                : $" [note: {QuoteString(group.Key)}]";
+                : $" [note: {QuoteString(original)}]";
 
             sb.AppendLine();
-            sb.AppendLine($"TableGroup {identifier}{settings} {{");
+            sb.AppendLine($"TableGroup {EscapeIdentifier(identifier)}{settings} {{");
 
             foreach (var member in group.Select(x => x.Table.Name).OrderBy(name => name, StringComparer.Ordinal))
             {
@@ -368,9 +378,17 @@ public class DbmlExporter : IDbmlExporter
         return table.Attributes.AttributeValue(DbmlErdAttributes.Group);
     }
 
+    /// <summary>
+    /// The group name as a bare DBML identifier. Collapsing the non-identifier runs is not enough on
+    /// its own: an attribute value may start with a digit, which <see cref="DbmlIdentifierRegex"/>
+    /// (and dbdiagram.io) does not accept as the start of an identifier, so a leading underscore is
+    /// added to keep the document parseable. The original is preserved in the group's note.
+    /// </summary>
     private static string SlugifyGroupName(string groupName)
     {
-        return NonIdentifierRunRegex.Replace(groupName.Trim(), "_");
+        var slug = NonIdentifierRunRegex.Replace(groupName.Trim(), "_");
+
+        return DbmlIdentifierRegex.IsMatch(slug) ? slug : $"_{slug}";
     }
 
     // ---- hiding --------------------------------------------------------------
@@ -400,7 +418,9 @@ public class DbmlExporter : IDbmlExporter
                 $"'{name}' cannot be written as a DBML identifier.");
         }
 
-        return $"\"{name}\"";
+        // A backslash escapes the next character inside a quoted DBML identifier, so a literal one
+        // has to be doubled; otherwise a name ending in '\' would escape its own closing quote.
+        return $"\"{name.Replace("\\", "\\\\")}\"";
     }
 
     /// <summary>
