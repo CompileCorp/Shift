@@ -25,6 +25,12 @@ public class FieldModel
     public int? Precision { get; set; }
     public int? Scale { get; set; }
 
+    /// <summary>
+    /// Plugin attributes declared as trailing tokens on the field declaration, for example
+    /// <c>ustring(100) Email @erd-hide @erd-note 'PII'</c>.
+    /// </summary>
+    public List<AttributeModel> Attributes { get; set; } = new List<AttributeModel>();
+
     public override string ToString()
     {
         return $"Field:\"{Name}\" Type:\"{Type}\"";

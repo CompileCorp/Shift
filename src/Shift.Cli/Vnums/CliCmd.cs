@@ -9,6 +9,8 @@ public enum CliCmdId
     Export,
     EfGenerate,
     ApplyAssemblies,
+    Dbml,
+    Attributes,
 }
 
 public class CliCmd : Vnum<CliCmdId>
@@ -70,4 +72,16 @@ public class CliCmd : Vnum<CliCmdId>
             code: "apply-assemblies",
             description: "Apply DMD/DMDX files from assembly resources to database",
             usageFormat: "apply-assemblies <connection_string> <dll1> [dll2] ... [filter1] [filter2] ...");
+
+    public static readonly CliCmd Dbml =
+        new(id: CliCmdId.Dbml,
+            code: "dbml",
+            description: "Export DMD/DMDX files to a DBML diagram for dbdiagram.io",
+            usageFormat: "dbml <path1> [path2] ... <output-path>");
+
+    public static readonly CliCmd Attributes =
+        new(id: CliCmdId.Attributes,
+            code: "attributes",
+            description: "List the plugin attributes each plugin understands",
+            usageFormat: "attributes [plugin]");
 }

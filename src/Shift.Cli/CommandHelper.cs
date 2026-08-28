@@ -19,6 +19,8 @@ internal static class CommandHelper
     /// <item><description><see cref="CliCmdId.Export"/>: Returns a command to export data.</description></item>
     /// <item><description><see cref="CliCmdId.EfGenerate"/>: Returns a command to generate Entity Framework-related artifacts.</description></item>
     /// <item><description><see cref="CliCmdId.ApplyAssemblies"/>: Returns a command to apply assemblies.</description></item>
+    /// <item><description><see cref="CliCmdId.Dbml"/>: Returns a command to export a DBML diagram.</description></item>
+    /// <item><description><see cref="CliCmdId.Attributes"/>: Returns a command to list plugin attributes.</description></item>
     /// <item><description>Any other value: Returns a command to display help information.</description></item>
     /// </list></returns>
     internal static IRequest<Unit> GetCommand(string[] args)
@@ -34,6 +36,8 @@ internal static class CommandHelper
                 CliCmdId.Apply => GetApplyCommand(userInput),
                 CliCmdId.Export => GetExportCommand(userInput),
                 CliCmdId.ApplyAssemblies => GetApplyAssembliesCommand(userInput),
+                CliCmdId.Dbml => GetDbmlCommand(userInput),
+                CliCmdId.Attributes => GetAttributesCommand(userInput),
                 _ => new PrintHelpCommand(["Error: Unknown command"])
             };
         }
@@ -154,6 +158,38 @@ internal static class CommandHelper
             ConnectionString: args[0],
             Schema: args[1],
             OutputDirectoryPath: args[2]);
+    }
+
+    private static IRequest<Unit> GetDbmlCommand(UserInput userInput)
+    {
+        var args = userInput.RemainingArgs;
+        if (args.Length < 2)
+        {
+            return new PrintHelpCommand(
+            [
+                "Error: dbml requires <path1> [path2] [...] <output-path>",
+                "       Last argument is the output path (a .dbml file or a directory), all others are input model paths"
+            ]);
+        }
+
+        var outputPath = args[^1]; // Last argument is output path
+        var inputPaths = args[..^1]; // All but last are input paths
+
+        Console.WriteLine($"Generating DBML diagram from model files...");
+        Console.WriteLine($"   Input paths: {string.Join(", ", inputPaths)}");
+        Console.WriteLine($"   Output: {outputPath}");
+
+        return new DbmlCommand(
+            DmdLocationPaths: inputPaths,
+            OutputPath: outputPath);
+    }
+
+    private static IRequest<Unit> GetAttributesCommand(UserInput userInput)
+    {
+        var args = userInput.RemainingArgs;
+
+        // Takes no required arguments; an optional first argument filters to one plugin.
+        return new AttributesCommand(PluginName: args.Length > 0 ? args[0] : null);
     }
 
     private static IRequest<Unit> GetEfFromSqlCommand(UserInput userInput)

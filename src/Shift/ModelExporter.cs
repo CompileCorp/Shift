@@ -75,6 +75,9 @@ public class ModelExporter
         // Apply mixins first - check if table contains all fields of any mixin
         var appliedMixins = new List<string>();
         var fieldsToExclude = new List<FieldModel>();
+        // Attributes the mixin contributes. They are already re-emitted by the "with <Mixin>" header,
+        // so emitting them inline as well would both duplicate them and break the round trip.
+        var attributesToExclude = new HashSet<AttributeModel>();
 
         if (table.Mixins.Count == 0)
         {
@@ -88,6 +91,11 @@ public class ModelExporter
                     {
                         //Console.WriteLine($"{mf.Name} {mf.Model} {mf.Type}");
                         fieldsToExclude.Add(mf);
+                    }
+
+                    foreach (var ma in mixin.Attributes)
+                    {
+                        attributesToExclude.Add(ma);
                     }
                 }
             }
@@ -114,6 +122,9 @@ public class ModelExporter
                 continue;
             }
 
+            var fkAttributes = RenderTrailingAttributes(
+                table.Fields.FirstOrDefault(f => string.Equals(f.Name, fk.ColumnName, StringComparison.OrdinalIgnoreCase))?.Attributes);
+
             var semanticName = ExtractSemanticName(fk.ColumnName, fk.TargetTable);
             var idField = $"{new string(fk.TargetTable.Where(char.IsLetter).ToArray())}ID";
 
@@ -123,16 +134,16 @@ public class ModelExporter
             if (fk.RelationshipType == RelationshipType.OneToMany)
             {
                 if (needsAs)
-                    sb.AppendLine($"  models {fk.TargetTable}{nullableSuffix} as {semanticName}");
+                    sb.AppendLine($"  models {fk.TargetTable}{nullableSuffix} as {semanticName}{fkAttributes}");
                 else
-                    sb.AppendLine($"  models {fk.TargetTable}{nullableSuffix}");
+                    sb.AppendLine($"  models {fk.TargetTable}{nullableSuffix}{fkAttributes}");
             }
             else
             {
                 if (needsAs)
-                    sb.AppendLine($"  model {fk.TargetTable}{nullableSuffix} as {semanticName}");
+                    sb.AppendLine($"  model {fk.TargetTable}{nullableSuffix} as {semanticName}{fkAttributes}");
                 else
-                    sb.AppendLine($"  model {fk.TargetTable}{nullableSuffix}");
+                    sb.AppendLine($"  model {fk.TargetTable}{nullableSuffix}{fkAttributes}");
             }
         }
 
@@ -165,7 +176,7 @@ public class ModelExporter
             }
 
             string fieldType = DmdTypeHelper.GetDmdTypeString(field, sqlFieldType);
-            sb.AppendLine($"  {fieldType}{(field.IsNullable ? "?" : "")} {field.Name}");
+            sb.AppendLine($"  {fieldType}{(field.IsNullable ? "?" : "")} {field.Name}{RenderTrailingAttributes(field.Attributes)}");
         }
 
         // Determine PK and FK columns
@@ -202,15 +213,47 @@ public class ModelExporter
         }
 
         // Add attributes
-        foreach (var attribute in table.Attributes)
+        foreach (var attribute in table.Attributes.Where(a => !attributesToExclude.Contains(a)))
         {
-            sb.AppendLine($"  @{attribute.Key}");
+            sb.AppendLine($"  {RenderAttribute(attribute)}");
         }
 
         // Close model definition
         sb.AppendLine("}");
 
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Renders one plugin attribute back to DMD. A value is single-quoted only when it contains
+    /// whitespace, so a bare value round trips unchanged.
+    /// </summary>
+    private static string RenderAttribute(AttributeModel attribute)
+    {
+        if (attribute.IsFlag)
+        {
+            return $"@{attribute.Name}";
+        }
+
+        var value = attribute.Value!;
+
+        return value.Any(char.IsWhiteSpace)
+            ? $"@{attribute.Name} '{value}'"
+            : $"@{attribute.Name} {value}";
+    }
+
+    /// <summary>
+    /// Renders field-level attributes as trailing tokens, preserving declaration order. Returns an
+    /// empty string when there are none, so it can be interpolated unconditionally.
+    /// </summary>
+    private static string RenderTrailingAttributes(List<AttributeModel>? attributes)
+    {
+        if (attributes == null || attributes.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        return " " + string.Join(" ", attributes.Select(RenderAttribute));
     }
 
     private bool ContainsAllMixinFields(TableModel table, MixinModel mixin)

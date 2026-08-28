@@ -1,4 +1,5 @@
 using Compile.Shift.Model;
+using Compile.Shift.Model.Helpers;
 using Compile.Shift.Model.Vnums;
 using Compile.VnumEnumeration;
 using System.Text.RegularExpressions;
@@ -7,6 +8,17 @@ namespace Compile.Shift;
 
 public class Parser
 {
+    // A plugin attribute on its own line inside a model or mixin block: "@name", "@name value" or
+    // "@name 'value with spaces'". The name class is deliberately permissive so a malformed name is
+    // reported by DmdAttributeValidator instead of being silently ignored.
+    private static readonly Regex AttributeLineRegex =
+        new(@"^@(?<name>[^\s'@]+)(?:\s*'(?<quoted>[^']*)'|\s+(?<bare>[^\s'@]+))?\s*$", RegexOptions.Compiled);
+
+    // The same attribute anchored to the end of a line, so trailing attributes can be peeled off a
+    // field declaration one at a time from right to left.
+    private static readonly Regex TrailingAttributeRegex =
+        new(@"\s+@(?<name>[^\s'@]+)(?:\s*'(?<quoted>[^']*)'|\s+(?<bare>[^\s'@]+))?\s*$", RegexOptions.Compiled);
+
     public async Task ParseMixinsAsync(DatabaseModel model, IEnumerable<string> mixinFiles)
     {
         foreach (var mixinFile in mixinFiles)
@@ -26,17 +38,23 @@ public class Parser
         {
             var line = lines[index].Trim();
 
+            if (line == "}")
+                break;
+
             if (line.StartsWith("mixin "))
             {
                 model.Name = line.Substring(6).Split('{')[0].Trim();
             }
-            else if (!string.IsNullOrWhiteSpace(line))
+            else if (line.StartsWith("@"))
+            {
+                // Mirrors the model-level branch in ParseTable. Without it a mixin-level attribute
+                // was parsed as a field declaration, producing a bogus field named after the value.
+                model.Attributes.Add(ParseAttributeLine(line));
+            }
+            else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("//") && !line.StartsWith("#"))
             {
                 ParseField(line, model);
             }
-
-            if (line == "}")
-                break;
         }
 
         return model;
@@ -138,6 +156,10 @@ public class Parser
 
                 if (line.StartsWith("model ") || line.StartsWith("models "))
                 {
+                    // Must run before any tokenising: an unstripped trailing attribute makes the
+                    // alias check below see an extra token and silently drop the FK alias.
+                    var attributes = StripTrailingAttributes(ref line);
+
                     var isMany = line.StartsWith("models ");
                     var prefix = isMany ? "models " : "model ";
                     var rest = line.Substring(prefix.Length).Split('{')[0].Trim();
@@ -171,7 +193,8 @@ public class Parser
                     {
                         Name = columnName,
                         Type = "int",
-                        IsNullable = isNullable
+                        IsNullable = isNullable,
+                        Attributes = attributes
                     };
 
                     var fk = new ForeignKeyModel
@@ -202,8 +225,7 @@ public class Parser
                 }
                 else if (line.StartsWith("@"))
                 {
-                    var attribute = line.Substring(1).Trim();
-                    table.Attributes[attribute] = true;
+                    table.Attributes.Add(ParseAttributeLine(line));
                 }
                 else if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("//") && !line.StartsWith("#"))
                 {
@@ -219,7 +241,9 @@ public class Parser
         }
 
         // Check for @NoIdentity attribute and set IsIdentity = false on all primary key fields
-        if (table.Attributes.ContainsKey("NoIdentity"))
+        // @NoIdentity is an ordinary attribute that Shift happens to interpret itself; every other
+        // attribute is preserved for plugins.
+        if (table.Attributes.HasAttribute("NoIdentity"))
         {
             foreach (var field in table.Fields.Where(f => f.IsPrimaryKey))
             {
@@ -230,6 +254,10 @@ public class Parser
 
     private FieldModel? ParseField(string line, IModel targetModel)
     {
+        // Must run before the split: the alias form ("model User? as CreatedBy") is recognised by
+        // token count, so a trailing attribute left in the line would silently drop the alias.
+        var attributes = StripTrailingAttributes(ref line);
+
         var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2) return null;
 
@@ -335,7 +363,8 @@ public class Parser
             IsNullable = isNullable,
             IsOptional = isOptional,
             Precision = precision,
-            Scale = scale
+            Scale = scale,
+            Attributes = attributes
         };
 
         field.Type =
@@ -385,6 +414,18 @@ public class Parser
     {
         table.Mixins.Add(mixin.Name);
 
+        // Merge mixin-level attributes onto the table, model wins: a mixin attribute is skipped
+        // when the model already declares one of that name. The names present on the model are
+        // snapshotted first so duplicates declared by the mixin itself are still preserved.
+        var modelAttributeNames = table.Attributes
+            .Select(x => x.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attribute in mixin.Attributes.Where(x => !modelAttributeNames.Contains(x.Name)))
+        {
+            table.Attributes.Add(attribute);
+        }
+
         // Add mixin fields
         foreach (var field in mixin.Fields)
         {
@@ -397,7 +438,10 @@ public class Parser
                 Precision = field.Precision,
                 Scale = field.Scale,
                 IsPrimaryKey = field.IsPrimaryKey,
-                IsIdentity = field.IsIdentity
+                IsIdentity = field.IsIdentity,
+                // A fresh list: model.Mixins holds one shared MixinModel instance, so handing the
+                // mixin's own list to every table using the mixin would leak mutations between them.
+                Attributes = [.. field.Attributes]
             });
         }
 
@@ -412,5 +456,63 @@ public class Parser
                 RelationshipType = fk.RelationshipType
             });
         }
+    }
+
+    /// <summary>
+    /// Parses a whole line that is a single plugin attribute declaration, as it appears at model or
+    /// mixin level.
+    /// </summary>
+    private static AttributeModel ParseAttributeLine(string line)
+    {
+        var match = AttributeLineRegex.Match(line);
+
+        if (!match.Success)
+        {
+            throw new InvalidOperationException($"Malformed attribute declaration. Line: {line}");
+        }
+
+        return CreateAttribute(match, line);
+    }
+
+    /// <summary>
+    /// Removes every trailing plugin attribute from a declaration line and returns them in
+    /// declaration order. Attributes are peeled off right to left, so this must be called before the
+    /// line is tokenised in any way.
+    /// </summary>
+    private static List<AttributeModel> StripTrailingAttributes(ref string line)
+    {
+        var attributes = new List<AttributeModel>();
+
+        while (true)
+        {
+            var match = TrailingAttributeRegex.Match(line);
+            if (!match.Success)
+            {
+                break;
+            }
+
+            attributes.Add(CreateAttribute(match, line));
+            line = line.Substring(0, match.Index).TrimEnd();
+        }
+
+        attributes.Reverse();
+        return attributes;
+    }
+
+    private static AttributeModel CreateAttribute(Match match, string line)
+    {
+        var name = match.Groups["name"].Value;
+
+        string? value = null;
+        if (match.Groups["quoted"].Success)
+        {
+            value = match.Groups["quoted"].Value;
+        }
+        else if (match.Groups["bare"].Success)
+        {
+            value = match.Groups["bare"].Value;
+        }
+
+        return DmdAttributeValidator.Create(name, value, line);
     }
 }

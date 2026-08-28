@@ -1,9 +1,10 @@
 using Compile.Shift.Model;
+using Compile.Shift.Plugins;
 using Microsoft.Extensions.Logging;
 
 namespace Compile.Shift.Ef;
 
-public interface IEfCodeGenerator
+public interface IEfCodeGenerator : IShiftPlugin
 {
     Task GenerateEfCodeAsync(DatabaseModel model, string outputPath, EfCodeGenerationOptions options);
     Task GenerateEfCodeAsync(DatabaseModel model, string outputPath, string namespaceName = "Generated");
@@ -17,6 +18,17 @@ public class EfCodeGenerator : IEfCodeGenerator
     private readonly DbContextInterfaceGenerator _dbContextInterfaceGenerator;
 
     public required ILogger Logger { private get; init; }
+
+    public string Name => "ef";
+
+    public string Description => "Generates Entity Framework entities, maps and a DbContext";
+
+    /// <summary>
+    /// The generator consumes no plugin attributes today. It still implements the plugin contract so
+    /// the CLI presents one uniform surface for every plugin, and so declaring an attribute here is
+    /// the obvious next step if it ever grows one.
+    /// </summary>
+    public IReadOnlyList<PluginAttributeDefinition> SupportedAttributes { get; } = [];
 
     public EfCodeGenerator()
     {

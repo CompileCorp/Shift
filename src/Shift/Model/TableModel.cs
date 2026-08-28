@@ -6,7 +6,7 @@ public class TableModel : IModel
     public List<FieldModel> Fields { get; set; } = new List<FieldModel>();
     public List<ForeignKeyModel> ForeignKeys { get; set; } = new List<ForeignKeyModel>();
     public List<IndexModel> Indexes { get; set; } = new List<IndexModel>();
-    public Dictionary<string, bool> Attributes { get; set; } = new Dictionary<string, bool>();
+    public List<AttributeModel> Attributes { get; set; } = new List<AttributeModel>();
     public List<string> Mixins { get; set; } = new List<string>();
 
     public override string ToString()
