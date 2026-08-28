@@ -14,13 +14,12 @@ public class SqlServerContainerFixture : IAsyncLifetime
         var password = "Your_strong_password123!";
 
         // Use generic container with simple wait (port availability) and do our own SQL readiness wait.
-        _container = new ContainerBuilder()
-            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+        _container = new ContainerBuilder("mcr.microsoft.com/mssql/server:2022-latest")
             .WithEnvironment("ACCEPT_EULA", "Y")
             .WithEnvironment("MSSQL_SA_PASSWORD", password)
             .WithEnvironment("MSSQL_PID", "Express")
             .WithPortBinding(0, 1433)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(1433))
             .Build();
 
         await _container.StartAsync();
