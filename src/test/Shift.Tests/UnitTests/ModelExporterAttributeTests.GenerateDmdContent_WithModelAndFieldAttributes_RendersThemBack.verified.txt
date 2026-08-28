@@ -1,0 +1,8 @@
+﻿model User {
+  model User as CreatedBy @erd-hide
+  ustring(256) Email @erd-hide @erd-note PII
+  ustring(50)? Nickname
+  @erd-hide
+  @erd-group 'Billing Ops'
+  @erd-color 3498DB
+}

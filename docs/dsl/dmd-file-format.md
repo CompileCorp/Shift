@@ -621,6 +621,10 @@ This feature makes DMD files more intuitive and maintainable while ensuring that
 
 ## Attributes
 
+Attributes annotate a model, a mixin or a single field with information Shift itself does not need.
+Two of them are interpreted by Shift; every other attribute is a **plugin attribute** — Shift parses
+it, preserves it and hands it to whichever plugin cares about it.
+
 ### @NoIdentity
 
 Disable IDENTITY property on primary key:
@@ -643,6 +647,112 @@ model User {
   index (Email) @unique
 }
 ```
+
+`@unique` is part of the `index (...)` line, not a standalone attribute.
+
+## Plugin Attributes
+
+A plugin attribute lets you annotate your schema for a tool that consumes it — a diagram generator,
+say — without Shift needing to know what the annotation means. Shift's contract is narrow and
+deliberate:
+
+- Shift **parses** attributes and **preserves** them (order, duplicates, and the difference between
+  a flag and a value).
+- Shift **validates** their spelling.
+- Shift **does not interpret** them. `@NoIdentity` is the one exception, and it is simply a flag that
+  Shift happens to read.
+
+Run `shift attributes` to list every attribute the installed plugins understand, so you do not have
+to read plugin source to find the names.
+
+### Syntax
+
+```text
+@name                       # flag: no value
+@name value                 # valued: a bare token
+@name 'value with spaces'   # valued: single-quoted
+```
+
+A value is single-quoted only when it contains spaces. Shift writes it back the same way, so a file
+round trips unchanged.
+
+### Model level
+
+On its own line anywhere inside the model block:
+
+```dmd
+model Invoice {
+  ustring(50) Reference
+  decimal(19,4) Total
+
+  @erd-group 'Billing Ops'
+  @erd-color 3498DB
+}
+```
+
+### Mixin level
+
+The same, inside a `.dmdx` mixin block. Every model that uses the mixin inherits its attributes:
+
+```dmdx
+mixin Auditable {
+  datetime CreatedDateTime
+  datetime LastModifiedDateTime
+
+  @erd-group Audit
+}
+```
+
+**Merge rule — the model wins.** When a model and its mixin declare an attribute of the same name
+(compared case-insensitively), the model's declaration is kept and the mixin's is dropped. No error
+is raised. Attributes with names the model does not declare are added.
+
+### Field level
+
+As trailing tokens after the field declaration. Multiple attributes are allowed and their order is
+preserved:
+
+```dmd
+model User {
+  ustring(100) Email @erd-hide @erd-note 'PII'
+  model User? as CreatedBy @erd-hide
+  models Task @erd-group 'Work Items'
+}
+```
+
+Field attributes work on plain fields, on `model`/`models` relationship lines, and on `!model`
+optional relationship lines. They do **not** apply to `key (...)` or `index (...)` lines.
+
+### Validation
+
+An attribute that does not satisfy these rules fails the parse, naming the offending line:
+
+| Part | Rule |
+|------|------|
+| Name | `^[A-Za-z][A-Za-z0-9_-]{0,63}$` — starts with a letter, then letters, digits, `_` or `-`. |
+| Value | `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,255}$` after trimming and unquoting, and may not contain `..`. |
+
+The characters left out are the point. An attribute value ends up inside whatever a plugin
+generates — a quoted note, an identifier, a settings list — so it must not be able to break out of
+it:
+
+- no `'` or `"`, so a value cannot close the string it is embedded in;
+- no `[ ] { }`, so it cannot terminate a settings list or a model block;
+- no `/ \ :` and no `..`, so it can never be read as a file path;
+- no `@ # ,`, so it cannot forge a second attribute, a comment or a list separator when the file is
+  re-parsed.
+
+Names are compared case-insensitively throughout. A repeated attribute is preserved as written;
+plugins that want a single effective value take the last one.
+
+### Attributes and SQL
+
+Attributes exist only in DMD. They are never written to the database, because SQL has nowhere to
+store them, and they never influence a migration.
+
+The practical consequence is that `shift export` (SQL → DMD) cannot emit attributes: it reads tables,
+columns, keys and indexes from the live database, and no attribute survived the trip there. If you
+regenerate DMD from SQL you will need to re-apply your attributes by hand.
 
 ## Complete Examples
 

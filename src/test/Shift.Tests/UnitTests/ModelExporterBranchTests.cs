@@ -334,7 +334,7 @@ public class ModelExporterBranchTests : IDisposable
         var model = DatabaseModelBuilder.Create()
             .WithTable("User", t => t
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
-                .WithAttribute("audit", true))
+                .WithAttribute("audit"))
             .Build();
 
         var dmd = _sut.GenerateDmdContent(model.Tables["User"], new List<MixinModel>());
