@@ -31,9 +31,14 @@ In the examples below, `shift` stands for however you invoke the built CLI
 | `ef sql` | Generate EF Core code from a database |
 | `ef files` | Generate EF Core code from DMD files |
 | `ef sql-custom` | Generate EF Core code from a database with custom naming |
+| `dbml` | Export DMD/DMDX files to a DBML diagram for dbdiagram.io |
+| `attributes` | List the plugin attributes each plugin understands |
 
 Running `shift` with no arguments, or with an unrecognised command, prints help. The `ef`
 command also responds to the aliases `ef-generate` and `generate-ef`.
+
+`ef`, `dbml` and `attributes` are the plugin-facing commands. Every plugin implements the same
+contract (`IShiftPlugin`), which is what lets `attributes` enumerate them.
 
 ### apply
 
@@ -122,6 +127,59 @@ missing), each with a `.g.cs` suffix:
 - `<Table>EntityMap.g.cs` — its `IEntityTypeConfiguration<TEntity>` fluent configuration.
 - `<Context>.g.cs` and `<Interface>.g.cs` — the DbContext and its interface (defaults
   `GeneratedDbContext.g.cs` / `IGeneratedDbContext.g.cs`).
+
+### dbml
+
+```bash
+shift dbml <path> [path...] <output-path>
+```
+
+- **`<path>`** — a directory of DMD/DMDX files; repeatable. At least one is required.
+- **`<output-path>`** — the last argument. Ending in `.dbml` (case-insensitive) names the file;
+  anything else is treated as a directory and receives `model.dbml`.
+
+```bash
+shift dbml ./Models ./Diagrams                 # writes ./Diagrams/model.dbml
+shift dbml ./Models ./Mixins ./schema.dbml     # writes ./schema.dbml
+```
+
+Paste the result into [dbdiagram.io](https://dbdiagram.io). The diagram is shaped by the `erd:*`
+plugin attributes — see [architecture/shift-dbml-exporter.md](../architecture/shift-dbml-exporter.md).
+
+### attributes
+
+```bash
+shift attributes [plugin]
+```
+
+Lists every plugin attribute the installed plugins understand, so you can discover attribute names
+without reading plugin source. Takes no required arguments; pass a plugin name to list just that one.
+
+```bash
+shift attributes            # every plugin
+shift attributes dbml       # just the DBML exporter
+```
+
+Attributes are grouped by namespace. Each line shows the full attribute name as you would write it,
+its scope (`model`, `field` or `both`), whether it is a flag or takes a value, and what the plugin
+does with it:
+
+```text
+dbml - Exports the model as a DBML diagram for dbdiagram.io
+  namespace: erd
+    @erd:color scope=model kind=valued - Sets the table header colour, as rgb or rrggbb hex digits
+    @erd:group scope=model kind=valued - Puts the table in the named TableGroup; ignored on a field because DBML has no column groups
+    @erd:hide scope=both kind=flag - Omits the table (with its relationships and group membership) or the column from the diagram
+    @erd:note scope=both kind=valued - Adds the text as a DBML note on the table or column
+ef - Generates Entity Framework entities, maps and a DbContext
+  (no plugin attributes)
+```
+
+A plugin claims one namespace and is handed only that namespace's attributes. The `ef` generator
+consumes none, so it claims no namespace and lists nothing.
+
+See the [plugin attributes section of the DMD reference](../dsl/dmd-file-format.md#plugin-attributes)
+for the syntax and validation rules.
 
 ## Connection strings
 

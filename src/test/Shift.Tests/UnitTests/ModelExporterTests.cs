@@ -281,7 +281,7 @@ public class ModelExporterTests : UnitTestContext<ModelExporter>
             .WithTable("User", table => table
                 .WithField("UserID", "int", f => f.PrimaryKey().Identity())
                 .WithField("Username", "nvarchar", f => f.Precision(100).Nullable(false))
-                .WithAttribute("NoIdentity", true))
+                .WithAttribute("NoIdentity"))
             .Build();
     }
 

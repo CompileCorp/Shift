@@ -26,6 +26,7 @@ This directory contains the project's reference and developer documentation, org
 | [architecture/migration-planner.md](architecture/migration-planner.md) | How the migration planner diffs the target model against the live database to produce an ordered plan. |
 | [architecture/sql-migration-plan-runner.md](architecture/sql-migration-plan-runner.md) | How a migration plan is translated into SQL Server DDL and executed, including the data-loss safety checks. |
 | [architecture/shift-ef-generator.md](architecture/shift-ef-generator.md) | How Shift.Ef generates EF Core entities, entity maps, and the DbContext from a model. |
+| [architecture/shift-dbml-exporter.md](architecture/shift-dbml-exporter.md) | How Shift.Dbml renders a model as a DBML diagram for dbdiagram.io, and the `erd:*` plugin attributes that shape it. |
 
 ## Development — patterns and developer notes
 
