@@ -165,6 +165,46 @@ public class ParserEdgeTests : IDisposable
         doc.ForeignKeys.Should().Contain(fk => fk.TargetTable == "User");
     }
 
+    // ---- comments --------------------------------------------------------------
+
+    [Fact]
+    public void ParseMixin_CommentLines_AreIgnored()
+    {
+        var mixin = _sut.ParseMixin(
+            "mixin Auditable {\n" +
+            "  // erd: hide — stamp columns mixed into almost every table\n" +
+            "  # hash comment\n" +
+            "  datetime CreatedDateTime\n" +
+            "}");
+
+        mixin.Fields.Select(f => f.Name).Should().BeEquivalentTo("CreatedDateTime");
+    }
+
+    [Fact]
+    public void ParseMixin_TrailingComment_IsStrippedFromFieldLine()
+    {
+        var mixin = _sut.ParseMixin("mixin Auditable {\n  datetime CreatedDateTime // when the row was created\n}");
+
+        var field = mixin.Fields.Single();
+        field.Name.Should().Be("CreatedDateTime");
+        field.Type.Should().Be("datetime");
+    }
+
+    [Fact]
+    public void ParseTable_CommentLinesAndTrailingComments_AreIgnored()
+    {
+        var model = new DatabaseModel();
+
+        _sut.ParseTable(model,
+            "model User { // main user table\n" +
+            "  // full-line comment\n" +
+            "  string(50) Name // trailing comment\n" +
+            "}");
+
+        var user = model.Tables["User"];
+        user.Fields.Select(f => f.Name).Should().BeEquivalentTo("UserID", "Name");
+    }
+
     // ---- async file loaders --------------------------------------------------
 
     [Fact]

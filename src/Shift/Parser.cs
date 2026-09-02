@@ -24,7 +24,7 @@ public class Parser
         var lines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         for (var index = 0; index < lines.Length; index++)
         {
-            var line = lines[index].Trim();
+            var line = StripComment(lines[index].Trim());
 
             if (line.StartsWith("mixin "))
             {
@@ -59,7 +59,7 @@ public class Parser
 
         for (var index = 0; index < lines.Length; index++)
         {
-            var line = lines[index].Trim();
+            var line = StripComment(lines[index].Trim());
 
             if (line.StartsWith("model ") && string.IsNullOrEmpty(table.Name))
             {
@@ -226,6 +226,21 @@ public class Parser
                 field.IsIdentity = false;
             }
         }
+    }
+
+    /// <summary>
+    /// Removes comments from a trimmed line: everything from "//" onwards,
+    /// and whole lines starting with "#".
+    /// </summary>
+    private static string StripComment(string line)
+    {
+        if (line.StartsWith("#"))
+            return string.Empty;
+
+        var commentIndex = line.IndexOf("//", StringComparison.Ordinal);
+        return commentIndex >= 0
+            ? line.Substring(0, commentIndex).TrimEnd()
+            : line;
     }
 
     private FieldModel? ParseField(string line, IModel targetModel)
