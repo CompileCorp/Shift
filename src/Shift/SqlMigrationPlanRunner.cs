@@ -55,8 +55,27 @@ public class SqlMigrationPlanRunner
                     foreach (var field in step.Fields)
                     {
                         Logger.LogWarning($"{step.Action} {step.TableName} {field}");
+
+                        var actualDataType = GetActualColumnDataType(connection, step.TableName, field.Name);
+
+                        // A change of base type is rejected outright by SQL Server when any other
+                        // object depends on the column, so it is checked before the data-loss probe.
+                        // Only base-type changes are checked: widening an indexed string succeeds,
+                        // and blocking it here would refuse alters that work today.
+                        if (IsBaseTypeChange(actualDataType, field))
+                        {
+                            var blockers = GetAlterColumnBlockers(connection, step.TableName, field);
+                            if (blockers.Count > 0)
+                            {
+                                Logger.LogWarning(
+                                    "Skipping ALTER COLUMN {table}.{column}: SQL Server rejects changing {actualType} to {targetType} while {blockers} depend(s) on it. Drop the dependent object(s) and re-apply.",
+                                    step.TableName, field.Name, actualDataType, field.Type, string.Join(", ", blockers));
+                                continue;
+                            }
+                        }
+
                         // Safety check: skip alters that would cause data loss
-                        if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field))
+                        if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field, actualDataType))
                         {
                             Logger.LogWarning("Skipping ALTER COLUMN {table}.{column}: would cause data loss", step.TableName, field.Name);
                             continue;
@@ -235,7 +254,16 @@ BEGIN
 END";
     }
 
-    internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field)
+    /// <summary>
+    /// True when the column's live base type differs from the type the plan wants, i.e. this alter
+    /// is a conversion rather than a resize. False when the column does not exist, in which case
+    /// the alter's own IF EXISTS guard makes it a no-op.
+    /// </summary>
+    private static bool IsBaseTypeChange(string? actualDataType, FieldModel field) =>
+        actualDataType != null
+        && !string.Equals(actualDataType, field.Type, StringComparison.OrdinalIgnoreCase);
+
+    internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field, string? actualDataType = null)
     {
         // Only guard for types where resizing/precision can cause truncation or rounding
         var baseType = field.Type.ToLowerInvariant();
@@ -252,6 +280,24 @@ END";
             if (field.Precision == -1)
             {
                 return false; // to MAX is never unsafe
+            }
+
+            // A change of base type is measured in rendered characters, not storage bytes:
+            // DATALENGTH on an int is always 4 and would wave through a target too narrow to
+            // hold the rendered value. SQL Server does not raise on that conversion — it stores
+            // '*' in place of the number — so this probe is the only thing standing between a
+            // too-narrow target and silent data loss. CHARACTER_MAXIMUM_LENGTH counts characters
+            // for nvarchar and bytes for varchar, and a rendered integer is ASCII, so a character
+            // count is the correct limit for both.
+            var actualType = baseType is "varchar" or "nvarchar"
+                ? actualDataType ?? GetActualColumnDataType(connection, tableName, field.Name)
+                : null;
+            if (actualType != null && SqlTypeConversion.IsSupportedInPlaceConversion(actualType, baseType))
+            {
+                var conversionSql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND LEN(CONVERT(varchar(50), [{field.Name}])) > @limitChars";
+                using var conversionCmd = new SqlCommand(conversionSql, connection);
+                conversionCmd.Parameters.AddWithValue("@limitChars", field.Precision.Value);
+                return conversionCmd.ExecuteScalar() != null;
             }
 
             targetBytes = isUnicode ? field.Precision.Value * 2 : field.Precision.Value;
@@ -295,6 +341,117 @@ END";
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Reads the base type the column currently has, so the safety probe can tell an existing
+    /// string apart from a value that is only about to become one. Returns null when the column
+    /// does not exist.
+    /// </summary>
+    private string? GetActualColumnDataType(SqlConnection connection, string tableName, string columnName)
+    {
+        const string sql = @"
+SELECT DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
+
+        using var cmd = new SqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@schema", _schema);
+        cmd.Parameters.AddWithValue("@table", tableName);
+        cmd.Parameters.AddWithValue("@column", columnName);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    /// <summary>
+    /// Lists the objects that would make SQL Server reject a change of this column's base type.
+    /// Converting a column that anything else depends on fails with error 4922 (or 2749 for an
+    /// identity column) rather than doing anything useful, so the alter is skipped and the
+    /// dependency named instead of being attempted and failing.
+    ///
+    /// Every entry here was confirmed against SQL Server 2022 to block both an int-to-varchar
+    /// conversion and a numeric-to-decimal one. Auto-created statistics are excluded because SQL
+    /// Server drops and recreates them itself; only explicitly created statistics block. Views
+    /// that are not schema-bound do not block either.
+    ///
+    /// The IDENTITY property is the one conditional entry: it blocks only when the target type
+    /// cannot itself carry an identity, so a numeric(18,0) identity column converting to
+    /// decimal(19,0) is left alone to succeed.
+    /// </summary>
+    internal List<string> GetAlterColumnBlockers(SqlConnection connection, string tableName, FieldModel field)
+    {
+        const string sql = @"
+DECLARE @objectId int = OBJECT_ID(QUOTENAME(@schema) + '.' + QUOTENAME(@table));
+DECLARE @columnId int = COLUMNPROPERTY(@objectId, @column, 'ColumnId');
+
+SELECT DISTINCT Blocker FROM (
+    SELECT 'the IDENTITY property' AS Blocker
+    FROM sys.columns
+    WHERE object_id = @objectId AND column_id = @columnId AND is_identity = 1
+      AND @identityBlocks = 1
+
+    UNION ALL
+    SELECT 'index [' + i.name + ']'
+    FROM sys.index_columns ic
+    JOIN sys.indexes i ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+    WHERE ic.object_id = @objectId AND ic.column_id = @columnId AND i.name IS NOT NULL
+
+    UNION ALL
+    SELECT 'foreign key [' + fk.name + ']'
+    FROM sys.foreign_key_columns fkc
+    JOIN sys.foreign_keys fk ON fk.object_id = fkc.constraint_object_id
+    WHERE (fkc.parent_object_id = @objectId AND fkc.parent_column_id = @columnId)
+       OR (fkc.referenced_object_id = @objectId AND fkc.referenced_column_id = @columnId)
+
+    UNION ALL
+    SELECT 'default constraint [' + dc.name + ']'
+    FROM sys.default_constraints dc
+    WHERE dc.parent_object_id = @objectId AND dc.parent_column_id = @columnId
+
+    UNION ALL
+    SELECT 'check constraint [' + cc.name + ']'
+    FROM sys.check_constraints cc
+    JOIN sys.sql_expression_dependencies d ON d.referencing_id = cc.object_id
+    WHERE d.referenced_id = @objectId AND d.referenced_minor_id = @columnId
+
+    UNION ALL
+    SELECT 'computed column [' + col.name + ']'
+    FROM sys.sql_expression_dependencies d
+    JOIN sys.columns col ON col.object_id = d.referencing_id AND col.column_id = d.referencing_minor_id
+    WHERE d.referenced_id = @objectId AND d.referenced_minor_id = @columnId AND col.is_computed = 1
+
+    UNION ALL
+    SELECT 'statistics [' + s.name + ']'
+    FROM sys.stats_columns sc
+    JOIN sys.stats s ON s.object_id = sc.object_id AND s.stats_id = sc.stats_id
+    WHERE sc.object_id = @objectId AND sc.column_id = @columnId
+      AND s.auto_created = 0 AND s.user_created = 1
+
+    UNION ALL
+    SELECT 'schema-bound object [' + OBJECT_NAME(d.referencing_id) + ']'
+    FROM sys.sql_expression_dependencies d
+    WHERE d.referenced_id = @objectId AND d.referenced_minor_id = @columnId
+      AND d.referencing_id <> @objectId
+      AND OBJECTPROPERTY(d.referencing_id, 'IsSchemaBound') = 1
+) blockers
+ORDER BY Blocker";
+
+        var blockers = new List<string>();
+
+        using var cmd = new SqlCommand(sql, connection);
+        cmd.Parameters.AddWithValue("@schema", _schema);
+        cmd.Parameters.AddWithValue("@table", tableName);
+        cmd.Parameters.AddWithValue("@column", field.Name);
+        // The IDENTITY property only blocks when the target cannot itself be an identity type: a
+        // numeric(18,0) identity converts to decimal(19,0) quite happily.
+        cmd.Parameters.AddWithValue("@identityBlocks", SqlTypeConversion.CanBeIdentity(field) ? 0 : 1);
+
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            blockers.Add(reader.GetString(0));
+        }
+
+        return blockers;
     }
 
     internal IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index, TableModel? table = null)

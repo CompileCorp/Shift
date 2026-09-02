@@ -86,6 +86,7 @@ public class MigrationPlanner
                 }
 
                 // Detect alter operations for size/precision changes (strings/binaries/decimals)
+                // and for the narrow set of base-type changes that can be applied in place.
                 foreach (var targetField in targetTable.Fields)
                 {
                     var actualField = actualTable.Fields
@@ -130,6 +131,51 @@ public class MigrationPlanner
                         var scaleChanged = (targetField.Scale ?? 0) != (actualField.Scale ?? 0);
                         if (precisionChanged || scaleChanged)
                         {
+                            plan.Steps.Add(new MigrationStep
+                            {
+                                Action = MigrationAction.AlterColumn,
+                                TableName = targetTable.Name,
+                                Fields = new List<FieldModel> { targetField }
+                            });
+                        }
+                    }
+
+                    // Handle base-type changes. Only conversions on the SqlTypeConversion allow-list
+                    // are migrated; every other change is reported so the drift stops being silent.
+                    if (!string.Equals(targetType, actualType, StringComparison.OrdinalIgnoreCase)
+                        && !(targetIsDecimal && actualIsDecimal))
+                    {
+                        if (!SqlTypeConversion.IsSupportedInPlaceConversion(actualType, targetType, out var maxRenderedWidth))
+                        {
+                            // A target that is exactly Shift's own round-trip of the actual type
+                            // (text -> varchar(max), money -> decimal(19,4)) is not drift, so it is
+                            // not worth reporting. Precision and scale are part of that comparison:
+                            // text -> varchar(50) is a real change of intent and is still reported.
+                            if (!SqlTypeConversion.IsRoundTripEquivalent(actualField, targetField))
+                            {
+                                Logger?.LogWarning(
+                                    "Unmigrated type change {Table}.{Column}: actual type {ActualType} does not match target type {TargetType}, and that conversion is not supported in place. The column is left unchanged.",
+                                    targetTable.Name, targetField.Name, actualType, targetType);
+                            }
+                        }
+                        else
+                        {
+                            // As with a string shrink, a target narrower than the widest possible value is
+                            // planned anyway and left to the runner's live-data probe, which skips the alter
+                            // if any row would not fit. Precision -1 means MAX, which always fits.
+                            if (targetField.Precision is int targetWidth && targetWidth != -1 && targetWidth < maxRenderedWidth)
+                            {
+                                Logger?.LogWarning(
+                                    "AlterColumn {Table}.{Column}: target {TargetType}({TargetWidth}) is narrower than the widest {ActualType} value ({MaxRenderedWidth} characters); the runner checks the live data before applying",
+                                    targetTable.Name, targetField.Name, targetType, targetWidth, actualType, maxRenderedWidth);
+                            }
+                            else
+                            {
+                                Logger?.LogWarning(
+                                    "AlterColumn {Table}.{Column}: converting {ActualType} to {TargetType} with precision {TargetPrecision}",
+                                    targetTable.Name, targetField.Name, actualType, targetType, targetField.Precision);
+                            }
+
                             plan.Steps.Add(new MigrationStep
                             {
                                 Action = MigrationAction.AlterColumn,

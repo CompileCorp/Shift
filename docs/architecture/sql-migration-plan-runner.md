@@ -109,8 +109,62 @@ calls `IsAlterColumnPotentiallyUnsafe`, which probes the live data (with `WITH (
   new size is smaller and an existing value exceeds it. Lengths use `LEN` for `char`/`nchar`
   and `DATALENGTH` otherwise (Unicode counts two bytes per character). Resizing to `MAX`
   (`-1`) is always safe.
+- **Integer becoming a string** (`int` to `varchar(n)` and the rest of the
+  `SqlTypeConversion` allow-list): the probe reads the column's current `DATA_TYPE` from
+  `INFORMATION_SCHEMA.COLUMNS` first, and when the source is an integer it measures the
+  *rendered character length* instead — `LEN(CONVERT(varchar(50), [col])) > n`. `DATALENGTH`
+  would be wrong here: it reports the integer's storage size (always 4 bytes for an `int`),
+  so it would wave through `int` to `varchar(2)`. A character count is the correct limit for
+  both `varchar` (where `CHARACTER_MAXIMUM_LENGTH` counts bytes) and `nvarchar` (where it
+  counts characters), because a rendered integer is ASCII. This probe is load-bearing rather
+  than advisory: SQL Server does **not** raise when converting an integer to a string too
+  narrow to hold it — it stores `*` in place of the number — so without the probe the value
+  would be destroyed and the apply would still report success.
 - **Decimal/numeric**: when an existing value would not round-trip through
   `TRY_CONVERT(decimal(p,s), ...)` (truncation, rounding, or conversion failure).
+
+### Columns other objects depend on
+
+SQL Server rejects a change of base type outright when anything else depends on the column,
+failing with error 4922 (or 2749 for an identity column). Before a base-type change the runner
+calls `GetAlterColumnBlockers`, which reads the live catalog and **skips the alter, naming the
+dependency**, rather than emitting SQL that is certain to fail. The blockers are:
+
+| Blocker | Source |
+|---|---|
+| `IDENTITY` property, when the target cannot carry an identity | `sys.columns.is_identity` |
+| Index, including the one backing a PK or unique constraint, and `INCLUDE` columns | `sys.index_columns` |
+| Foreign key, on either side of the relationship | `sys.foreign_key_columns` |
+| Default constraint | `sys.default_constraints` |
+| Check constraint | `sys.check_constraints` |
+| Computed column referencing the column | `sys.sql_expression_dependencies` |
+| Explicitly created statistics | `sys.stats` where `user_created = 1` |
+| Schema-bound view or function | `sys.sql_expression_dependencies` |
+
+Two things deliberately do **not** block: **auto-created statistics**, which SQL Server drops and
+recreates itself, and **views without `SCHEMABINDING`**.
+
+`IDENTITY` is the one conditional entry. Identity columns must be an integer type, or
+`decimal`/`numeric` with a scale of 0, so a `numeric(18,0)` identity converting to
+`decimal(19,0)` is permitted and is left alone to succeed; only a target that cannot carry an
+identity blocks (error 2749).
+
+The check applies only to base-type changes, not to plain resizes. Widening an indexed string
+column succeeds on SQL Server even though a base-type change on the same column fails, so
+applying the check to every alter would refuse migrations that work today. Every entry in the
+table above was confirmed against SQL Server 2022 in
+`SqlMigrationRunner_TypeConversion_Tests`.
+
+**`decimal` and `numeric`** are one type with two spellings, and the runner compares type names
+as strings, so a `numeric(18,2)` column targeting `decimal(19,4)` is classified as a base-type
+change and goes through this check. That is the correct classification rather than an accident of
+string comparison: SQL Server rejects a change of spelling with error 4922 whenever *any* object
+depends on the column — a bare default constraint is enough — even though it applies the same
+precision change happily when the spelling does not change. Naming the blocking object is
+therefore more useful than attempting SQL that is certain to fail.
+
+Because the alter is skipped rather than attempted, this is reported as a warning and not as a
+step failure. Migrating such a column means dropping the dependent object first and re-applying.
 
 ### AddForeignKey
 
