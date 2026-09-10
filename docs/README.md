@@ -49,6 +49,7 @@ This directory contains the project's reference and developer documentation, org
 | Doc | What it covers |
 |-----|----------------|
 | [ci-cd/pipeline.md](ci-cd/pipeline.md) | Overview of the GitHub Actions workflows: PR build/test, release publishing, and pre-release publishing. |
+| [../CHANGELOG.md](../CHANGELOG.md) | Release notes for each published version, newest first, plus the upgrade notes for each release. |
 
 ## Proposals — design documents under consideration
 
