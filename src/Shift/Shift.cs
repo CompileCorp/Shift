@@ -196,13 +196,17 @@ public class Shift : IShift
         // not happen, whichever stage declined it.
         result.Skipped.InsertRange(0, plan.Diagnostics);
 
-        var effects = plan.Steps
+        // Counted from what the runner actually executed, not from what the plan asked for. Steps
+        // the runner skipped are still in plan.Steps, so counting those would have the log announce
+        // "AlterColumn 1" for a column it left untouched - and report it right next to the warning
+        // saying it did not.
+        var effects = result.Applied
             .OrderBy(x => x.Action)
             .GroupBy(x => x.Action)
             .Select(x => (x.Key, x.Count()))
             .ToList();
 
-        if (effects.Count == 0 && result.Skipped.Count == 0)
+        if (plan.Steps.Count == 0 && result.Skipped.Count == 0)
         {
             Logger.LogInformation("Already up-to date");
             return result;
@@ -218,9 +222,16 @@ public class Shift : IShift
                 Logger.LogError("{action} {table} failed: {message}", step.Action, step.TableName, exception.Message);
             }
         }
-        else
+        else if (effects.Count > 0)
         {
             Logger.LogInformation("Apply completed");
+        }
+        else
+        {
+            // Nothing failed, but nothing was applied either - everything the model asked for was
+            // refused by one stage or the other. Saying "Apply completed" here is what made a
+            // fully skipped run read as a successful one.
+            Logger.LogWarning("Apply made no changes");
         }
 
         // Skipped work is neither an application nor a failure, and reporting only the step counts

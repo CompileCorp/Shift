@@ -108,22 +108,28 @@ result as well as logging it:
 
 - **String/binary** (`varchar`, `nvarchar`, `char`, `nchar`, `binary`, `varbinary`): when the
   new size is smaller and an existing value exceeds it. Lengths use `LEN` for `char`/`nchar`
-  and `DATALENGTH` otherwise (Unicode counts two bytes per character). Resizing to `MAX`
-  (`-1`) is always safe.
+  and `DATALENGTH` otherwise. Resizing to `MAX` (`-1`) is always safe.
 - **Decimal/numeric**: when an existing value would not round-trip through
   `TRY_CONVERT(decimal(p,s), ...)` (truncation, rounding, or conversion failure).
 
 Both of these are safe to decide from live data because they **fail closed**: SQL Server raises
 on a string truncation or a failed decimal conversion, so a row the probe misses — locked by
 another transaction, or inserted between the probe and the `ALTER` — produces a visible error
-rather than lost data.
+rather than lost data. `varchar` → `nvarchar` fails closed too, so it takes this same path: a
+column whose values all fit a narrower target migrates, and one holding a longer value is skipped.
+
+The byte limit is derived from the type the column stores **now**, not from the type it is
+becoming. `DATALENGTH` reports the bytes a value occupies today, so an `nvarchar` target does not
+make a `varchar` column's values two bytes per character. Deriving it from the target was what let
+`varchar(50)` → `nvarchar(20)` through with a 25-character value: the limit came out as 40 bytes,
+and a 25-byte `varchar` value cleared a limit it does not actually fit.
 
 **Integer becoming a string is not decided from live data.** `MigrationPlanner` refuses the
 change at plan time unless the target can hold every value the source *type* can represent, so a
 step only reaches the runner when it is provably safe, and the probe short-circuits:
 
 ```csharp
-if (targetWidth >= maxRenderedWidth)
+if (targetWidth >= requiredWidth)
     return false;   // cannot truncate, whatever is stored — no scan
 ```
 
@@ -207,6 +213,12 @@ which every step succeeded — the runner logged warnings, but a caller inspecti
 saw an empty list and concluded the migration was complete. `Shift.ApplyToSqlAsync` returns the
 same object, with the planner's own refusals (`plan.Diagnostics`) prepended to `Skipped`, so one
 value describes everything the model asked for that did not happen, whichever stage declined it.
+
+`ApplyToSqlAsync` counts its log summary from `Applied`, not from `plan.Steps`. A skipped step is
+still in the plan, so counting the plan had the log announce `AlterColumn 1` for a column the
+runner had left untouched, directly above the warning saying it had left it untouched. A run that
+applied nothing logs **`Apply made no changes`** rather than `Apply completed`; `Already up-to
+date` is reserved for a plan that asked for nothing in the first place.
 
 ### AddForeignKey
 

@@ -854,6 +854,108 @@ model Document with Auditable {
         plan.Diagnostics.Should().ContainSingle(d => d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange);
     }
 
+    /// <summary>
+    /// Tests that a target declaring no precision of its own is judged against the width it will
+    /// actually be created at — varchar's default of 255 — rather than skipping the width guard.
+    /// Reading the precision straight off the field would leave the one conversion that fails open
+    /// with no guard at all whenever the dmd field omits its size.
+    /// </summary>
+    [Theory]
+    [InlineData("int", "varchar")]
+    [InlineData("bigint", "varchar")]
+    [InlineData("bigint", "nvarchar")]
+    public void GeneratePlan_WithIntegerToStringTargetWithoutPrecision_ShouldCreateStepOnTheTypeDefault(
+        string actualType, string targetType)
+    {
+        // Arrange
+        var (planner, _) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel(targetType);
+        var actualModel = CreateSingleColumnModel(actualType);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
+        plan.Diagnostics.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// Tests that varchar to nvarchar is migrated, which is what a dmd field changing from
+    /// astring(n) to ustring(n) asks for. Every ASCII string is a valid unicode string, so the
+    /// conversion cannot lose anything when the target is at least as wide.
+    /// </summary>
+    [Theory]
+    [InlineData(50, 50)]
+    [InlineData(50, 100)]
+    [InlineData(50, -1)]
+    [InlineData(-1, -1)]
+    public void GeneratePlan_WithVarcharToNvarcharWideEnough_ShouldCreateAlterColumnStep(
+        int actualPrecision, int targetPrecision)
+    {
+        // Arrange
+        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel("nvarchar", precision: targetPrecision);
+        var actualModel = CreateSingleColumnModel("varchar", precision: actualPrecision);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
+        plan.Diagnostics.Should().BeEmpty();
+        warnings.Should().Contain(w => w.Contains("converting varchar to nvarchar"));
+    }
+
+    /// <summary>
+    /// Tests that a narrowing varchar to nvarchar is still planned rather than refused outright.
+    /// Unlike an integer conversion this one fails closed — SQL Server raises on truncation — so
+    /// the runner's live-data probe can decide it safely, exactly as it does for a plain resize,
+    /// and a column whose values all fit gets migrated rather than stranded.
+    /// </summary>
+    [Theory]
+    [InlineData(50, 20)]
+    [InlineData(-1, 50)]
+    public void GeneratePlan_WithVarcharToNarrowerNvarchar_ShouldPlanRatherThanRefuse(
+        int actualPrecision, int targetPrecision)
+    {
+        // Arrange
+        var (planner, _) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel("nvarchar", precision: targetPrecision);
+        var actualModel = CreateSingleColumnModel("varchar", precision: actualPrecision);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
+        plan.Diagnostics.Should().NotContain(d => d.Kind == MigrationDiagnosticKind.TargetTooNarrow);
+    }
+
+    /// <summary>
+    /// Tests that the reverse direction stays off the allow-list. SQL Server performs
+    /// nvarchar to varchar without complaint, replacing anything outside the target collation's
+    /// code page with '?', so it loses data as quietly as a too-narrow integer does.
+    /// </summary>
+    [Fact]
+    public void GeneratePlan_WithNvarcharToVarchar_ShouldReportWithoutCreatingStep()
+    {
+        // Arrange
+        var (planner, _) = CreatePlannerCapturingWarnings();
+        var targetModel = CreateSingleColumnModel("varchar", precision: 50);
+        var actualModel = CreateSingleColumnModel("nvarchar", precision: 50);
+
+        // Act
+        var plan = planner.GeneratePlan(targetModel, actualModel);
+
+        // Assert
+        plan.Steps.Should().BeEmpty();
+        plan.Diagnostics.Should().ContainSingle(d =>
+            d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange &&
+            d.ActualType == "nvarchar" &&
+            d.TargetType == "varchar");
+    }
+
     #endregion
 
     #region Helper Methods

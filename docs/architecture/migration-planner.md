@@ -41,24 +41,30 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 - For fields that exist in both, detects type-size differences and emits `AlterColumn` steps:
   - **String/binary types** (`varchar`, `nvarchar`, `char`, `nchar`, `binary`, `varbinary`): when the base type matches, any difference in `Precision` triggers an `AlterColumn` step. `null` and `-1` precision are treated as equivalent (both mean `MAX`). A warning is logged for each detected size change.
   - **Decimal/numeric types** (`decimal`, `numeric`, treated as compatible): any difference in `Precision` or `Scale` triggers an `AlterColumn` step.
-  - **Base-type changes** are handled separately, against the narrow allow-list in `SqlTypeConversion`: an **integer type** (`tinyint`, `smallint`, `int`, `bigint`) becoming a **variable-width string** (`varchar`, `nvarchar`) triggers an `AlterColumn` step, provided the target is wide enough (see below). This is what lets a dmd field change from `int` to `astring(n)`/`ustring(n)` and actually migrate.
+  - **Base-type changes** are handled separately, against the narrow allow-list in `SqlTypeConversion`, which holds two conversions:
+    - an **integer type** (`tinyint`, `smallint`, `int`, `bigint`) becoming a **variable-width string** (`varchar`, `nvarchar`), provided the target is wide enough (see below). This is what lets a dmd field change from `int` to `astring(n)`/`ustring(n)` and actually migrate.
+    - **`varchar` → `nvarchar`**, which is what a dmd field changing from `astring(n)` to `ustring(n)` asks for. Every ASCII string is a valid unicode string, so only width is in question.
 
 **Base-type changes the planner refuses** produce no step — the column is left as it is — and are recorded on `plan.Diagnostics` as a `MigrationDiagnostic` as well as logged, so the refusal is visible to a caller and not only to whoever is reading the log. There are two reasons a change is refused:
 
 `UnsupportedTypeChange` — the conversion is not on the allow-list:
 
-- The reverse direction (string to integer) is **not** migrated. SQL Server cannot convert arbitrary text to an integer in place, so the column is reported and left alone.
+- The reverse directions are **not** migrated. SQL Server cannot convert arbitrary text to an integer in place. `nvarchar` → `varchar` it *will* perform, silently replacing every character outside the target collation's code page with `?`, which is precisely why it is excluded.
 - Fixed-width string targets (`char`, `nchar`) are **deliberately excluded**, even though SQL Server permits the conversion: converting an integer to `char(n)` right-pads the value with spaces, which changes the stored data rather than just its type.
 - A target that is **exactly Shift's own round-trip** of the actual type is **not** reported, because it is not drift: `text` → `varchar(max)`, `ntext` → `nvarchar(max)`, `money` → `decimal(19,4)`, `smallmoney` → `decimal(10,4)`. Warning on these would fire on every plan for any schema containing a legacy `text` or `money` column. The comparison covers precision and scale, not just the type name, so only the exact round-trip is exempt — `text` → `varchar(50)` or `money` → `decimal(18,4)` is a real change of intent and is still reported.
 
-`TargetTooNarrow` — the conversion is allowed, but the target cannot hold every value the source **type** can represent (`tinyint` needs 3 characters, `smallint` 6, `int` 11, `bigint` 20, counting the sign). `int` → `varchar(10)` is refused; `int` → `varchar(11)` and `int` → `varchar(max)` are applied.
+`TargetTooNarrow` — the conversion is on the allow-list, but the target cannot hold every value the source **type** can represent (`tinyint` needs 3 characters, `smallint` 6, `int` 11, `bigint` 20, counting the sign). `int` → `varchar(10)` is refused; `int` → `varchar(11)` and `int` → `varchar(max)` are applied.
 
-This is judged against the source type, **not** against the rows currently in the table, and that is deliberate on two counts:
+**This applies only to conversions that fail open.** SQL Server does **not** raise when an integer will not fit the target string — it stores `*` in place of the number and reports success — so for those the width has to be guaranteed from the source *type*, never from the rows currently in the table. That is deliberate on two counts:
 
 1. **Determinism.** Deciding from live data would make the same dmd file apply on one database and be refused on another, and would let a column migrate today and fail to migrate tomorrow.
-2. **Safety.** SQL Server does **not** raise when an integer will not fit the target string — it stores `*` in place of the number. A data-driven check would therefore be the only thing standing between a too-narrow target and silent, unrecoverable data loss, and it cannot bear that weight: the probe cannot see rows locked by another transaction, and nothing holds a lock between the probe and the `ALTER`.
+2. **Safety.** A data-driven check would be the only thing standing between a too-narrow target and silent, unrecoverable data loss, and it cannot bear that weight: the probe cannot see rows locked by another transaction, and nothing holds a lock between the probe and the `ALTER`.
 
 The cost is that a `bigint` column holding nothing but positive values is still refused at `varchar(19)`, because the type's negative minimum needs 20. Widen the dmd field to migrate it.
+
+`varchar` → `nvarchar` **fails closed** — SQL Server raises on truncation — so a target that looks too narrow is still planned and left to the runner's live-data probe, exactly as a plain resize is. A `varchar(50)` column holding nothing longer than 20 characters migrates to `nvarchar(20)`; one holding a longer value is skipped with a `DataLossRisk` diagnostic rather than refused at plan time.
+
+The width is judged against the width the target field will actually be **created at**, not against `Precision` alone: a field that leaves its precision unset is still created at the type's default (255 for `varchar`/`nvarchar`), so treating an absent precision as "nothing to check" would skip the guard entirely for the one conversion that cannot afford it.
 
 **Important**: The planner flags size/precision changes in *either* direction; it does **not** restrict itself to "widening" only. For **same-base-type** resizes (e.g. shrinking `varchar(50)` to `varchar(5)`), the data-loss guard still lives in `SqlMigrationPlanRunner.IsAlterColumnPotentiallyUnsafe`, which probes the live data at execution time and skips the alter if it would truncate or round existing values. That remains data-driven because it fails closed: SQL Server raises on a string truncation, so a row the probe misses produces a visible error rather than lost data. See the [SqlMigrationPlanRunner architecture](./sql-migration-plan-runner.md) for details.
 
@@ -78,6 +84,12 @@ The cost is that a `bigint` column holding nothing but positive values is still 
 
 // Target: Widget.Code varchar(4); Actual: Widget.Code int
 // Result: No step; plan.Diagnostics gets a TargetTooNarrow entry (an int needs 11 characters)
+
+// Target: Widget.Code nvarchar(50); Actual: Widget.Code varchar(50)
+// Result: Creates MigrationStep with Action = AlterColumn (astring -> ustring)
+
+// Target: Widget.Code varchar(50); Actual: Widget.Code nvarchar(50)
+// Result: No step; plan.Diagnostics gets an UnsupportedTypeChange entry (unicode would be lost)
 ```
 
 ### Step 3: Add Missing Foreign Keys
