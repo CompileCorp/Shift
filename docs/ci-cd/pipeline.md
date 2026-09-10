@@ -161,6 +161,24 @@ Our pipeline uses two different version sources:
 3. Create tag `v1.2.3` → publishes `1.2.3` (production)
 4. Push tag `rc-v1.2.4` → publishes `1.2.4-rc.44` (pre-release, run #44)
 
+### Cutting a Release
+
+Pushing the tag - not merging to `main` - is what publishes the package.
+
+1. Land the changes on `main` through the normal PR workflow.
+2. Add the version's section to `CHANGELOG.md` (also on `main`).
+3. Tag that commit on `main` as `vX.Y.Z` and push the tag:
+   ```
+   git tag vX.Y.Z <commit>
+   git push origin vX.Y.Z
+   ```
+4. Confirm the **Build and Publish** workflow succeeded and that the new version of
+   `Compile.Shift` is live on nuget.org.
+5. Create the GitHub Release for the tag, using that version's `CHANGELOG.md` section as the body.
+
+To validate a release before it is final, push `rc-vX.Y.Z` first: that publishes a pre-release
+package (`X.Y.Z-rc.{RUN_NUMBER}`) without affecting the stable version.
+
 ## Industry Best Practices Comparison
 
 ### ✅ What We're Doing Well
