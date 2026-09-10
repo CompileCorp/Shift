@@ -21,6 +21,9 @@ number in the repository: a release *is* the `vX.Y.Z` git tag, which is what pub
 - Skips, refusals and failures are reported as typed diagnostics (`MigrationDiagnostic`, with a
   `MigrationDiagnosticKind` of `UnsupportedTypeChange`, `TargetTooNarrow`, `DataLossRisk` or
   `BlockedByDependency`) instead of only as log prose.
+- [`docs/proposals/dmd-ef-codegen.md`](docs/proposals/dmd-ef-codegen.md): a proposal for making
+  DMD-driven EF code generation first-class per module and letting one module's generated
+  `DbContext` derive from another's.
 
 ### Changed
 
@@ -30,6 +33,10 @@ number in the repository: a release *is* the `vX.Y.Z` git tag, which is what pub
 - Dependent objects (indexes, foreign keys, default and check constraints, computed columns and the
   IDENTITY property) are checked before an `ALTER COLUMN` is attempted, so the conflict is named up
   front instead of surfacing as a database error.
+- Testcontainers moved from 3.10.0 to 4.14.0 in the test project, which replaces the transitively
+  referenced SSH.NET 2023.0.0 with 2026.0.0 and so clears GHSA-q939-rpr3-3284 (High). The advisory
+  reached the repository only through the test project; the published `Compile.Shift` package and
+  its dependencies are unchanged.
 
 ### Fixed
 
