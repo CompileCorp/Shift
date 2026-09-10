@@ -1,8 +1,8 @@
-using Compile.Shift.Helpers;
 using Compile.Shift.Model;
 using Compile.Shift.Tests.Infrastructure;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
+using Moq;
 
 namespace Compile.Shift.Integration;
 
@@ -349,13 +349,14 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, "the IDENTITY property", "Widget", "Code", "int", "varchar");
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
 
     /// <summary>
-    /// Tests the primary key case. The PK's backing index is what blocks the alter.
+    /// Tests the primary key case. The PK's backing index is what blocks the alter, so that is what
+    /// the diagnostic has to name — SQL Server generates the index name, hence the prefix match.
     /// </summary>
     [Fact]
     public async Task Converting_PrimaryKeyColumn_ShouldSkipAndLeaveColumnIntact()
@@ -369,7 +370,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, "index [PK__Widget", "Widget", "Code", "int", "varchar");
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -391,7 +392,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, "foreign key [FK_Widget_Parent]", "Widget", "Code", "int", "varchar");
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -413,7 +414,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            // The column is also this table's PK, so its backing index blocks too. What matters is
+            // that the foreign key pointing *at* the column is among the objects named.
+            AssertBlockedBy(result, "foreign key [FK_Child_Widget]", "Widget", "Code", "int", "varchar");
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -436,7 +439,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, "schema-bound object [V_Widget]", "Widget", "Code", "int", "varchar");
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -462,7 +465,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertApplied(result);
             Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
             Assert.Equal("42", await ScalarAsync(connectionString, "SELECT TOP 1 Code FROM Widget"));
         });
@@ -484,7 +487,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertApplied(result);
             Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -527,13 +530,13 @@ public class SqlMigrationRunner_TypeConversion_Tests
     /// precision change, which is what makes it the surprising case.
     /// </summary>
     [Theory]
-    [InlineData("default constraint", "ALTER TABLE Widget ADD CONSTRAINT DF_Widget_Amount DEFAULT 0 FOR Amount")]
-    [InlineData("nonclustered index", "CREATE NONCLUSTERED INDEX IX_Widget_Amount ON Widget(Amount)")]
-    [InlineData("check constraint", "ALTER TABLE Widget ADD CONSTRAINT CK_Widget_Amount CHECK (Amount >= 0)")]
-    [InlineData("user statistics", "CREATE STATISTICS ST_Widget_Amount ON Widget(Amount)")]
-    [InlineData("computed column", "ALTER TABLE Widget ADD Doubled AS (Amount * 2)")]
+    [InlineData("default constraint [DF_Widget_Amount]", "ALTER TABLE Widget ADD CONSTRAINT DF_Widget_Amount DEFAULT 0 FOR Amount")]
+    [InlineData("index [IX_Widget_Amount]", "CREATE NONCLUSTERED INDEX IX_Widget_Amount ON Widget(Amount)")]
+    [InlineData("check constraint [CK_Widget_Amount]", "ALTER TABLE Widget ADD CONSTRAINT CK_Widget_Amount CHECK (Amount >= 0)")]
+    [InlineData("statistics [ST_Widget_Amount]", "CREATE STATISTICS ST_Widget_Amount ON Widget(Amount)")]
+    [InlineData("computed column [Doubled]", "ALTER TABLE Widget ADD Doubled AS (Amount * 2)")]
     public async Task Numeric_PrecisionChangeToDecimalWithDependentObject_ShouldSkip(
-        string _, string dependencySql)
+        string expectedBlocker, string dependencySql)
     {
         await WithDatabaseAsync(async connectionString =>
         {
@@ -544,7 +547,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
             var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, expectedBlocker, "Widget", "Amount", "numeric", "decimal");
             Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -591,7 +594,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
             var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 0));
 
-            Assert.Empty(result.Failures);
+            AssertApplied(result);
             Assert.Equal("decimal", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -612,7 +615,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
             var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, "the IDENTITY property", "Widget", "Amount", "numeric", "decimal");
             Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -643,7 +646,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
             var (_, result) = await PlanAndRunAsync(connectionString, ModelWith("Widget", nullableIdentity));
 
-            Assert.Empty(result.Failures);
+            AssertBlockedBy(result, "the IDENTITY property", "Widget", "Amount", "numeric", "decimal");
             Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -665,7 +668,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
             var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(result.Failures);
+            AssertApplied(result);
             Assert.Equal("decimal", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -692,7 +695,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 100, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertApplied(result);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Code");
             Assert.Equal("varchar", column.DataType, ignoreCase: true);
@@ -716,7 +719,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 100, isNullable: false));
 
-            Assert.Empty(result.Failures);
+            AssertApplied(result);
             Assert.Equal(100, (await GetColumnAsync(connectionString, "Widget", "Code")).MaxLength);
         });
     }
@@ -736,8 +739,118 @@ public class SqlMigrationRunner_TypeConversion_Tests
             var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 5, isNullable: false));
 
+            // A resize, so the runner decides it from the data rather than the type - and says so.
             Assert.Empty(result.Failures);
+            Assert.Empty(result.Applied);
+            var diagnostic = Assert.Single(result.Skipped);
+            Assert.Equal(MigrationDiagnosticKind.DataLossRisk, diagnostic.Kind);
+            Assert.Equal("Widget", diagnostic.TableName);
+            Assert.Equal("Code", diagnostic.ColumnName);
+
             Assert.Equal(50, (await GetColumnAsync(connectionString, "Widget", "Code")).MaxLength);
+        });
+    }
+
+    /// <summary>
+    /// Tests that varchar to nvarchar migrates end to end, values intact. This is the conversion a
+    /// dmd field asks for when it changes from astring(n) to ustring(n).
+    /// </summary>
+    [Theory]
+    [InlineData(50, 50)]
+    [InlineData(50, 100)]
+    public async Task Converting_VarcharToNvarchar_ShouldApplyAndPreserveValue(
+        int actualWidth, int targetWidth)
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                $"CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code varchar({actualWidth}) NOT NULL)",
+                "INSERT INTO Widget (Code) VALUES ('abc')");
+
+            var (_, result) = await PlanAndRunAsync(connectionString,
+                SingleFieldModel("Widget", "Code", "nvarchar", targetWidth, isNullable: false));
+
+            AssertApplied(result);
+
+            var column = await GetColumnAsync(connectionString, "Widget", "Code");
+            Assert.Equal("nvarchar", column.DataType, ignoreCase: true);
+            Assert.Equal(targetWidth, column.MaxLength);
+            Assert.Equal("abc", await ScalarAsync(connectionString, "SELECT TOP 1 Code FROM Widget"));
+        });
+    }
+
+    /// <summary>
+    /// Tests that a narrowing varchar to nvarchar is decided from the live data rather than refused
+    /// from the type. This conversion fails closed — SQL Server raises on truncation — so a column
+    /// whose values all fit is migrated, and one holding a longer value is skipped.
+    ///
+    /// The skip is the case that used to be measured wrongly: the byte limit was derived from the
+    /// target's unicode-ness (20 characters read as 40 bytes) while DATALENGTH was reporting the
+    /// source's single-byte storage, so a 25-character value cleared a limit it does not fit.
+    /// </summary>
+    [Theory]
+    [InlineData("'abc'", true)]
+    [InlineData("'abcdefghijklmnopqrstuvwxy'", false)]  // 25 characters, 25 bytes as varchar
+    public async Task Converting_VarcharToNarrowerNvarchar_ShouldBeDecidedFromTheData(
+        string storedValue, bool shouldApply)
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code varchar(50) NOT NULL)",
+                $"INSERT INTO Widget (Code) VALUES ({storedValue})");
+
+            var (plan, result) = await PlanAndRunAsync(connectionString,
+                SingleFieldModel("Widget", "Code", "nvarchar", 20, isNullable: false));
+
+            // Planned either way - the refusal, when it comes, is the runner's call on the rows.
+            Assert.Contains(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
+            Assert.Empty(result.Failures);
+
+            var column = await GetColumnAsync(connectionString, "Widget", "Code");
+
+            if (shouldApply)
+            {
+                AssertApplied(result);
+                Assert.Equal("nvarchar", column.DataType, ignoreCase: true);
+                Assert.Equal(20, column.MaxLength);
+            }
+            else
+            {
+                Assert.Empty(result.Applied);
+                Assert.Equal(MigrationDiagnosticKind.DataLossRisk, Assert.Single(result.Skipped).Kind);
+                Assert.Equal("varchar", column.DataType, ignoreCase: true);
+                Assert.Equal(50, column.MaxLength);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Tests that the reverse direction is refused. SQL Server performs nvarchar to varchar without
+    /// complaint, replacing every character outside the target collation's code page with '?', so
+    /// it is off the allow-list and reported instead.
+    /// </summary>
+    [Fact]
+    public async Task Converting_NvarcharToVarchar_ShouldRefuseAndLeaveColumnIntact()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code nvarchar(50) NOT NULL)",
+                "INSERT INTO Widget (Code) VALUES (N'你好')");
+
+            var (plan, result) = await PlanAndRunAsync(connectionString,
+                SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
+
+            Assert.DoesNotContain(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
+            Assert.Contains(plan.Diagnostics, d =>
+                d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange &&
+                d.ActualType == "nvarchar" &&
+                d.TargetType == "varchar");
+            Assert.Empty(result.Failures);
+
+            Assert.Equal("nvarchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
+            Assert.Equal("你好", await ScalarAsync(connectionString, "SELECT TOP 1 Code FROM Widget"));
         });
     }
 
@@ -841,7 +954,210 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
     #endregion
 
+    #region Reporting the outcome through ApplyToSqlAsync
+
+    /// <summary>
+    /// Tests that one result describes everything the model asked for that did not happen, whichever
+    /// stage declined it. The planner's refusals never became steps and the runner's skips are not
+    /// failures, so this is the only place the two are visible together — and the only thing a
+    /// caller (or the CLI, once it consumes this) can act on.
+    /// </summary>
+    [Fact]
+    public async Task ApplyToSqlAsync_WithARefusalAndASkip_ShouldReportBothAsUnappliedWork()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Blocked int NOT NULL, TooNarrow int NOT NULL)",
+                "CREATE NONCLUSTERED INDEX IX_Widget_Blocked ON Widget(Blocked)",
+                "INSERT INTO Widget (Blocked, TooNarrow) VALUES (42, 42)");
+
+            var model = new DatabaseModel();
+            model.Tables["Widget"] = new TableModel
+            {
+                Name = "Widget",
+                Fields =
+                {
+                    // Planned, then skipped by the runner: an index depends on the column.
+                    new FieldModel { Name = "Blocked", Type = "varchar", Precision = 50, IsNullable = false },
+                    // Never planned: varchar(4) cannot hold every int.
+                    new FieldModel { Name = "TooNarrow", Type = "varchar", Precision = 4, IsNullable = false }
+                }
+            };
+
+            var shift = new Shift { Logger = _logger };
+            var result = await shift.ApplyToSqlAsync(model, connectionString);
+
+            Assert.Empty(result.Failures);
+            Assert.Empty(result.Applied);
+            Assert.True(result.HasUnappliedWork);
+
+            // The planner's refusals are carried onto the result ahead of the runner's skips.
+            Assert.Equal(2, result.Skipped.Count);
+            Assert.Contains(result.Skipped, d =>
+                d.Kind == MigrationDiagnosticKind.TargetTooNarrow && d.ColumnName == "TooNarrow");
+            Assert.Contains(result.Skipped, d =>
+                d.Kind == MigrationDiagnosticKind.BlockedByDependency && d.ColumnName == "Blocked");
+
+            // Both columns are untouched, which is what the result is claiming.
+            Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Blocked")).DataType, ignoreCase: true);
+            Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "TooNarrow")).DataType, ignoreCase: true);
+        });
+    }
+
+    /// <summary>
+    /// Tests that a run in which every step was skipped does not announce itself as a completed
+    /// apply. The counts come from what the runner executed, not from what the plan asked for:
+    /// reporting the plan's steps had the log say "AlterColumn 1" for a column it left alone,
+    /// directly above the warning saying it had left it alone.
+    /// </summary>
+    [Fact]
+    public async Task ApplyToSqlAsync_WhenEveryStepIsSkipped_ShouldNotLogApplyCompleted()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)",
+                "CREATE NONCLUSTERED INDEX IX_Widget_Code ON Widget(Code)",
+                "INSERT INTO Widget (Code) VALUES (42)");
+
+            var (logger, messages) = CreateLoggerCapturingMessages();
+            var shift = new Shift { Logger = logger };
+
+            var result = await shift.ApplyToSqlAsync(
+                SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false), connectionString);
+
+            Assert.Empty(result.Applied);
+            Assert.True(result.HasUnappliedWork);
+
+            Assert.DoesNotContain(messages, m => m == "Apply completed");
+            // The effects summary, which is "{action} {count}" exactly - not the runner's own
+            // per-step progress lines, which also begin with the action name.
+            Assert.DoesNotContain(messages, m => m == "AlterColumn 1");
+            Assert.Contains(messages, m => m == "Apply made no changes");
+            Assert.Contains(messages, m => m.Contains("1 column change(s) not applied"));
+        });
+    }
+
+    /// <summary>
+    /// Tests the positive case, so the assertions above cannot pass simply because the wording
+    /// never appears: a run that does apply something reports it as applied and claims no
+    /// unapplied work.
+    /// </summary>
+    [Fact]
+    public async Task ApplyToSqlAsync_WhenTheConversionApplies_ShouldReportItAsApplied()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)",
+                "INSERT INTO Widget (Code) VALUES (42)");
+
+            var (logger, messages) = CreateLoggerCapturingMessages();
+            var shift = new Shift { Logger = logger };
+
+            var result = await shift.ApplyToSqlAsync(
+                SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false), connectionString);
+
+            Assert.Empty(result.Failures);
+            Assert.Empty(result.Skipped);
+            Assert.False(result.HasUnappliedWork);
+            Assert.Equal(MigrationAction.AlterColumn, Assert.Single(result.Applied).Action);
+
+            Assert.Contains(messages, m => m == "Apply completed");
+            Assert.Contains(messages, m => m == "AlterColumn 1");
+
+            Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
+        });
+    }
+
+    /// <summary>
+    /// Tests that a model matching the database reports no unapplied work at all, so
+    /// HasUnappliedWork stays a usable signal rather than one that is always true.
+    /// </summary>
+    [Fact]
+    public async Task ApplyToSqlAsync_WithNothingToDo_ShouldReportNoUnappliedWork()
+    {
+        await WithDatabaseAsync(async connectionString =>
+        {
+            await ExecuteAsync(connectionString,
+                "CREATE TABLE Widget (Code varchar(50) NULL)");
+
+            var (logger, messages) = CreateLoggerCapturingMessages();
+            var shift = new Shift { Logger = logger };
+
+            var result = await shift.ApplyToSqlAsync(
+                SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: true), connectionString);
+
+            Assert.Empty(result.Applied);
+            Assert.Empty(result.Skipped);
+            Assert.Empty(result.Failures);
+            Assert.False(result.HasUnappliedWork);
+
+            Assert.Contains(messages, m => m == "Already up-to date");
+        });
+    }
+
+    #endregion
+
     #region Helpers
+
+    /// <summary>
+    /// Asserts the run skipped exactly one alter because another object depends on the column, and
+    /// that the diagnostic names the object responsible.
+    ///
+    /// Naming it is the entire reason for reading the catalog rather than letting the ALTER fail,
+    /// so a skip naming the wrong object would be a silent regression. Asserting the column was
+    /// left alone is not enough on its own: that also holds when the step was never planned, or was
+    /// skipped for some other reason entirely.
+    /// </summary>
+    private static void AssertBlockedBy(
+        MigrationRunResult result, string expectedBlocker, string table, string column, string actualType, string targetType)
+    {
+        Assert.Empty(result.Failures);
+        Assert.Empty(result.Applied);
+
+        var diagnostic = Assert.Single(result.Skipped);
+        Assert.Equal(MigrationDiagnosticKind.BlockedByDependency, diagnostic.Kind);
+        Assert.Equal(table, diagnostic.TableName);
+        Assert.Equal(column, diagnostic.ColumnName);
+        Assert.Equal(actualType, diagnostic.ActualType);
+        Assert.Equal(targetType, diagnostic.TargetType);
+        Assert.Contains(expectedBlocker, diagnostic.Reason);
+    }
+
+    /// <summary>
+    /// Asserts the run applied its single step and declined nothing, so a test claiming a
+    /// conversion went through cannot pass on a run that quietly skipped it.
+    /// </summary>
+    private static void AssertApplied(MigrationRunResult result)
+    {
+        Assert.Empty(result.Failures);
+        Assert.Empty(result.Skipped);
+        Assert.Single(result.Applied);
+    }
+
+    /// <summary>
+    /// A logger that collects the messages it is given, so a test can assert on what an operator
+    /// watching an apply would actually have seen.
+    /// </summary>
+    private static (ILogger Logger, List<string> Messages) CreateLoggerCapturingMessages()
+    {
+        var messages = new List<string>();
+        var logger = new Mock<ILogger>();
+
+        logger
+            .Setup(l => l.Log(
+                It.IsAny<LogLevel>(),
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(),
+                (Func<It.IsAnyType, Exception?, string>)It.IsAny<object>()))
+            .Callback(new InvocationAction(invocation =>
+                messages.Add(invocation.Arguments[2]?.ToString() ?? string.Empty)));
+
+        return (logger.Object, messages);
+    }
 
     /// <summary>
     /// Runs a test body against a freshly created database, dropping it afterwards whatever

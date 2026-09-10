@@ -56,7 +56,8 @@ public class SqlMigrationPlanRunner
                     {
                         Logger.LogWarning($"{step.Action} {step.TableName} {field}");
 
-                        var actualDataType = GetActualColumnDataType(connection, step.TableName, field.Name);
+                        var actualColumn = GetActualColumn(connection, step.TableName, field.Name);
+                        var actualDataType = actualColumn?.DataType;
 
                         // A change of base type is rejected outright by SQL Server when any other
                         // object depends on the column, so it is checked before the data-loss probe.
@@ -81,7 +82,7 @@ public class SqlMigrationPlanRunner
                         }
 
                         // Safety check: skip alters that would cause data loss
-                        if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field, actualDataType))
+                        if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field, actualColumn))
                         {
                             Skip(result, new MigrationDiagnostic
                             {
@@ -299,7 +300,7 @@ END";
             diagnostic.TableName, diagnostic.ColumnName, diagnostic.Kind, diagnostic.Reason);
     }
 
-    internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field, string? actualDataType = null)
+    internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field, ActualColumn? actualColumn = null)
     {
         // Only guard for types where resizing/precision can cause truncation or rounding
         var baseType = field.Type.ToLowerInvariant();
@@ -312,21 +313,25 @@ END";
 
             // Compute byte limit appropriately
             int targetBytes;
-            bool isUnicode = baseType is "nvarchar" or "nchar";
             if (field.Precision == -1)
             {
                 return false; // to MAX is never unsafe
             }
 
-            // A change of base type is measured in rendered characters, not storage bytes:
-            // DATALENGTH on an int is always 4 and would wave through a target too narrow to
-            // hold the rendered value. CHARACTER_MAXIMUM_LENGTH counts characters for nvarchar and
-            // bytes for varchar, and a rendered integer is ASCII, so a character count is the
-            // correct limit for both.
-            var actualType = baseType is "varchar" or "nvarchar"
-                ? actualDataType ?? GetActualColumnDataType(connection, tableName, field.Name)
-                : null;
-            if (actualType != null && SqlTypeConversion.IsSupportedInPlaceConversion(actualType, baseType, out var maxRenderedWidth))
+            var actualType = actualColumn?.DataType.ToLowerInvariant();
+
+            // An integer becoming a string is measured in rendered characters, not storage bytes:
+            // DATALENGTH on an int is always 4 and would wave through a target too narrow to hold
+            // the rendered value. A character count is the correct limit for both varchar (where
+            // CHARACTER_MAXIMUM_LENGTH counts bytes) and nvarchar (where it counts characters),
+            // because a rendered integer is ASCII.
+            //
+            // Only conversions that fail open take this path. One that fails closed - varchar to
+            // nvarchar - is left to the resize probe below, which measures the same thing in the
+            // units the source column actually stores.
+            if (actualType != null
+                && SqlTypeConversion.FailsOpenOnNarrowTarget(actualType)
+                && SqlTypeConversion.IsSupportedInPlaceConversion(actualType, actualColumn?.MaxLength, baseType, out var requiredWidth))
             {
                 var targetWidth = field.Precision.Value;
 
@@ -334,7 +339,7 @@ END";
                 // truncate, whatever is stored. Plans produced by MigrationPlanner only ever reach
                 // here on this path, because it refuses narrower targets outright - so skipping the
                 // scan is not an optimisation of the common case, it is the common case.
-                if (targetWidth >= maxRenderedWidth)
+                if (targetWidth >= requiredWidth)
                     return false;
 
                 // Narrower targets only arrive from a hand-built plan. Probe the live data as a
@@ -348,7 +353,17 @@ END";
                 return conversionCmd.ExecuteScalar() != null;
             }
 
-            targetBytes = isUnicode ? field.Precision.Value * 2 : field.Precision.Value;
+            // DATALENGTH reports the bytes the value occupies *now*, so the limit has to be
+            // expressed in the units the actual column stores, not the target's. Deriving it from
+            // the target is what let varchar(50) -> nvarchar(20) through with a 25-character value:
+            // the limit came out as 40 bytes, and a 25-byte varchar value cleared it while not
+            // fitting in 20 characters at all. Falls back to the target when the column's storage
+            // is unknown, which is the behaviour this guard has always had for a plain resize.
+            var storesUnicode = actualType is not null
+                ? actualType is "nvarchar" or "nchar" or "ntext"
+                : baseType is "nvarchar" or "nchar";
+
+            targetBytes = storesUnicode ? field.Precision.Value * 2 : field.Precision.Value;
 
             // For char/nchar use LEN to avoid fixed padding interference for equality
             string predicate;
@@ -392,14 +407,20 @@ END";
     }
 
     /// <summary>
-    /// Reads the base type the column currently has, so the safety probe can tell an existing
-    /// string apart from a value that is only about to become one. Returns null when the column
-    /// does not exist.
+    /// The shape a column has in the database right now. The safety probes need both halves: the
+    /// type, to tell an existing string apart from a value that is only about to become one, and
+    /// the width, to know how much the source could be carrying.
     /// </summary>
-    private string? GetActualColumnDataType(SqlConnection connection, string tableName, string columnName)
+    internal readonly record struct ActualColumn(string DataType, int? MaxLength);
+
+    /// <summary>
+    /// Reads the column's current type and width. Returns null when the column does not exist, in
+    /// which case the alter's own IF EXISTS guard makes the step a no-op.
+    /// </summary>
+    private ActualColumn? GetActualColumn(SqlConnection connection, string tableName, string columnName)
     {
         const string sql = @"
-SELECT DATA_TYPE
+SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
 
@@ -407,7 +428,12 @@ WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
         cmd.Parameters.AddWithValue("@schema", _schema);
         cmd.Parameters.AddWithValue("@table", tableName);
         cmd.Parameters.AddWithValue("@column", columnName);
-        return cmd.ExecuteScalar() as string;
+
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return null;
+
+        return new ActualColumn(reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt32(1));
     }
 
     /// <summary>

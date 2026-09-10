@@ -22,7 +22,7 @@ public class SqlTypeConversionTests
     public void IsSupportedInPlaceConversion_WithIntegerSource_ShouldReportRenderedWidth(string fromType, int expectedWidth)
     {
         // Act
-        var supported = SqlTypeConversion.IsSupportedInPlaceConversion(fromType, "varchar", out var width);
+        var supported = SqlTypeConversion.IsSupportedInPlaceConversion(fromType, null, "varchar", out var width);
 
         // Assert
         supported.Should().BeTrue();
@@ -37,14 +37,50 @@ public class SqlTypeConversionTests
     [InlineData("INT", "VARCHAR")]
     [InlineData("Int", "NVarChar")]
     [InlineData("BigInt", "varchar")]
+    [InlineData("VarChar", "NVARCHAR")]
     public void IsSupportedInPlaceConversion_WithMixedCase_ShouldBeSupported(string fromType, string toType)
     {
-        SqlTypeConversion.IsSupportedInPlaceConversion(fromType, toType).Should().BeTrue();
+        SqlTypeConversion.IsSupportedInPlaceConversion(fromType, 50, toType).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// Tests that varchar to nvarchar is on the allow-list, reporting the source's own width as the
+    /// width the target has to carry. Every ASCII string is a valid unicode string, so this is the
+    /// one string-to-string conversion where only width is in question — and it is what a dmd field
+    /// flipping from astring to ustring asks for.
+    /// </summary>
+    [Theory]
+    [InlineData(50, 50)]
+    [InlineData(1, 1)]
+    [InlineData(8000, 8000)]
+    [InlineData(-1, -1)]   // a MAX source needs a MAX target
+    [InlineData(null, -1)] // an unknown source width is treated as unbounded
+    public void IsSupportedInPlaceConversion_WithVarcharToNvarchar_ShouldReportSourceWidth(
+        int? fromPrecision, int expectedWidth)
+    {
+        // Act
+        var supported = SqlTypeConversion.IsSupportedInPlaceConversion("varchar", fromPrecision, "nvarchar", out var width);
+
+        // Assert
+        supported.Should().BeTrue();
+        width.Should().Be(expectedWidth);
+    }
+
+    /// <summary>
+    /// Tests that the reverse direction stays off the allow-list. SQL Server performs
+    /// nvarchar to varchar without complaint, replacing every character outside the target
+    /// collation's code page with '?', so it loses data exactly as quietly as a too-narrow integer.
+    /// </summary>
+    [Fact]
+    public void IsSupportedInPlaceConversion_WithNvarcharToVarchar_ShouldBeFalse()
+    {
+        SqlTypeConversion.IsSupportedInPlaceConversion("nvarchar", 50, "varchar").Should().BeFalse();
     }
 
     /// <summary>
     /// Tests the shape of the allow-list: only variable-width string targets qualify, and only
-    /// integer sources. Fixed-width targets are excluded because SQL Server right-pads them.
+    /// integer or varchar sources. Fixed-width targets are excluded because SQL Server right-pads
+    /// them.
     /// </summary>
     [Theory]
     [InlineData("int", "char")]
@@ -55,6 +91,10 @@ public class SqlTypeConversionTests
     [InlineData("int", "bigint")]
     [InlineData("varchar", "int")]
     [InlineData("nvarchar", "int")]
+    [InlineData("nvarchar", "varchar")]
+    [InlineData("varchar", "char")]
+    [InlineData("char", "varchar")]
+    [InlineData("text", "varchar")]
     [InlineData("decimal", "varchar")]
     [InlineData("datetime", "varchar")]
     [InlineData("bit", "varchar")]
@@ -62,7 +102,7 @@ public class SqlTypeConversionTests
     [InlineData("uniqueidentifier", "varchar")]
     public void IsSupportedInPlaceConversion_WithUnsupportedPair_ShouldBeFalse(string fromType, string toType)
     {
-        SqlTypeConversion.IsSupportedInPlaceConversion(fromType, toType).Should().BeFalse();
+        SqlTypeConversion.IsSupportedInPlaceConversion(fromType, 50, toType).Should().BeFalse();
     }
 
     /// <summary>
@@ -75,11 +115,12 @@ public class SqlTypeConversionTests
     [InlineData("int", "char")]
     [InlineData("bigint", "nchar")]
     [InlineData("varchar", "int")]
+    [InlineData("nvarchar", "varchar")]
     [InlineData("datetime", "varchar")]
     public void IsSupportedInPlaceConversion_WhenRejected_ShouldReportZeroWidth(string fromType, string toType)
     {
         // Act
-        var supported = SqlTypeConversion.IsSupportedInPlaceConversion(fromType, toType, out var width);
+        var supported = SqlTypeConversion.IsSupportedInPlaceConversion(fromType, 50, toType, out var width);
 
         // Assert
         supported.Should().BeFalse();
@@ -95,7 +136,88 @@ public class SqlTypeConversionTests
     [InlineData("", "varchar")]
     public void IsSupportedInPlaceConversion_WithUnknownType_ShouldBeFalse(string fromType, string toType)
     {
-        SqlTypeConversion.IsSupportedInPlaceConversion(fromType, toType).Should().BeFalse();
+        SqlTypeConversion.IsSupportedInPlaceConversion(fromType, null, toType).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Tests which conversions have to have their width guaranteed from the source type. An integer
+    /// conversion fails open — SQL Server stores '*' rather than raising — so the planner must
+    /// refuse a narrow target outright. A string widening fails closed, so it is safe to leave to
+    /// the runner's live-data probe.
+    /// </summary>
+    [Theory]
+    [InlineData("tinyint", true)]
+    [InlineData("smallint", true)]
+    [InlineData("int", true)]
+    [InlineData("bigint", true)]
+    [InlineData("INT", true)]
+    [InlineData("varchar", false)]
+    [InlineData("nvarchar", false)]
+    [InlineData("decimal", false)]
+    [InlineData("datetime", false)]
+    public void FailsOpenOnNarrowTarget_ShouldBeTrueOnlyForIntegerSources(string fromType, bool expected)
+    {
+        SqlTypeConversion.FailsOpenOnNarrowTarget(fromType).Should().Be(expected);
+    }
+
+    /// <summary>
+    /// Tests that the target's width is judged on what the field will actually be created at.
+    /// </summary>
+    [Theory]
+    [InlineData(50, 11, true, 50)]    // comfortably wide
+    [InlineData(11, 11, true, 11)]    // exactly wide enough
+    [InlineData(10, 11, false, 10)]   // one short
+    [InlineData(-1, 20, true, -1)]    // MAX holds anything
+    [InlineData(8000, -1, false, 8000)] // an unbounded source needs an unbounded target
+    [InlineData(-1, -1, true, -1)]
+    public void IsTargetWideEnough_WithDeclaredPrecision_ShouldCompareAgainstIt(
+        int targetPrecision, int requiredWidth, bool expected, int expectedEffectiveWidth)
+    {
+        // Act
+        var wideEnough = SqlTypeConversion.IsTargetWideEnough(
+            Field("varchar", targetPrecision), requiredWidth, out var effectiveWidth);
+
+        // Assert
+        wideEnough.Should().Be(expected);
+        effectiveWidth.Should().Be(expectedEffectiveWidth);
+    }
+
+    /// <summary>
+    /// Tests that a field declaring no precision is judged against the width it will actually be
+    /// created at — the type's default — rather than skipping the check. This is the guard standing
+    /// between a bigint and a silent '*', so it cannot be waived just because the dmd field left
+    /// its size off.
+    /// </summary>
+    [Theory]
+    [InlineData("varchar", 20, true, 255)]
+    [InlineData("nvarchar", 20, true, 255)]
+    [InlineData("varchar", 300, false, 255)]
+    public void IsTargetWideEnough_WithoutDeclaredPrecision_ShouldUseTheTypeDefault(
+        string targetType, int requiredWidth, bool expected, int expectedEffectiveWidth)
+    {
+        // Act
+        var wideEnough = SqlTypeConversion.IsTargetWideEnough(
+            Field(targetType, precision: null), requiredWidth, out var effectiveWidth);
+
+        // Assert
+        wideEnough.Should().Be(expected);
+        effectiveWidth.Should().Be(expectedEffectiveWidth);
+    }
+
+    /// <summary>
+    /// Tests that a type carrying neither a precision nor a default is refused rather than waved
+    /// through, so an unrecognised target cannot bypass the width guard.
+    /// </summary>
+    [Fact]
+    public void IsTargetWideEnough_WithUnknownTypeAndNoPrecision_ShouldBeFalse()
+    {
+        // Act
+        var wideEnough = SqlTypeConversion.IsTargetWideEnough(
+            Field("geography", precision: null), requiredWidth: 11, out var effectiveWidth);
+
+        // Assert
+        wideEnough.Should().BeFalse();
+        effectiveWidth.Should().Be(0);
     }
 
     /// <summary>

@@ -145,7 +145,7 @@ public class MigrationPlanner
                     if (!string.Equals(targetType, actualType, StringComparison.OrdinalIgnoreCase)
                         && !(targetIsDecimal && actualIsDecimal))
                     {
-                        if (!SqlTypeConversion.IsSupportedInPlaceConversion(actualType, targetType, out var maxRenderedWidth))
+                        if (!SqlTypeConversion.IsSupportedInPlaceConversion(actualType, actualField.Precision, targetType, out var requiredWidth))
                         {
                             // A target that is exactly Shift's own round-trip of the actual type
                             // (text -> varchar(max), money -> decimal(19,4)) is not drift, so it is
@@ -163,15 +163,28 @@ public class MigrationPlanner
                                     Reason = $"{actualType} cannot be converted to {targetType} in place. The column is left unchanged."
                                 });
                             }
+
+                            continue;
                         }
-                        // A target too narrow to hold every value the source type can represent is
-                        // refused here rather than planned and left to the runner's live-data probe.
-                        // Deferring would make migratability depend on what happens to be stored, so
-                        // the same model would apply on one database and be skipped on another; and
-                        // the probe cannot be trusted to carry that weight, because SQL Server does
+
+                        // The width is judged against the width the target field will actually be
+                        // created at, which is the type's default when the field declares no
+                        // precision of its own - not treated as "no precision, nothing to check".
+                        var wideEnough = SqlTypeConversion.IsTargetWideEnough(targetField, requiredWidth, out var effectiveWidth);
+
+                        // A target too narrow for the source type is refused here, rather than
+                        // planned and left to the runner's live-data probe, whenever the conversion
+                        // fails open. Deferring would make migratability depend on what happens to
+                        // be stored, so the same model would apply on one database and be skipped on
+                        // another; and the probe cannot carry that weight, because SQL Server does
                         // not raise on a too-narrow integer conversion - it stores '*' - so any row
-                        // the probe misses is destroyed silently. Precision -1 means MAX, which fits.
-                        else if (targetField.Precision is int targetWidth && targetWidth != -1 && targetWidth < maxRenderedWidth)
+                        // the probe misses is destroyed silently.
+                        //
+                        // A conversion that fails closed (varchar -> nvarchar) is planned even when
+                        // the target looks too narrow, because SQL Server raises on truncation: the
+                        // runner's probe can decide it from the rows, the same as a plain resize,
+                        // and a column whose values all fit is migrated rather than stranded.
+                        if (!wideEnough && SqlTypeConversion.FailsOpenOnNarrowTarget(actualType))
                         {
                             Report(plan, new MigrationDiagnostic
                             {
@@ -180,22 +193,22 @@ public class MigrationPlanner
                                 ColumnName = targetField.Name,
                                 ActualType = actualType,
                                 TargetType = targetType,
-                                Reason = $"target {targetType}({targetWidth}) cannot hold every {actualType} value, which needs up to {maxRenderedWidth} characters. Widen the field to {targetType}({maxRenderedWidth}) to migrate it."
+                                Reason = $"target {targetType}({effectiveWidth}) cannot hold every {actualType} value, which needs up to {requiredWidth} characters. Widen the field to {targetType}({requiredWidth}) to migrate it."
                             });
-                        }
-                        else
-                        {
-                            Logger?.LogWarning(
-                                "AlterColumn {Table}.{Column}: converting {ActualType} to {TargetType} with precision {TargetPrecision}",
-                                targetTable.Name, targetField.Name, actualType, targetType, targetField.Precision);
 
-                            plan.Steps.Add(new MigrationStep
-                            {
-                                Action = MigrationAction.AlterColumn,
-                                TableName = targetTable.Name,
-                                Fields = new List<FieldModel> { targetField }
-                            });
+                            continue;
                         }
+
+                        Logger?.LogWarning(
+                            "AlterColumn {Table}.{Column}: converting {ActualType} to {TargetType} with precision {TargetPrecision}",
+                            targetTable.Name, targetField.Name, actualType, targetType, targetField.Precision);
+
+                        plan.Steps.Add(new MigrationStep
+                        {
+                            Action = MigrationAction.AlterColumn,
+                            TableName = targetTable.Name,
+                            Fields = new List<FieldModel> { targetField }
+                        });
                     }
                 }
             }
