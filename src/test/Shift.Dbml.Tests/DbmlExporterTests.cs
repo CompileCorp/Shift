@@ -404,8 +404,12 @@ public class DbmlExporterTests
         var dbml = _sut.GenerateDbml(model);
 
         dbml.Should().Contain("indexes");
-        System.Text.RegularExpressions.Regex.Matches(dbml, @"^    Email$",
-            System.Text.RegularExpressions.RegexOptions.Multiline).Count.Should().Be(1);
+
+        // \r? because the exporter builds its output with AppendLine, so lines end with
+        // Environment.NewLine - CRLF on Windows. In multiline mode $ matches only before the \n,
+        // leaving the \r unmatched, so the bare anchor found nothing on Windows while passing on
+        // the Linux CI runner.
+        Regex.Matches(dbml, @"^    Email\r?$", RegexOptions.Multiline).Count.Should().Be(1);
     }
 
     [Fact]
