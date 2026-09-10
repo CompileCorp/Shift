@@ -34,7 +34,7 @@ public class SqlMigrationRunner_Mixins_Tests
             var planner = new MigrationPlanner();
             var plan = planner.GeneratePlan(model, actual);
             var runner = new SqlMigrationPlanRunner(connectionString, plan) { Logger = _logger };
-            var failures = runner.Run();
+            var failures = runner.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);

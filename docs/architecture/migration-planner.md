@@ -41,15 +41,26 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 - For fields that exist in both, detects type-size differences and emits `AlterColumn` steps:
   - **String/binary types** (`varchar`, `nvarchar`, `char`, `nchar`, `binary`, `varbinary`): when the base type matches, any difference in `Precision` triggers an `AlterColumn` step. `null` and `-1` precision are treated as equivalent (both mean `MAX`). A warning is logged for each detected size change.
   - **Decimal/numeric types** (`decimal`, `numeric`, treated as compatible): any difference in `Precision` or `Scale` triggers an `AlterColumn` step.
-  - **Base-type changes** are handled separately, against the narrow allow-list in `SqlTypeConversion`: an **integer type** (`tinyint`, `smallint`, `int`, `bigint`) becoming a **variable-width string** (`varchar`, `nvarchar`) triggers an `AlterColumn` step. This is what lets a dmd field change from `int` to `astring(n)`/`ustring(n)` and actually migrate.
+  - **Base-type changes** are handled separately, against the narrow allow-list in `SqlTypeConversion`: an **integer type** (`tinyint`, `smallint`, `int`, `bigint`) becoming a **variable-width string** (`varchar`, `nvarchar`) triggers an `AlterColumn` step, provided the target is wide enough (see below). This is what lets a dmd field change from `int` to `astring(n)`/`ustring(n)` and actually migrate.
 
-**Base-type changes that are not on the allow-list** produce no step — the column is left as it is — but the planner now logs a warning naming the actual and target types, so the drift is visible instead of silent. In particular:
+**Base-type changes the planner refuses** produce no step — the column is left as it is — and are recorded on `plan.Diagnostics` as a `MigrationDiagnostic` as well as logged, so the refusal is visible to a caller and not only to whoever is reading the log. There are two reasons a change is refused:
+
+`UnsupportedTypeChange` — the conversion is not on the allow-list:
 
 - The reverse direction (string to integer) is **not** migrated. SQL Server cannot convert arbitrary text to an integer in place, so the column is reported and left alone.
 - Fixed-width string targets (`char`, `nchar`) are **deliberately excluded**, even though SQL Server permits the conversion: converting an integer to `char(n)` right-pads the value with spaces, which changes the stored data rather than just its type.
 - A target that is **exactly Shift's own round-trip** of the actual type is **not** reported, because it is not drift: `text` → `varchar(max)`, `ntext` → `nvarchar(max)`, `money` → `decimal(19,4)`, `smallmoney` → `decimal(10,4)`. Warning on these would fire on every plan for any schema containing a legacy `text` or `money` column. The comparison covers precision and scale, not just the type name, so only the exact round-trip is exempt — `text` → `varchar(50)` or `money` → `decimal(18,4)` is a real change of intent and is still reported.
 
-**Important**: The planner flags size/precision changes in *either* direction; it does **not** restrict itself to "widening" only. The same applies to an allowed base-type change: an integer whose target string is narrower than the integer's widest rendering (`tinyint` 3, `smallint` 6, `int` 11, `bigint` 20 characters, counting the sign) is still planned, with a warning, rather than being refused at plan time. The guard that prevents data-loss alterations (e.g., shrinking a column that holds longer values, or converting an `int` holding `123456` to `varchar(2)`) lives in `SqlMigrationPlanRunner.IsAlterColumnPotentiallyUnsafe`, which probes the live data at execution time and skips the alter if it would truncate or round existing values. See the [SqlMigrationPlanRunner architecture](./sql-migration-plan-runner.md) for details.
+`TargetTooNarrow` — the conversion is allowed, but the target cannot hold every value the source **type** can represent (`tinyint` needs 3 characters, `smallint` 6, `int` 11, `bigint` 20, counting the sign). `int` → `varchar(10)` is refused; `int` → `varchar(11)` and `int` → `varchar(max)` are applied.
+
+This is judged against the source type, **not** against the rows currently in the table, and that is deliberate on two counts:
+
+1. **Determinism.** Deciding from live data would make the same dmd file apply on one database and be refused on another, and would let a column migrate today and fail to migrate tomorrow.
+2. **Safety.** SQL Server does **not** raise when an integer will not fit the target string — it stores `*` in place of the number. A data-driven check would therefore be the only thing standing between a too-narrow target and silent, unrecoverable data loss, and it cannot bear that weight: the probe cannot see rows locked by another transaction, and nothing holds a lock between the probe and the `ALTER`.
+
+The cost is that a `bigint` column holding nothing but positive values is still refused at `varchar(19)`, because the type's negative minimum needs 20. Widen the dmd field to migrate it.
+
+**Important**: The planner flags size/precision changes in *either* direction; it does **not** restrict itself to "widening" only. For **same-base-type** resizes (e.g. shrinking `varchar(50)` to `varchar(5)`), the data-loss guard still lives in `SqlMigrationPlanRunner.IsAlterColumnPotentiallyUnsafe`, which probes the live data at execution time and skips the alter if it would truncate or round existing values. That remains data-driven because it fails closed: SQL Server raises on a string truncation, so a row the probe misses produces a visible error rather than lost data. See the [SqlMigrationPlanRunner architecture](./sql-migration-plan-runner.md) for details.
 
 **Example**:
 ```csharp
@@ -63,7 +74,10 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
 // Result: Creates MigrationStep with Action = AlterColumn (allowed base-type change)
 
 // Target: Widget.Code int; Actual: Widget.Code varchar(50)
-// Result: No step; a warning reports the unmigrated type change
+// Result: No step; plan.Diagnostics gets an UnsupportedTypeChange entry
+
+// Target: Widget.Code varchar(4); Actual: Widget.Code int
+// Result: No step; plan.Diagnostics gets a TargetTooNarrow entry (an int needs 11 characters)
 ```
 
 ### Step 3: Add Missing Foreign Keys
@@ -255,7 +269,7 @@ The MigrationPlanner is designed to be robust and handle various edge cases:
 - **Case Variations**: All comparisons are case-insensitive
 - **Extra Objects**: Objects in actual but not target are reported, not migrated
 - **Alterations Flagged Both Ways**: Size/precision changes are detected in either direction; the data-loss guard that decides whether an `AlterColumn` is actually safe to execute lives in `SqlMigrationPlanRunner` (not the planner)
-- **Unsupported Type Changes**: A base-type change outside the `SqlTypeConversion` allow-list is logged as a warning and left unmigrated, rather than being silently ignored
+- **Unsupported Type Changes**: A base-type change outside the `SqlTypeConversion` allow-list, or onto a target too narrow for the source type, is recorded on `plan.Diagnostics` and logged, rather than being silently ignored
 
 ## Performance Considerations
 

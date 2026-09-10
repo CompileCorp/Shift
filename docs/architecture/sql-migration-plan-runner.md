@@ -103,32 +103,51 @@ END
 
 The runner does not restrict alterations to widening. Instead, before generating the SQL it
 calls `IsAlterColumnPotentiallyUnsafe`, which probes the live data (with `WITH (READPAST)`) and
-**skips the alter (logging a warning)** when it would lose data:
+**skips the alter** when it would lose data, recording a `DataLossRisk` diagnostic on the run
+result as well as logging it:
 
 - **String/binary** (`varchar`, `nvarchar`, `char`, `nchar`, `binary`, `varbinary`): when the
   new size is smaller and an existing value exceeds it. Lengths use `LEN` for `char`/`nchar`
   and `DATALENGTH` otherwise (Unicode counts two bytes per character). Resizing to `MAX`
   (`-1`) is always safe.
-- **Integer becoming a string** (`int` to `varchar(n)` and the rest of the
-  `SqlTypeConversion` allow-list): the probe reads the column's current `DATA_TYPE` from
-  `INFORMATION_SCHEMA.COLUMNS` first, and when the source is an integer it measures the
-  *rendered character length* instead — `LEN(CONVERT(varchar(50), [col])) > n`. `DATALENGTH`
-  would be wrong here: it reports the integer's storage size (always 4 bytes for an `int`),
-  so it would wave through `int` to `varchar(2)`. A character count is the correct limit for
-  both `varchar` (where `CHARACTER_MAXIMUM_LENGTH` counts bytes) and `nvarchar` (where it
-  counts characters), because a rendered integer is ASCII. This probe is load-bearing rather
-  than advisory: SQL Server does **not** raise when converting an integer to a string too
-  narrow to hold it — it stores `*` in place of the number — so without the probe the value
-  would be destroyed and the apply would still report success.
 - **Decimal/numeric**: when an existing value would not round-trip through
   `TRY_CONVERT(decimal(p,s), ...)` (truncation, rounding, or conversion failure).
+
+Both of these are safe to decide from live data because they **fail closed**: SQL Server raises
+on a string truncation or a failed decimal conversion, so a row the probe misses — locked by
+another transaction, or inserted between the probe and the `ALTER` — produces a visible error
+rather than lost data.
+
+**Integer becoming a string is not decided from live data.** `MigrationPlanner` refuses the
+change at plan time unless the target can hold every value the source *type* can represent, so a
+step only reaches the runner when it is provably safe, and the probe short-circuits:
+
+```csharp
+if (targetWidth >= maxRenderedWidth)
+    return false;   // cannot truncate, whatever is stored — no scan
+```
+
+This is not merely an optimisation. The data-driven check cannot be trusted here, because this
+conversion **fails open**: SQL Server does not raise when an integer will not fit the target
+string, it stores `*` in place of the number. A missed row is therefore destroyed silently and
+the apply still reports success — so the guarantee has to come from the type, not the rows. See
+[MigrationPlanner](./migration-planner.md) for the refusal rules.
+
+The probe retains a narrower-target branch, measuring the *rendered character length*
+(`LEN(CONVERT(varchar(50), [col])) > n`) rather than `DATALENGTH`, which reports an `int`'s
+4-byte storage size and would wave through `int` to `varchar(2)`. A character count is the
+correct limit for both `varchar` (where `CHARACTER_MAXIMUM_LENGTH` counts bytes) and `nvarchar`
+(where it counts characters), because a rendered integer is ASCII. That branch is now only
+reachable from a hand-built plan that bypasses the planner, and is a backstop rather than a
+guarantee.
 
 ### Columns other objects depend on
 
 SQL Server rejects a change of base type outright when anything else depends on the column,
 failing with error 4922 (or 2749 for an identity column). Before a base-type change the runner
 calls `GetAlterColumnBlockers`, which reads the live catalog and **skips the alter, naming the
-dependency**, rather than emitting SQL that is certain to fail. The blockers are:
+dependency** in a `BlockedByDependency` diagnostic, rather than emitting SQL that is certain to
+fail. The blockers checked are:
 
 | Blocker | Source |
 |---|---|
@@ -138,11 +157,15 @@ dependency**, rather than emitting SQL that is certain to fail. The blockers are
 | Default constraint | `sys.default_constraints` |
 | Check constraint | `sys.check_constraints` |
 | Computed column referencing the column | `sys.sql_expression_dependencies` |
-| Explicitly created statistics | `sys.stats` where `user_created = 1` |
+| Explicitly created statistics | `sys.stats_columns` joined to `sys.stats` where `auto_created = 0 AND user_created = 1` |
 | Schema-bound view or function | `sys.sql_expression_dependencies` |
 
 Two things deliberately do **not** block: **auto-created statistics**, which SQL Server drops and
 recreates itself, and **views without `SCHEMABINDING`**.
+
+This list is not exhaustive. Temporal tables (`SYSTEM_VERSIONING`) and full-text indexes also
+prevent the change and are **not** checked; a conversion on such a column is attempted and fails
+loudly, landing in `MigrationRunResult.Failures` rather than being named as a blocker.
 
 `IDENTITY` is the one conditional entry. Identity columns must be an integer type, or
 `decimal`/`numeric` with a scale of 0, so a `numeric(18,0)` identity converting to
@@ -163,8 +186,27 @@ depends on the column — a bare default constraint is enough — even though it
 precision change happily when the spelling does not change. Naming the blocking object is
 therefore more useful than attempting SQL that is certain to fail.
 
-Because the alter is skipped rather than attempted, this is reported as a warning and not as a
-step failure. Migrating such a column means dropping the dependent object first and re-applying.
+Because the alter is skipped rather than attempted, this is not a step failure. Migrating such a
+column means dropping the dependent object first and re-applying.
+
+### Reporting what did not happen
+
+`Run()` returns a `MigrationRunResult` rather than a bare failure list, because a run has three
+outcomes and not two:
+
+| | Meaning |
+|---|---|
+| `Applied` | Steps whose SQL executed without error. A step whose every field was skipped produced no SQL and is **not** counted here. |
+| `Skipped` | Steps the runner declined, each with a `MigrationDiagnostic` saying why (`DataLossRisk`, `BlockedByDependency`). |
+| `Failures` | Steps whose SQL executed and threw. |
+
+`HasUnappliedWork` is true when anything the plan asked for did not happen, for either reason.
+
+Reporting only failures made a run in which every step was skipped indistinguishable from one in
+which every step succeeded — the runner logged warnings, but a caller inspecting the return value
+saw an empty list and concluded the migration was complete. `Shift.ApplyToSqlAsync` returns the
+same object, with the planner's own refusals (`plan.Diagnostics`) prepended to `Skipped`, so one
+value describes everything the model asked for that did not happen, whichever stage declined it.
 
 ### AddForeignKey
 

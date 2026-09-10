@@ -49,7 +49,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Empty migration plan should complete without failures");
@@ -92,7 +92,7 @@ public class SqlMigrationPlanRunnerTests
 
             var runner = new SqlMigrationPlanRunner(connectionString, plan) { Logger = _logger };
 
-            var failures = runner.Run();
+            var failures = runner.Run().Failures;
 
             failures.Should().HaveCount(1);
             failures[0].Item1.TableName.Should().Be("Dup");
@@ -132,7 +132,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Table creation should complete without failures");
@@ -184,7 +184,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Column addition should complete without failures");
@@ -237,7 +237,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Foreign key addition should complete without failures");
@@ -305,7 +305,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("All migration steps should complete without failures");
@@ -378,7 +378,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Column alteration should complete without failures");
@@ -430,7 +430,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Decimal column alteration should complete without failures");
@@ -491,7 +491,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Unsafe alteration should be skipped without failures");
@@ -547,7 +547,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Unsafe decimal alteration should be skipped without failures");
@@ -604,7 +604,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Binary column alteration should complete without failures");
@@ -656,7 +656,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Char column alteration should complete without failures");
@@ -711,7 +711,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -765,7 +765,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -819,7 +819,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -874,7 +874,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -1073,7 +1073,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act - This should not fail even though the index already exists
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors even with duplicate index");
@@ -1137,7 +1137,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -1203,7 +1203,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -1279,7 +1279,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");
@@ -1375,7 +1375,7 @@ public class SqlMigrationPlanRunnerTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without errors");

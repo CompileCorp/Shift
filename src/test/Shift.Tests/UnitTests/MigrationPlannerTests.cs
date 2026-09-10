@@ -552,15 +552,16 @@ model Document with Auditable {
     }
 
     /// <summary>
-    /// Tests that a target narrower than the widest possible int still produces an AlterColumn
-    /// step (matching how string shrinks are handled) and warns that the runner will re-check the
-    /// live data before applying it.
+    /// Tests that a target narrower than the widest possible int is refused outright rather than
+    /// planned and left to the runner. Planning it would make the outcome depend on whatever rows
+    /// happen to exist, and the runner cannot make that call safely: SQL Server stores '*' instead
+    /// of raising when an integer will not fit, so any row the probe misses is lost silently.
     /// </summary>
     [Fact]
-    public void GeneratePlan_WithIntToVarcharTooNarrow_ShouldCreateAlterColumnStepAndWarn()
+    public void GeneratePlan_WithIntToVarcharTooNarrow_ShouldRefuseWithoutCreatingStep()
     {
         // Arrange
-        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var (planner, _) = CreatePlannerCapturingWarnings();
         var targetModel = CreateSingleColumnModel("varchar", precision: 2);
         var actualModel = CreateSingleColumnModel("int");
 
@@ -568,9 +569,13 @@ model Document with Auditable {
         var plan = planner.GeneratePlan(targetModel, actualModel);
 
         // Assert
-        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
-        warnings.Should().Contain(w =>
-            w.Contains("narrower than the widest int value (11 characters)"));
+        plan.Steps.Should().BeEmpty();
+        plan.Diagnostics.Should().ContainSingle(d =>
+            d.Kind == MigrationDiagnosticKind.TargetTooNarrow &&
+            d.TableName == "Widget" &&
+            d.ColumnName == "Code" &&
+            d.ActualType == "int" &&
+            d.TargetType == "varchar");
     }
 
     /// <summary>
@@ -590,7 +595,7 @@ model Document with Auditable {
 
         // Assert
         plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AlterColumn);
-        warnings.Should().Contain(w => w.Contains("Unmigrated type change"));
+        plan.Diagnostics.Should().ContainSingle(d => d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange);
     }
 
     /// <summary>
@@ -610,7 +615,7 @@ model Document with Auditable {
 
         // Assert
         plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AlterColumn);
-        warnings.Should().Contain(w => w.Contains("Unmigrated type change"));
+        plan.Diagnostics.Should().ContainSingle(d => d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange);
     }
 
     /// <summary>
@@ -629,10 +634,12 @@ model Document with Auditable {
 
         // Assert
         plan.Steps.Should().BeEmpty();
-        warnings.Should().Contain(w =>
-            w.Contains("Unmigrated type change Widget.Code") &&
-            w.Contains("datetime") &&
-            w.Contains("nvarchar"));
+        plan.Diagnostics.Should().ContainSingle(d =>
+            d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange &&
+            d.TableName == "Widget" &&
+            d.ColumnName == "Code" &&
+            d.ActualType == "datetime" &&
+            d.TargetType == "nvarchar");
     }
 
     /// <summary>
@@ -653,6 +660,7 @@ model Document with Auditable {
         // Assert
         plan.Steps.Should().BeEmpty();
         warnings.Should().BeEmpty();
+        plan.Diagnostics.Should().BeEmpty();
     }
 
     /// <summary>
@@ -681,6 +689,7 @@ model Document with Auditable {
         // Assert
         plan.Steps.Should().BeEmpty();
         warnings.Should().BeEmpty();
+        plan.Diagnostics.Should().BeEmpty();
     }
 
     /// <summary>
@@ -708,26 +717,29 @@ model Document with Auditable {
 
         // Assert
         plan.Steps.Should().BeEmpty();
-        warnings.Should().Contain(w =>
-            w.Contains("Unmigrated type change Widget.Code") &&
-            w.Contains(actualType) &&
-            w.Contains(targetType));
+        plan.Diagnostics.Should().ContainSingle(d =>
+            d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange &&
+            d.TableName == "Widget" &&
+            d.ColumnName == "Code" &&
+            d.ActualType == actualType &&
+            d.TargetType == targetType);
     }
 
     /// <summary>
-    /// Tests that every integer type on the allow-list is migrated to a variable-width string, and
-    /// that the warning names the widest rendering of that specific integer type.
+    /// Tests that a too-narrow target is refused for every integer type on the allow-list, and
+    /// that the reason names the width that type actually needs so the reader knows what to widen
+    /// the field to.
     /// </summary>
     [Theory]
     [InlineData("tinyint", 3)]
     [InlineData("smallint", 6)]
     [InlineData("int", 11)]
     [InlineData("bigint", 20)]
-    public void GeneratePlan_WithEachIntegerTypeTooNarrowTarget_ShouldWarnWithRenderedWidth(
+    public void GeneratePlan_WithEachIntegerTypeTooNarrowTarget_ShouldRefuseAndNameRequiredWidth(
         string actualType, int expectedWidth)
     {
         // Arrange
-        var (planner, warnings) = CreatePlannerCapturingWarnings();
+        var (planner, _) = CreatePlannerCapturingWarnings();
         var targetModel = CreateSingleColumnModel("varchar", precision: 2);
         var actualModel = CreateSingleColumnModel(actualType);
 
@@ -735,9 +747,12 @@ model Document with Auditable {
         var plan = planner.GeneratePlan(targetModel, actualModel);
 
         // Assert
-        plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
-        warnings.Should().Contain(w =>
-            w.Contains($"narrower than the widest {actualType} value ({expectedWidth} characters)"));
+        plan.Steps.Should().BeEmpty();
+        plan.Diagnostics.Should().ContainSingle(d =>
+            d.Kind == MigrationDiagnosticKind.TargetTooNarrow &&
+            d.ActualType == actualType &&
+            d.Reason.Contains($"up to {expectedWidth} characters") &&
+            d.Reason.Contains($"varchar({expectedWidth})"));
     }
 
     /// <summary>
@@ -770,11 +785,11 @@ model Document with Auditable {
     }
 
     /// <summary>
-    /// Tests that a MAX target is treated as wide enough for any integer, so it takes the plain
-    /// conversion warning rather than the too-narrow one.
+    /// Tests that a MAX target is treated as wide enough for any integer, so it is migrated rather
+    /// than refused as too narrow.
     /// </summary>
     [Fact]
-    public void GeneratePlan_WithIntToVarcharMax_ShouldCreateStepWithoutNarrowWarning()
+    public void GeneratePlan_WithIntToVarcharMax_ShouldCreateStepWithoutRefusing()
     {
         // Arrange
         var (planner, warnings) = CreatePlannerCapturingWarnings();
@@ -787,7 +802,7 @@ model Document with Auditable {
         // Assert
         plan.Steps.Should().ContainSingle(step => step.Action == MigrationAction.AlterColumn);
         warnings.Should().Contain(w => w.Contains("converting int to varchar"));
-        warnings.Should().NotContain(w => w.Contains("narrower than the widest"));
+        plan.Diagnostics.Should().BeEmpty();
     }
 
     /// <summary>
@@ -811,7 +826,7 @@ model Document with Auditable {
 
         // Assert
         plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AlterColumn);
-        warnings.Should().Contain(w => w.Contains("Unmigrated type change"));
+        plan.Diagnostics.Should().ContainSingle(d => d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange);
     }
 
     /// <summary>
@@ -836,7 +851,7 @@ model Document with Auditable {
 
         // Assert
         plan.Steps.Should().NotContain(step => step.Action == MigrationAction.AlterColumn);
-        warnings.Should().Contain(w => w.Contains("Unmigrated type change"));
+        plan.Diagnostics.Should().ContainSingle(d => d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange);
     }
 
     #endregion

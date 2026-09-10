@@ -39,7 +39,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             var planner = new MigrationPlanner();
             var plan = planner.GeneratePlan(target, actual);
             var runner = new SqlMigrationPlanRunner(connectionString, plan) { Logger = _logger };
-            var failures = runner.Run();
+            var failures = runner.Run().Failures;
             Assert.Empty(failures);
 
             // Reload and validate
@@ -117,7 +117,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             var planner = new MigrationPlanner();
             var plan1 = planner.GeneratePlan(initialModel, actualEmpty);
             var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
-            var failures1 = runner1.Run();
+            var failures1 = runner1.Run().Failures;
             Assert.Empty(failures1);
 
             var modelAfterFirstApply = await shift.LoadFromSqlAsync(connectionString);
@@ -133,7 +133,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
 
             var plan2 = planner.GeneratePlan(updatedModel, modelAfterFirstApply);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures2 = runner2.Run();
+            var failures2 = runner2.Run().Failures;
             Assert.Empty(failures2);
 
             // 3) Reload and EXPECT width is 200 (this will currently FAIL until alter column is implemented)
@@ -165,7 +165,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             var actualEmpty = await shift.LoadFromSqlAsync(connectionString);
             var plan1 = planner.GeneratePlan(initialModel, actualEmpty);
             var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
-            Assert.Empty(runner1.Run());
+            Assert.Empty(runner1.Run().Failures);
 
             await InsertIntAsync(connectionString, "Widget", "Code", 4242);
 
@@ -177,7 +177,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             Assert.Contains(plan2.Steps, step => step.Action == MigrationAction.AlterColumn);
 
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            Assert.Empty(runner2.Run());
+            Assert.Empty(runner2.Run().Failures);
 
             // 3) The column is now a varchar(50) and the stored value survived
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -208,7 +208,7 @@ public class SqlMigrationRunner_TypesAndConstraints_Tests
             var actualEmpty = await shift.LoadFromSqlAsync(connectionString);
             var plan1 = planner.GeneratePlan(initialModel, actualEmpty);
             var runner1 = new SqlMigrationPlanRunner(connectionString, plan1) { Logger = _logger };
-            Assert.Empty(runner1.Run());
+            Assert.Empty(runner1.Run().Failures);
 
             // The reverse direction is not on the allow-list, so nothing is planned
             var intModel = BuildSingleColumnModel("Widget", "Code", "int");
