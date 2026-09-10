@@ -67,7 +67,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
@@ -131,7 +131,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
@@ -200,7 +200,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Safe migration should complete without failures");
@@ -264,7 +264,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Safe decimal migration should complete without failures");
@@ -340,7 +340,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
@@ -404,7 +404,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
@@ -464,7 +464,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures on empty table");
@@ -527,7 +527,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures (unsafe step skipped)");
@@ -588,7 +588,7 @@ public class SqlMigrationPlanRunnerDataSafetyTests
             };
 
             // Act
-            var result = runner.Run();
+            var result = runner.Run().Failures;
 
             // Assert
             result.Should().BeEmpty("Migration should complete without failures");

@@ -10,7 +10,7 @@ public interface IShift
     Task<DatabaseModel> LoadFromAssembliesAsync(IEnumerable<Assembly> assemblies, IEnumerable<string>? namespaces = null);
     Task<DatabaseModel> LoadFromPathAsync(IEnumerable<string> paths);
     Task<DatabaseModel> LoadFromSqlAsync(string connectionString, string schema = "dbo");
-    Task ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo");
+    Task<MigrationRunResult> ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo");
 }
 
 
@@ -183,13 +183,18 @@ public class Shift : IShift
         return model;
     }
 
-    public async Task ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo")
+    public async Task<MigrationRunResult> ApplyToSqlAsync(DatabaseModel targetModel, string connectionString, string schema = "dbo")
     {
         var sourceModel = await LoadFromSqlAsync(connectionString, schema);
         var migrationPlanner = new MigrationPlanner { Logger = Logger };
         var plan = migrationPlanner.GeneratePlan(targetModel, sourceModel);
         var sql = new SqlMigrationPlanRunner(connectionString, plan, schema) { Logger = Logger };
-        var failures = sql.Run();
+        var result = sql.Run();
+
+        // Changes the planner refused never became steps, so they are only visible here. Carrying
+        // them onto the result means one object describes everything the model asked for that did
+        // not happen, whichever stage declined it.
+        result.Skipped.InsertRange(0, plan.Diagnostics);
 
         var effects = plan.Steps
             .OrderBy(x => x.Action)
@@ -197,32 +202,46 @@ public class Shift : IShift
             .Select(x => (x.Key, x.Count()))
             .ToList();
 
-        if (effects.Count > 0)
+        if (effects.Count == 0 && result.Skipped.Count == 0)
         {
-            // Steps that threw are reported here as well as by the runner: without this the apply
-            // announces "Apply completed" whether or not every step failed.
-            if (failures.Count > 0)
-            {
-                Logger.LogError("Apply completed with {count} failed step(s)", failures.Count);
-                foreach (var (step, exception) in failures)
-                {
-                    Logger.LogError("{action} {table} failed: {message}", step.Action, step.TableName, exception.Message);
-                }
-            }
-            else
-            {
-                Logger.LogInformation("Apply completed");
-            }
+            Logger.LogInformation("Already up-to date");
+            return result;
+        }
 
-            foreach (var effect in effects)
+        // Steps that threw are reported here as well as by the runner: without this the apply
+        // announces "Apply completed" whether or not every step failed.
+        if (result.Failures.Count > 0)
+        {
+            Logger.LogError("Apply completed with {count} failed step(s)", result.Failures.Count);
+            foreach (var (step, exception) in result.Failures)
             {
-                Logger.LogInformation("{action} {count}", effect.Key, effect.Item2);
+                Logger.LogError("{action} {table} failed: {message}", step.Action, step.TableName, exception.Message);
             }
         }
         else
         {
-            Logger.LogInformation("Already up-to date");
+            Logger.LogInformation("Apply completed");
         }
+
+        // Skipped work is neither an application nor a failure, and reporting only the step counts
+        // would present a run in which nothing changed as a run in which everything did.
+        if (result.Skipped.Count > 0)
+        {
+            Logger.LogWarning("{count} column change(s) not applied", result.Skipped.Count);
+            foreach (var diagnostic in result.Skipped)
+            {
+                Logger.LogWarning(
+                    "{kind} {table}.{column}: {reason}",
+                    diagnostic.Kind, diagnostic.TableName, diagnostic.ColumnName, diagnostic.Reason);
+            }
+        }
+
+        foreach (var effect in effects)
+        {
+            Logger.LogInformation("{action} {count}", effect.Key, effect.Item2);
+        }
+
+        return result;
     }
 
     public void SaveToPathAsync()

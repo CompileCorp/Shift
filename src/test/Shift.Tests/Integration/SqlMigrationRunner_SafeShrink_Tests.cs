@@ -92,7 +92,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -132,7 +132,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -169,7 +169,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -206,7 +206,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -243,7 +243,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -281,7 +281,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -319,7 +319,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);
@@ -357,7 +357,7 @@ public class SqlMigrationRunner_SafeShrink_Tests
             var modelAfter = await shift.LoadFromSqlAsync(connectionString);
             var plan2 = planner.GeneratePlan(shrinkModel, modelAfter);
             var runner2 = new SqlMigrationPlanRunner(connectionString, plan2) { Logger = _logger };
-            var failures = runner2.Run();
+            var failures = runner2.Run().Failures;
             Assert.Empty(failures);
 
             var reloaded = await shift.LoadFromSqlAsync(connectionString);

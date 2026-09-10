@@ -31,7 +31,7 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         mockShift.Setup(x => x.LoadFromPathAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(expectedModel);
         mockShift.Setup(x => x.ApplyToSqlAsync(It.IsAny<DatabaseModel>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new MigrationRunResult());
 
         // Act
         var result = await Sut.Handle(command, CancellationToken.None);
@@ -57,7 +57,7 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         mockShift.Setup(x => x.LoadFromPathAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(expectedModel);
         mockShift.Setup(x => x.ApplyToSqlAsync(It.IsAny<DatabaseModel>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new MigrationRunResult());
 
         // Act
         var result = await Sut.Handle(command, CancellationToken.None);
@@ -85,7 +85,7 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         mockShift.Setup(x => x.LoadFromPathAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(new DatabaseModel());
         mockShift.Setup(x => x.ApplyToSqlAsync(It.IsAny<DatabaseModel>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new MigrationRunResult());
 
         // Act
         var result = await Sut.Handle(command, CancellationToken.None);
@@ -110,7 +110,7 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         mockShift.Setup(x => x.LoadFromPathAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(expectedModel);
         mockShift.Setup(x => x.ApplyToSqlAsync(It.IsAny<DatabaseModel>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new MigrationRunResult());
 
         // Act
         var result = await Sut.Handle(command, CancellationToken.None);
@@ -148,7 +148,7 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         mockShift.Setup(x => x.LoadFromPathAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(new DatabaseModel());
         mockShift.Setup(x => x.ApplyToSqlAsync(It.IsAny<DatabaseModel>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new MigrationRunResult());
 
         // Act
         var result = await Sut.Handle(command, CancellationToken.None);
@@ -173,7 +173,7 @@ public class ApplyCommandHandlerTests : UnitTestContext<ApplyCommandHandler>
         mockShift.Setup(x => x.LoadFromPathAsync(It.IsAny<IEnumerable<string>>()))
             .ReturnsAsync(new DatabaseModel());
         mockShift.Setup(x => x.ApplyToSqlAsync(It.IsAny<DatabaseModel>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(new MigrationRunResult());
 
         // Act
         var result = await Sut.Handle(command, CancellationToken.None);

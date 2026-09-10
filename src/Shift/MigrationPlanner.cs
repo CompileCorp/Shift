@@ -153,28 +153,41 @@ public class MigrationPlanner
                             // text -> varchar(50) is a real change of intent and is still reported.
                             if (!SqlTypeConversion.IsRoundTripEquivalent(actualField, targetField))
                             {
-                                Logger?.LogWarning(
-                                    "Unmigrated type change {Table}.{Column}: actual type {ActualType} does not match target type {TargetType}, and that conversion is not supported in place. The column is left unchanged.",
-                                    targetTable.Name, targetField.Name, actualType, targetType);
+                                Report(plan, new MigrationDiagnostic
+                                {
+                                    Kind = MigrationDiagnosticKind.UnsupportedTypeChange,
+                                    TableName = targetTable.Name,
+                                    ColumnName = targetField.Name,
+                                    ActualType = actualType,
+                                    TargetType = targetType,
+                                    Reason = $"{actualType} cannot be converted to {targetType} in place. The column is left unchanged."
+                                });
                             }
+                        }
+                        // A target too narrow to hold every value the source type can represent is
+                        // refused here rather than planned and left to the runner's live-data probe.
+                        // Deferring would make migratability depend on what happens to be stored, so
+                        // the same model would apply on one database and be skipped on another; and
+                        // the probe cannot be trusted to carry that weight, because SQL Server does
+                        // not raise on a too-narrow integer conversion - it stores '*' - so any row
+                        // the probe misses is destroyed silently. Precision -1 means MAX, which fits.
+                        else if (targetField.Precision is int targetWidth && targetWidth != -1 && targetWidth < maxRenderedWidth)
+                        {
+                            Report(plan, new MigrationDiagnostic
+                            {
+                                Kind = MigrationDiagnosticKind.TargetTooNarrow,
+                                TableName = targetTable.Name,
+                                ColumnName = targetField.Name,
+                                ActualType = actualType,
+                                TargetType = targetType,
+                                Reason = $"target {targetType}({targetWidth}) cannot hold every {actualType} value, which needs up to {maxRenderedWidth} characters. Widen the field to {targetType}({maxRenderedWidth}) to migrate it."
+                            });
                         }
                         else
                         {
-                            // As with a string shrink, a target narrower than the widest possible value is
-                            // planned anyway and left to the runner's live-data probe, which skips the alter
-                            // if any row would not fit. Precision -1 means MAX, which always fits.
-                            if (targetField.Precision is int targetWidth && targetWidth != -1 && targetWidth < maxRenderedWidth)
-                            {
-                                Logger?.LogWarning(
-                                    "AlterColumn {Table}.{Column}: target {TargetType}({TargetWidth}) is narrower than the widest {ActualType} value ({MaxRenderedWidth} characters); the runner checks the live data before applying",
-                                    targetTable.Name, targetField.Name, targetType, targetWidth, actualType, maxRenderedWidth);
-                            }
-                            else
-                            {
-                                Logger?.LogWarning(
-                                    "AlterColumn {Table}.{Column}: converting {ActualType} to {TargetType} with precision {TargetPrecision}",
-                                    targetTable.Name, targetField.Name, actualType, targetType, targetField.Precision);
-                            }
+                            Logger?.LogWarning(
+                                "AlterColumn {Table}.{Column}: converting {ActualType} to {TargetType} with precision {TargetPrecision}",
+                                targetTable.Name, targetField.Name, actualType, targetType, targetField.Precision);
 
                             plan.Steps.Add(new MigrationStep
                             {
@@ -303,5 +316,18 @@ public class MigrationPlanner
 				}
 		*/
         return plan;
+    }
+
+    /// <summary>
+    /// Records a refusal on the plan and logs it. Both matter: the log is what an operator watching
+    /// an apply sees, and the plan is what a caller or a test can act on without matching on prose.
+    /// </summary>
+    private void Report(MigrationPlan plan, MigrationDiagnostic diagnostic)
+    {
+        plan.Diagnostics.Add(diagnostic);
+
+        Logger?.LogWarning(
+            "Unmigrated type change {Table}.{Column} ({Kind}): {Reason}",
+            diagnostic.TableName, diagnostic.ColumnName, diagnostic.Kind, diagnostic.Reason);
     }
 }

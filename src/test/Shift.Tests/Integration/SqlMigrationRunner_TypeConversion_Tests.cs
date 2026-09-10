@@ -46,8 +46,6 @@ public class SqlMigrationRunner_TypeConversion_Tests
     [InlineData("int", "2147483647", "nvarchar", 11, "2147483647")]
     [InlineData("bigint", "-9223372036854775808", "varchar", 20, "-9223372036854775808")]
     [InlineData("bigint", "9223372036854775807", "nvarchar", 20, "9223372036854775807")]
-    // Exact boundary: the positive maximum is 19 characters and must not be over-refused.
-    [InlineData("bigint", "9223372036854775807", "varchar", 19, "9223372036854775807")]
     public async Task Converting_IntegerToVariableWidthString_ShouldApplyAndPreserveValue(
         string sourceType, string storedValue, string targetType, int targetWidth, string expectedText)
     {
@@ -57,11 +55,11 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 $"CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code {sourceType} NOT NULL)",
                 $"INSERT INTO Widget (Code) VALUES ({storedValue})");
 
-            var (plan, failures) = await PlanAndRunAsync(connectionString,
+            var (plan, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", targetType, targetWidth, isNullable: false));
 
             Assert.Contains(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Code");
             Assert.Equal(targetType, column.DataType, ignoreCase: true);
@@ -82,10 +80,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)",
                 "INSERT INTO Widget (Code) VALUES (4242)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", -1, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Code");
             Assert.Equal("varchar", column.DataType, ignoreCase: true);
@@ -106,10 +104,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NULL)",
                 "INSERT INTO Widget (Code) VALUES (7), (NULL)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 20, isNullable: true));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Code");
             Assert.Equal("varchar", column.DataType, ignoreCase: true);
@@ -119,8 +117,7 @@ public class SqlMigrationRunner_TypeConversion_Tests
     }
 
     /// <summary>
-    /// Tests that an empty table converts happily: there is no data to measure, so the alter is
-    /// applied on the strength of the allow-list alone.
+    /// Tests that an empty table converts happily, on the strength of the allow-list alone.
     /// </summary>
     [Fact]
     public async Task Converting_IntOnEmptyTable_ShouldApply()
@@ -130,10 +127,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
             await ExecuteAsync(connectionString,
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NULL)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
-                SingleFieldModel("Widget", "Code", "varchar", 2, isNullable: true));
+            var (_, result) = await PlanAndRunAsync(connectionString,
+                SingleFieldModel("Widget", "Code", "varchar", 11, isNullable: true));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -168,32 +165,36 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
             var expectedType = sourceDeclaration.Split('(')[0];
 
-            var (plan, failures) = await PlanAndRunAsync(connectionString,
+            var (plan, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", targetType, targetWidth, isNullable: true));
 
             Assert.DoesNotContain(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal(expectedType, (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
 
     #endregion
 
-    #region Conversions skipped by the live-data probe
+    #region Conversions refused because the target is too narrow for the source type
 
     /// <summary>
-    /// Tests that a target too narrow for the stored data is skipped rather than applied. This is
-    /// the case that makes the probe load-bearing: SQL Server does not raise on this conversion,
-    /// it silently stores '*' in place of the number, so without the probe the value would be
-    /// destroyed and the apply would report success.
+    /// Tests that a target too narrow to hold every value the source type can represent is refused
+    /// at plan time, whatever is stored. This is the case that has to fail closed: SQL Server does
+    /// not raise on a too-narrow integer conversion, it silently stores '*' in place of the number,
+    /// so anything that lets such an alter through destroys the value and reports success.
     /// </summary>
     [Theory]
     [InlineData("int", "123456", 2)]
     [InlineData("int", "-2147483648", 10)]
-    // The negative minimum is the only bigint needing 20 characters; the positive maximum is 19.
     [InlineData("bigint", "-9223372036854775808", 19)]
     [InlineData("smallint", "-32768", 5)]
-    public async Task Converting_IntegerWiderThanTarget_ShouldSkipAndLeaveColumnAndValueIntact(
+    // The width required is the type's, not the row's. Only the negative minimum needs 20
+    // characters, so a bigint holding nothing but its 19-character positive maximum is still
+    // refused at varchar(19) — the column could hold a negative value tomorrow. This is the
+    // deliberate cost of not deciding from live data.
+    [InlineData("bigint", "9223372036854775807", 19)]
+    public async Task Converting_IntegerWiderThanTarget_ShouldRefuseAndLeaveColumnAndValueIntact(
         string sourceType, string storedValue, int targetWidth)
     {
         await WithDatabaseAsync(async connectionString =>
@@ -202,12 +203,17 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 $"CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code {sourceType} NOT NULL)",
                 $"INSERT INTO Widget (Code) VALUES ({storedValue})");
 
-            var (plan, failures) = await PlanAndRunAsync(connectionString,
+            var (plan, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", targetWidth, isNullable: false));
 
-            // The planner still emits the step; the runner is what refuses it.
-            Assert.Contains(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
-            Assert.Empty(failures);
+            // No step is emitted at all, so nothing reaches the runner to be judged against data.
+            Assert.DoesNotContain(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
+            Assert.Contains(plan.Diagnostics, d =>
+                d.Kind == MigrationDiagnosticKind.TargetTooNarrow &&
+                d.TableName == "Widget" &&
+                d.ColumnName == "Code" &&
+                d.ActualType == sourceType);
+            Assert.Empty(result.Failures);
 
             Assert.Equal(sourceType, (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
             Assert.Equal(storedValue, await ScalarAsync(connectionString, "SELECT TOP 1 CAST(Code AS varchar(30)) FROM Widget"));
@@ -215,66 +221,63 @@ public class SqlMigrationRunner_TypeConversion_Tests
     }
 
     /// <summary>
-    /// Tests that the probe measures the widest row rather than an arbitrary one: a table where
-    /// only one row is too wide must still be refused.
+    /// Tests that the refusal does not depend on what is stored: a target too narrow for the type
+    /// is refused even when every row would fit today, and even when there are no rows at all.
+    ///
+    /// This is the case the old data-driven probe got wrong. Deciding from live data made the same
+    /// model apply on one database and be skipped on another, and left the value's survival resting
+    /// on a probe that cannot see rows locked by another transaction or inserted a moment later.
     /// </summary>
-    [Fact]
-    public async Task Converting_IntWhereOnlyOneRowIsTooWide_ShouldSkip()
+    [Theory]
+    [InlineData("INSERT INTO Widget (Code) VALUES (7), (-999)")]  // every value fits varchar(4)
+    [InlineData("INSERT INTO Widget (Code) VALUES (1), (22), (333), (4444), (55555)")]  // one row too wide
+    [InlineData(null)]  // no rows at all
+    public async Task Converting_IntNarrowerThanTypeEvenWhenDataFits_ShouldRefuse(string? insertSql)
     {
         await WithDatabaseAsync(async connectionString =>
         {
             await ExecuteAsync(connectionString,
-                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)",
-                "INSERT INTO Widget (Code) VALUES (1), (22), (333), (4444), (55555)");
+                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            if (insertSql != null)
+                await ExecuteAsync(connectionString, insertSql);
+
+            var (plan, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 4, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.DoesNotContain(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
+            Assert.Contains(plan.Diagnostics, d => d.Kind == MigrationDiagnosticKind.TargetTooNarrow);
+            Assert.Empty(result.Failures);
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
 
     /// <summary>
-    /// Tests that the negative sign counts toward the width. -999 needs four characters, so a
-    /// varchar(3) target must be refused even though the digits alone would fit.
+    /// Tests that the sign counts toward the required width. An int needs 11 characters, not 10,
+    /// because of the negative minimum — so varchar(10) is refused even for a table of small
+    /// positive numbers, and varchar(11) is accepted.
     /// </summary>
-    [Fact]
-    public async Task Converting_NegativeIntWhereSignPushesItOverTheWidth_ShouldSkip()
+    [Theory]
+    [InlineData(10, false)]
+    [InlineData(11, true)]
+    public async Task Converting_IntAtTheSignBoundary_ShouldRefuseBelowElevenCharacters(
+        int targetWidth, bool shouldApply)
     {
         await WithDatabaseAsync(async connectionString =>
         {
             await ExecuteAsync(connectionString,
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)",
-                "INSERT INTO Widget (Code) VALUES (-999)");
+                "INSERT INTO Widget (Code) VALUES (7)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
-                SingleFieldModel("Widget", "Code", "varchar", 3, isNullable: false));
+            var (plan, result) = await PlanAndRunAsync(connectionString,
+                SingleFieldModel("Widget", "Code", "varchar", targetWidth, isNullable: false));
 
-            Assert.Empty(failures);
-            Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
-        });
-    }
-
-    /// <summary>
-    /// Tests that a target narrower than the type's widest possible value is still applied when
-    /// every stored value happens to fit, matching how string shrinks behave.
-    /// </summary>
-    [Fact]
-    public async Task Converting_IntNarrowerThanTypeButWideEnoughForData_ShouldApply()
-    {
-        await WithDatabaseAsync(async connectionString =>
-        {
-            await ExecuteAsync(connectionString,
-                "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL)",
-                "INSERT INTO Widget (Code) VALUES (7), (-999)");
-
-            var (_, failures) = await PlanAndRunAsync(connectionString,
-                SingleFieldModel("Widget", "Code", "varchar", 4, isNullable: false));
-
-            Assert.Empty(failures);
-            Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
-            Assert.Equal("-999", await ScalarAsync(connectionString, "SELECT TOP 1 Code FROM Widget WHERE Code = '-999'"));
+            Assert.Empty(result.Failures);
+            Assert.Equal(shouldApply, plan.Steps.Any(s => s.Action == MigrationAction.AlterColumn));
+            Assert.Equal(
+                shouldApply ? "varchar" : "int",
+                (await GetColumnAsync(connectionString, "Widget", "Code")).DataType,
+                ignoreCase: true);
         });
     }
 
@@ -283,21 +286,25 @@ public class SqlMigrationRunner_TypeConversion_Tests
     #region Conversions skipped because another object depends on the column
 
     /// <summary>
-    /// Tests that a conversion is skipped, and the dependency named, for every kind of object that
-    /// makes SQL Server reject the ALTER. Each of these was confirmed against SQL Server 2022 to
-    /// fail with error 4922 (or 2749 for identity) when attempted, so the alternative to skipping
-    /// is a guaranteed runtime failure.
+    /// Tests that a conversion is skipped, and the offending object named, for every kind of
+    /// dependency that makes SQL Server reject the ALTER. Each of these was confirmed against SQL
+    /// Server 2022 to fail with error 4922 (or 2749 for identity) when attempted, so the
+    /// alternative to skipping is a guaranteed runtime failure.
+    ///
+    /// The diagnostic's text is asserted, not just the fact of the skip: naming the dependency is
+    /// the entire reason for checking rather than letting the ALTER fail, so a skip that named the
+    /// wrong object would be a silent regression.
     /// </summary>
     [Theory]
-    [InlineData("nonclustered index", "CREATE NONCLUSTERED INDEX IX_Widget_Code ON Widget(Code)")]
-    [InlineData("unique index", "CREATE UNIQUE INDEX UX_Widget_Code ON Widget(Code)")]
-    [InlineData("index include", "CREATE NONCLUSTERED INDEX IX_Widget_Other ON Widget(Id) INCLUDE (Code)")]
-    [InlineData("check constraint", "ALTER TABLE Widget ADD CONSTRAINT CK_Widget_Code CHECK (Code > 0)")]
-    [InlineData("default constraint", "ALTER TABLE Widget ADD CONSTRAINT DF_Widget_Code DEFAULT 7 FOR Code")]
-    [InlineData("computed column", "ALTER TABLE Widget ADD Doubled AS (Code * 2)")]
-    [InlineData("user statistics", "CREATE STATISTICS ST_Widget_Code ON Widget(Code)")]
-    public async Task Converting_ColumnWithDependentObject_ShouldSkipAndLeaveColumnIntact(
-        string _, string dependencySql)
+    [InlineData("CREATE NONCLUSTERED INDEX IX_Widget_Code ON Widget(Code)", "index [IX_Widget_Code]")]
+    [InlineData("CREATE UNIQUE INDEX UX_Widget_Code ON Widget(Code)", "index [UX_Widget_Code]")]
+    [InlineData("CREATE NONCLUSTERED INDEX IX_Widget_Other ON Widget(Id) INCLUDE (Code)", "index [IX_Widget_Other]")]
+    [InlineData("ALTER TABLE Widget ADD CONSTRAINT CK_Widget_Code CHECK (Code > 0)", "check constraint [CK_Widget_Code]")]
+    [InlineData("ALTER TABLE Widget ADD CONSTRAINT DF_Widget_Code DEFAULT 7 FOR Code", "default constraint [DF_Widget_Code]")]
+    [InlineData("ALTER TABLE Widget ADD Doubled AS (Code * 2)", "computed column [Doubled]")]
+    [InlineData("CREATE STATISTICS ST_Widget_Code ON Widget(Code)", "statistics [ST_Widget_Code]")]
+    public async Task Converting_ColumnWithDependentObject_ShouldSkipAndNameTheDependency(
+        string dependencySql, string expectedBlocker)
     {
         await WithDatabaseAsync(async connectionString =>
         {
@@ -306,12 +313,21 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "INSERT INTO Widget (Code) VALUES (42)",
                 dependencySql);
 
-            var (plan, failures) = await PlanAndRunAsync(connectionString,
+            var (plan, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
             // The step is planned, then skipped by the runner rather than attempted and failed.
             Assert.Contains(plan.Steps, s => s.Action == MigrationAction.AlterColumn);
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
+
+            var diagnostic = Assert.Single(result.Skipped);
+            Assert.Equal(MigrationDiagnosticKind.BlockedByDependency, diagnostic.Kind);
+            Assert.Equal("Widget", diagnostic.TableName);
+            Assert.Equal("Code", diagnostic.ColumnName);
+            Assert.Equal("int", diagnostic.ActualType);
+            Assert.Equal("varchar", diagnostic.TargetType);
+            Assert.Contains(expectedBlocker, diagnostic.Reason);
+
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -330,10 +346,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Code int IDENTITY(1,1) NOT NULL, Other int NULL)",
                 "INSERT INTO Widget (Other) VALUES (1)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -350,10 +366,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Code int NOT NULL PRIMARY KEY, Other int NULL)",
                 "INSERT INTO Widget (Code) VALUES (42)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -372,10 +388,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code int NOT NULL CONSTRAINT FK_Widget_Parent FOREIGN KEY REFERENCES Parent(Id))",
                 "INSERT INTO Widget (Code) VALUES (42)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -394,10 +410,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "INSERT INTO Widget (Code) VALUES (42)",
                 "CREATE TABLE Child (Id int IDENTITY(1,1) PRIMARY KEY, Ref int NOT NULL CONSTRAINT FK_Child_Widget FOREIGN KEY REFERENCES Widget(Code))");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -417,10 +433,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
             await ExecuteAsync(connectionString,
                 "CREATE VIEW V_Widget WITH SCHEMABINDING AS SELECT Id, Code FROM dbo.Widget");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("int", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -443,10 +459,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
             // Provoke an auto-created statistic on the column.
             await ExecuteAsync(connectionString, "SELECT * FROM Widget WHERE Code = 42");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
             Assert.Equal("42", await ScalarAsync(connectionString, "SELECT TOP 1 Code FROM Widget"));
         });
@@ -465,10 +481,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE NONCLUSTERED INDEX IX_Widget_Other ON Widget(Other)",
                 "INSERT INTO Widget (Code, Other) VALUES (42, 1)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 50, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("varchar", (await GetColumnAsync(connectionString, "Widget", "Code")).DataType, ignoreCase: true);
         });
     }
@@ -492,9 +508,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Amount numeric(18,2) NOT NULL)",
                 "INSERT INTO Widget (Amount) VALUES (1.23)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+            var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Amount");
             Assert.Equal("decimal", column.DataType, ignoreCase: true);
@@ -526,9 +542,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "INSERT INTO Widget (Amount) VALUES (1.23)",
                 dependencySql);
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+            var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -547,9 +563,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Amount decimal(18,2) NOT NULL CONSTRAINT DF_Widget_Amount DEFAULT 0)",
                 "INSERT INTO Widget DEFAULT VALUES");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+            var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Amount");
             Assert.Equal("decimal", column.DataType, ignoreCase: true);
@@ -573,9 +589,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Amount numeric(18,0) IDENTITY(1,1) NOT NULL, Other int NULL)",
                 "INSERT INTO Widget (Other) VALUES (1)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 0));
+            var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 0));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("decimal", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -594,9 +610,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Amount numeric(18,0) IDENTITY(1,1) NOT NULL, Other int NULL)",
                 "INSERT INTO Widget (Other) VALUES (1)");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+            var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -625,9 +641,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 IsNullable = true
             };
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, ModelWith("Widget", nullableIdentity));
+            var (_, result) = await PlanAndRunAsync(connectionString, ModelWith("Widget", nullableIdentity));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("numeric", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -647,9 +663,9 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE VIEW V_Widget AS SELECT Id, Amount FROM dbo.Widget");
             await ExecuteAsync(connectionString, "SELECT * FROM Widget WHERE Amount = 1.23");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
+            var (_, result) = await PlanAndRunAsync(connectionString, DecimalModel("decimal", 19, 4));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal("decimal", (await GetColumnAsync(connectionString, "Widget", "Amount")).DataType, ignoreCase: true);
         });
     }
@@ -673,10 +689,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE NONCLUSTERED INDEX IX_Widget_Code ON Widget(Code)",
                 "INSERT INTO Widget (Code) VALUES ('abc')");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 100, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
 
             var column = await GetColumnAsync(connectionString, "Widget", "Code");
             Assert.Equal("varchar", column.DataType, ignoreCase: true);
@@ -697,10 +713,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code varchar(50) NOT NULL CONSTRAINT DF_Widget_Code DEFAULT 'z')",
                 "INSERT INTO Widget DEFAULT VALUES");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 100, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal(100, (await GetColumnAsync(connectionString, "Widget", "Code")).MaxLength);
         });
     }
@@ -717,10 +733,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 "CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code varchar(50) NOT NULL)",
                 "INSERT INTO Widget (Code) VALUES ('abcdefghij')");
 
-            var (_, failures) = await PlanAndRunAsync(connectionString,
+            var (_, result) = await PlanAndRunAsync(connectionString,
                 SingleFieldModel("Widget", "Code", "varchar", 5, isNullable: false));
 
-            Assert.Empty(failures);
+            Assert.Empty(result.Failures);
             Assert.Equal(50, (await GetColumnAsync(connectionString, "Widget", "Code")).MaxLength);
         });
     }
@@ -746,13 +762,11 @@ public class SqlMigrationRunner_TypeConversion_Tests
             await ExecuteAsync(connectionString,
                 $"CREATE TABLE Widget (Id int IDENTITY(1,1) PRIMARY KEY, Code {sourceType} NULL)");
 
-            var warnings = new List<string>();
             var (plan, _) = await PlanAndRunAsync(connectionString,
-                SingleFieldModel("Widget", "Code", targetType, targetPrecision, isNullable: true),
-                warnings);
+                SingleFieldModel("Widget", "Code", targetType, targetPrecision, isNullable: true));
 
             Assert.Empty(plan.Steps);
-            Assert.DoesNotContain(warnings, w => w.Contains("Unmigrated type change"));
+            Assert.Empty(plan.Diagnostics);
         });
     }
 
@@ -779,11 +793,10 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 IsNullable = true
             };
 
-            var warnings = new List<string>();
-            var (plan, _) = await PlanAndRunAsync(connectionString, ModelWith("Widget", field), warnings);
+            var (plan, _) = await PlanAndRunAsync(connectionString, ModelWith("Widget", field));
 
             Assert.Empty(plan.Steps);
-            Assert.DoesNotContain(warnings, w => w.Contains("Unmigrated type change"));
+            Assert.Empty(plan.Diagnostics);
         });
     }
 
@@ -814,11 +827,15 @@ public class SqlMigrationRunner_TypeConversion_Tests
                 IsNullable = true
             };
 
-            var warnings = new List<string>();
-            var (plan, _) = await PlanAndRunAsync(connectionString, ModelWith("Widget", field), warnings);
+            var (plan, _) = await PlanAndRunAsync(connectionString, ModelWith("Widget", field));
 
             Assert.Empty(plan.Steps);
-            Assert.Contains(warnings, w => w.Contains("Unmigrated type change") && w.Contains("Widget.Code"));
+            Assert.Contains(plan.Diagnostics, d =>
+                d.Kind == MigrationDiagnosticKind.UnsupportedTypeChange &&
+                d.TableName == "Widget" &&
+                d.ColumnName == "Code" &&
+                d.ActualType == sourceType &&
+                d.TargetType == targetType);
         });
     }
 
@@ -848,15 +865,16 @@ public class SqlMigrationRunner_TypeConversion_Tests
 
     /// <summary>
     /// Loads the live schema, plans against the supplied target, and runs the plan — the same
-    /// sequence ApplyToSqlAsync performs.
+    /// sequence ApplyToSqlAsync performs. Both halves of the outcome are returned: the plan
+    /// carries what the planner refused, the result what the runner refused.
     /// </summary>
-    private async Task<(MigrationPlan Plan, List<(MigrationStep Step, Exception Exception)> Failures)> PlanAndRunAsync(
-        string connectionString, DatabaseModel targetModel, List<string>? warnings = null)
+    private async Task<(MigrationPlan Plan, MigrationRunResult Result)> PlanAndRunAsync(
+        string connectionString, DatabaseModel targetModel)
     {
         var shift = new Shift { Logger = _logger };
         var actual = await shift.LoadFromSqlAsync(connectionString);
 
-        var planner = new MigrationPlanner { Logger = warnings == null ? _logger : new CapturingLogger(warnings) };
+        var planner = new MigrationPlanner { Logger = _logger };
         var plan = planner.GeneratePlan(targetModel, actual);
 
         var runner = new SqlMigrationPlanRunner(connectionString, plan) { Logger = _logger };
@@ -932,24 +950,6 @@ WHERE TABLE_NAME = @table AND COLUMN_NAME = @column";
         await connection.OpenAsync();
         await using var command = new SqlCommand(sql, connection);
         return (await command.ExecuteScalarAsync())?.ToString();
-    }
-
-    /// <summary>
-    /// Collects formatted log messages so a test can assert on what the planner reported, not only
-    /// on the steps it produced. Warnings are the only signal for a change the planner refuses to
-    /// migrate, since by definition it emits no step for one.
-    /// </summary>
-    private sealed class CapturingLogger(List<string> messages) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            messages.Add(formatter(state, exception));
-        }
     }
 
     #endregion

@@ -23,9 +23,9 @@ public class SqlMigrationPlanRunner
         _schema = schema;
     }
 
-    public List<(MigrationStep Step, Exception Exception)> Run()
+    public MigrationRunResult Run()
     {
-        var failures = new List<(MigrationStep, Exception)>();
+        var result = new MigrationRunResult();
 
         using var connection = new SqlConnection(_connectionString);
         connection.Open();
@@ -67,9 +67,15 @@ public class SqlMigrationPlanRunner
                             var blockers = GetAlterColumnBlockers(connection, step.TableName, field);
                             if (blockers.Count > 0)
                             {
-                                Logger.LogWarning(
-                                    "Skipping ALTER COLUMN {table}.{column}: SQL Server rejects changing {actualType} to {targetType} while {blockers} depend(s) on it. Drop the dependent object(s) and re-apply.",
-                                    step.TableName, field.Name, actualDataType, field.Type, string.Join(", ", blockers));
+                                Skip(result, new MigrationDiagnostic
+                                {
+                                    Kind = MigrationDiagnosticKind.BlockedByDependency,
+                                    TableName = step.TableName,
+                                    ColumnName = field.Name,
+                                    ActualType = actualDataType,
+                                    TargetType = field.Type,
+                                    Reason = $"SQL Server rejects changing {actualDataType} to {field.Type} while {string.Join(", ", blockers)} depend(s) on it. Drop the dependent object(s) and re-apply."
+                                });
                                 continue;
                             }
                         }
@@ -77,7 +83,15 @@ public class SqlMigrationPlanRunner
                         // Safety check: skip alters that would cause data loss
                         if (IsAlterColumnPotentiallyUnsafe(connection, step.TableName, field, actualDataType))
                         {
-                            Logger.LogWarning("Skipping ALTER COLUMN {table}.{column}: would cause data loss", step.TableName, field.Name);
+                            Skip(result, new MigrationDiagnostic
+                            {
+                                Kind = MigrationDiagnosticKind.DataLossRisk,
+                                TableName = step.TableName,
+                                ColumnName = field.Name,
+                                ActualType = actualDataType,
+                                TargetType = field.Type,
+                                Reason = "existing data would not survive the change, so the column is left unchanged."
+                            });
                             continue;
                         }
 
@@ -109,20 +123,28 @@ public class SqlMigrationPlanRunner
                     cmd.CommandTimeout = 600;
                     cmd.ExecuteNonQuery();
                 }
+
+                // A step whose every field was skipped produced no SQL and changed nothing, so it
+                // is not an application. Counting it as one is what made a fully skipped run
+                // indistinguishable from a fully successful one.
+                if (sqls.Count > 0)
+                {
+                    result.Applied.Add(step);
+                }
             }
             catch (SqlException ex)
             {
                 Logger.LogError(ex, "{action} failed {sql}", step.Action.ToString(), sql);
-                failures.Add((step, ex));
+                result.Failures.Add((step, ex));
             }
             catch (Exception ex)
             {
                 Logger.LogError(ex, "{action} failed", step.Action.ToString());
-                failures.Add((step, ex));
+                result.Failures.Add((step, ex));
             }
         }
 
-        return failures;
+        return result;
     }
 
     internal IEnumerable<string> CreateForeignKeySql(string tableName, ForeignKeyModel foreignKey)
@@ -263,6 +285,20 @@ END";
         actualDataType != null
         && !string.Equals(actualDataType, field.Type, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Records a step the runner declined to execute and logs it. A skip is not a failure - the
+    /// run continues and reports success - so without recording it the caller has no way to tell
+    /// that the column it asked to change was left alone.
+    /// </summary>
+    private void Skip(MigrationRunResult result, MigrationDiagnostic diagnostic)
+    {
+        result.Skipped.Add(diagnostic);
+
+        Logger.LogWarning(
+            "Skipping ALTER COLUMN {table}.{column} ({kind}): {reason}",
+            diagnostic.TableName, diagnostic.ColumnName, diagnostic.Kind, diagnostic.Reason);
+    }
+
     internal bool IsAlterColumnPotentiallyUnsafe(SqlConnection connection, string tableName, FieldModel field, string? actualDataType = null)
     {
         // Only guard for types where resizing/precision can cause truncation or rounding
@@ -284,19 +320,31 @@ END";
 
             // A change of base type is measured in rendered characters, not storage bytes:
             // DATALENGTH on an int is always 4 and would wave through a target too narrow to
-            // hold the rendered value. SQL Server does not raise on that conversion — it stores
-            // '*' in place of the number — so this probe is the only thing standing between a
-            // too-narrow target and silent data loss. CHARACTER_MAXIMUM_LENGTH counts characters
-            // for nvarchar and bytes for varchar, and a rendered integer is ASCII, so a character
-            // count is the correct limit for both.
+            // hold the rendered value. CHARACTER_MAXIMUM_LENGTH counts characters for nvarchar and
+            // bytes for varchar, and a rendered integer is ASCII, so a character count is the
+            // correct limit for both.
             var actualType = baseType is "varchar" or "nvarchar"
                 ? actualDataType ?? GetActualColumnDataType(connection, tableName, field.Name)
                 : null;
-            if (actualType != null && SqlTypeConversion.IsSupportedInPlaceConversion(actualType, baseType))
+            if (actualType != null && SqlTypeConversion.IsSupportedInPlaceConversion(actualType, baseType, out var maxRenderedWidth))
             {
+                var targetWidth = field.Precision.Value;
+
+                // A target wide enough for every value the source type can represent cannot
+                // truncate, whatever is stored. Plans produced by MigrationPlanner only ever reach
+                // here on this path, because it refuses narrower targets outright - so skipping the
+                // scan is not an optimisation of the common case, it is the common case.
+                if (targetWidth >= maxRenderedWidth)
+                    return false;
+
+                // Narrower targets only arrive from a hand-built plan. Probe the live data as a
+                // backstop, but note it is not a guarantee: READPAST skips locked rows, nothing
+                // holds a lock between this check and the ALTER, and SQL Server does not raise on
+                // a too-narrow integer conversion - it stores '*' - so a row missed here is
+                // destroyed silently. MigrationPlanner refusing at plan time is the real guard.
                 var conversionSql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{field.Name}] IS NOT NULL AND LEN(CONVERT(varchar(50), [{field.Name}])) > @limitChars";
                 using var conversionCmd = new SqlCommand(conversionSql, connection);
-                conversionCmd.Parameters.AddWithValue("@limitChars", field.Precision.Value);
+                conversionCmd.Parameters.AddWithValue("@limitChars", targetWidth);
                 return conversionCmd.ExecuteScalar() != null;
             }
 

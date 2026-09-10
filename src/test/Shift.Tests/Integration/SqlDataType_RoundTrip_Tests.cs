@@ -518,7 +518,7 @@ public class SqlDataType_RoundTrip_Tests
             var emptyModel = new DatabaseModel();
             var plan = planner.GeneratePlan(parsedModel, emptyModel);
             var runner = new SqlMigrationPlanRunner(targetConnectionString, plan) { Logger = _logger };
-            var failures = runner.Run();
+            var failures = runner.Run().Failures;
             failures.Should().BeEmpty("Migration should complete without failures");
 
             // Step 6: Load final schema via SqlServerLoader
