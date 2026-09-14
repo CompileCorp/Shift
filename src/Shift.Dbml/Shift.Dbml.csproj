@@ -6,7 +6,23 @@
         <Nullable>enable</Nullable>
         <RootNamespace>Compile.Shift.Dbml</RootNamespace>
         <OutputType>Library</OutputType>
+        <!-- NuGet Package Metadata -->
+        <PackageId>Compile.Shift.Dbml</PackageId>
+        <VersionSuffix></VersionSuffix>
+        <Authors>Compile Pty Ltd</Authors>
+        <Company>Compile Pty Ltd</Company>
+        <Description>A DBML exporter for Compile.Shift: renders a DMD model as a DBML document for dbdiagram.io</Description>
+        <PackageProjectUrl>https://github.com/CompileCorp/Shift</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/CompileCorp/Shift</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageTags>database;migration;sql;dotnet;dbml;erd;dbdiagram</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
+
+    <ItemGroup>
+      <None Include="README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.19" />

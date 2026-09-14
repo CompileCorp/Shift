@@ -8,9 +8,18 @@ number in the repository: a release *is* the `vX.Y.Z` git tag, which is what pub
 `Compile.Shift` package to nuget.org. See
 [docs/ci-cd/pipeline.md](docs/ci-cd/pipeline.md#cutting-a-release) for the procedure.
 
-## [0.0.18] - 2026-09-10
+## [0.0.18] - 2026-09-15
+
+> **0.0.17 was tagged but never published.** Its Build and Publish run failed before the push step,
+> so nuget.org went from 0.0.16 straight to 0.0.18. Everything listed under
+> [0.0.17](#0017---2026-04-15) reaches package consumers for the first time in this release.
 
 ### Added
+
+- Two new packages ship alongside `Compile.Shift`: `Compile.Shift.Dbml`, the DBML exporter as a
+  library, and `Compile.Shift.Cli`, the CLI as a .NET global tool
+  (`dotnet tool install --global Compile.Shift.Cli`, invoked as `shift`). The exporter and the
+  `shift dbml`/`shift attributes` commands were previously reachable only by building from source.
 
 - Integer columns (`tinyint`, `smallint`, `int`, `bigint`) can now migrate to variable-width string
   columns (`varchar`, `nvarchar`). Fixed-width targets (`char`, `nchar`) are refused, because SQL
@@ -77,6 +86,10 @@ number in the repository: a release *is* the `vX.Y.Z` git tag, which is what pub
 - The DMD exporter writes attributes back out, model-level ones on their own lines and field-level
   ones as trailing tokens, single-quoting a value only when it contains whitespace, so a parse and
   re-export round trip preserves them.
+- Both publishing workflows now run every test project in the solution rather than `Shift.Tests`
+  alone, so a release is gated by the same suite the PR workflow runs — this is the step that
+  silently stopped 0.0.17 from being published — and push to nuget.org with `--skip-duplicate`, so
+  re-running a partially failed publish succeeds instead of failing on an already-published package.
 
 ### Fixed
 

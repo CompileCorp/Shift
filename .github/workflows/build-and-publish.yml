@@ -29,14 +29,22 @@ jobs:
     - name: Build solution
       run: dotnet build src/Shift.slnx --configuration Release --no-restore
       
+    # Run every test project in the solution, not just Shift.Tests, so the release is
+    # gated by the same suite the PR workflow runs.
     - name: Run tests
-      run: dotnet test src/test/Shift.Tests/Shift.Tests.csproj --configuration Release --no-build --verbosity normal
-      
-    - name: Pack NuGet package
-      run: dotnet pack src/Shift/Shift.csproj --configuration Release --no-build --output ./nupkgs -p:Version=${{ steps.get_version.outputs.VERSION }}
-      
+      run: dotnet test src/Shift.slnx --configuration Release --no-build --verbosity normal
+
+    - name: Pack NuGet packages
+      run: |
+        dotnet pack src/Shift/Shift.csproj --configuration Release --no-build --output ./nupkgs -p:Version=${{ steps.get_version.outputs.VERSION }}
+        dotnet pack src/Shift.Dbml/Shift.Dbml.csproj --configuration Release --no-build --output ./nupkgs -p:Version=${{ steps.get_version.outputs.VERSION }}
+        # Shift.Cli packs as a .NET tool, which runs publish and so cannot use --no-build.
+        dotnet pack src/Shift.Cli/Shift.Cli.csproj --configuration Release --output ./nupkgs -p:Version=${{ steps.get_version.outputs.VERSION }}
+
+    # --skip-duplicate so re-running the workflow after a partial failure (e.g. one package
+    # pushed, the next rejected) succeeds instead of failing on the already-published package.
     - name: Push to NuGet.org
-      run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
       env:
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 

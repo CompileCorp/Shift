@@ -6,7 +6,25 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <RootNamespace>Compile.Shift.Cli</RootNamespace>
+        <!-- NuGet Package Metadata: published as a .NET global tool invoked as `shift` -->
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>shift</ToolCommandName>
+        <PackageId>Compile.Shift.Cli</PackageId>
+        <VersionSuffix></VersionSuffix>
+        <Authors>Compile Pty Ltd</Authors>
+        <Company>Compile Pty Ltd</Company>
+        <Description>The Shift command-line tool: apply DMD schema definitions to SQL Server, export a database back to DMD, and generate EF Core and DBML output</Description>
+        <PackageProjectUrl>https://github.com/CompileCorp/Shift</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/CompileCorp/Shift</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageTags>database;migration;sql;dotnet;cli;dotnet-tool;dbml</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
+
+    <ItemGroup>
+      <None Include="README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="CompileCorp.Vnum" Version="1.0.0" />
