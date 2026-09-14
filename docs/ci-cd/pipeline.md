@@ -84,20 +84,33 @@ Restore Dependencies
     ↓
 Build Solution (Release)
     ↓
-Run Tests (Shift.Tests only)
+Run Tests (all test projects)
     ↓
-Pack NuGet Package
+Pack NuGet Packages (Compile.Shift, Compile.Shift.Dbml, Compile.Shift.Cli)
     ↓
-Publish to NuGet.org
+Publish to NuGet.org (--skip-duplicate)
 ```
 
 **Version Format**:
 - Version from git tag (e.g., `v1.0.0` → `1.0.0`)
 
+**Packages Published**:
+
+| Package | Project | Kind |
+|---------|---------|------|
+| `Compile.Shift` | `src/Shift` | Library |
+| `Compile.Shift.Dbml` | `src/Shift.Dbml` | Library (depends on `Compile.Shift` at the same version) |
+| `Compile.Shift.Cli` | `src/Shift.Cli` | .NET global tool, invoked as `shift` |
+
+All three are packed at the tag version. `Shift.Cli` packs as a tool, which runs publish, so its
+`dotnet pack` cannot use `--no-build`.
+
 **Key Features**:
 - ✅ Automated version extraction from git tags
 - ✅ Secure API key management
 - ✅ NuGet.org publishing for production releases
+- ✅ Release gated by the whole test suite, not `Shift.Tests` alone
+- ✅ `--skip-duplicate` on push, so a re-run after a partial failure is not fatal
 
 ### 3. Pre-release Publish Workflow
 
@@ -116,9 +129,9 @@ Restore Dependencies
     ↓
 Build Solution (Release)
     ↓
-Run Tests (Shift.Tests only)
+Run Tests (all test projects)
     ↓
-Pack NuGet Package (Pre-release)
+Pack NuGet Packages (Pre-release)
     ↓
 Publish to NuGet.org
 ```
@@ -172,9 +185,20 @@ Pushing the tag - not merging to `main` - is what publishes the package.
    git tag vX.Y.Z <commit>
    git push origin vX.Y.Z
    ```
-4. Confirm the **Build and Publish** workflow succeeded and that the new version of
-   `Compile.Shift` is live on nuget.org.
-5. Create the GitHub Release for the tag, using that version's `CHANGELOG.md` section as the body.
+4. Confirm the **Build and Publish** workflow succeeded *through the push step* — a tag whose test
+   step fails publishes nothing, which is how v0.0.17 came to exist as a tag with no package. Then
+   confirm all three packages are live:
+   ```
+   curl -s https://api.nuget.org/v3-flatcontainer/compile.shift/index.json
+   curl -s https://api.nuget.org/v3-flatcontainer/compile.shift.dbml/index.json
+   curl -s https://api.nuget.org/v3-flatcontainer/compile.shift.cli/index.json
+   ```
+   Restore works as soon as the push succeeds; search indexing lags by roughly 5-15 minutes.
+5. Create the GitHub Release for the tag, using that version's `CHANGELOG.md` section as the body,
+   and lead with the **Upgrade notes** rather than the feature list:
+   ```
+   gh release create vX.Y.Z --title "vX.Y.Z" --notes-file <notes>
+   ```
 
 To validate a release before it is final, push `rc-vX.Y.Z` first: that publishes a pre-release
 package (`X.Y.Z-rc.{RUN_NUMBER}`) without affecting the stable version.

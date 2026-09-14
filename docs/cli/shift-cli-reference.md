@@ -6,8 +6,14 @@ either source. It is the primary command-line entry point to the Shift framework
 
 ## Installation
 
-The CLI is **not currently published as a .NET global tool** — run it from source, or build
-and invoke the produced executable:
+The CLI is published as a .NET global tool, `Compile.Shift.Cli`, and is invoked as `shift`:
+
+```bash
+dotnet tool install --global Compile.Shift.Cli
+shift apply "Server=.;Database=MyDb;" ./Models
+```
+
+It can also be run from source, which is what you want when working on Shift itself:
 
 ```bash
 # Run from source (note the -- separating dotnet args from CLI args)
@@ -18,8 +24,8 @@ dotnet publish src/Shift.Cli -c Release -o ./shift-cli
 ./shift-cli/Shift.Cli apply "Server=.;Database=MyDb;" ./Models
 ```
 
-In the examples below, `shift` stands for however you invoke the built CLI
-(`dotnet run --project src/Shift.Cli --` or the published executable).
+In the examples below, `shift` stands for however you invoke the CLI — the installed global tool,
+`dotnet run --project src/Shift.Cli --`, or the published executable.
 
 ## Commands
 
