@@ -37,7 +37,11 @@
     <ItemGroup>
         <ProjectReference Include="..\Shift\Shift.csproj" />
         <ProjectReference Include="..\Shift.Dbml\Shift.Dbml.csproj" />
-        <ProjectReference Include="..\Shift.Ef\Shift.Ef.csproj" />
+        <!-- Shift.Ef publishes no package, so it must never become a package dependency. A tool
+             package bundles its publish output and emits no dependencies at all, so this is inert
+             today; it matters if the CLI ever stops packing as a tool. Shift and Shift.Dbml need
+             no such guard - both publish at this same version. -->
+        <ProjectReference Include="..\Shift.Ef\Shift.Ef.csproj" PrivateAssets="all" />
     </ItemGroup>
 
 </Project>

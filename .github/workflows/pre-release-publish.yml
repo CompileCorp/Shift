@@ -5,6 +5,11 @@ on:
     tags:
       - 'rc-v*'
 
+# Least privilege: the job only reads the repository. Publishing is authorised by
+# NUGET_API_KEY, not by the GITHUB_TOKEN, so nothing here needs write access.
+permissions:
+  contents: read
+
 jobs:
   pre-release-publish:
     runs-on: ubuntu-latest
