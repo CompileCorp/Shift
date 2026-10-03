@@ -277,6 +277,46 @@ public class MigrationPlanner
                     });
                 }
 
+                // Shift auto-creates a supporting non-clustered index on every FK column. That
+                // index is normally created alongside a brand new FK constraint (see the
+                // AddForeignKey handling in SqlMigrationPlanRunner), so a newly-missing FK is
+                // already covered without any help from this section. But when the FK constraint
+                // already exists in the database, step 3 above never produces an AddForeignKey
+                // step for it - so this was the only place left that could still notice the index
+                // is missing, and it was keyed on whether the target index was declared in the
+                // DSL, not on whether the FK's own supporting index actually exists. That let a
+                // database end up with the FK constraint but no index backing it, with nothing in
+                // the plan to fix it. So: for every FK whose constraint already exists, independently
+                // check its supporting index and add it if missing, regardless of whether the DSL
+                // declares an explicit index for that column.
+                var missingFkSupportIndexes = targetTable.ForeignKeys
+                    .Where(fk => targetModel.Tables.ContainsKey(fk.TargetTable))
+                    .Where(fk => actualTable.ForeignKeys.Any(afk =>
+                        afk.TargetTable.Equals(fk.TargetTable, StringComparison.OrdinalIgnoreCase)))
+                    .Select(fk => new List<string> { fk.ColumnName })
+                    .Where(fields => !actualTable.Indexes.Any(ai =>
+                        ai.Fields.SequenceEqual(fields, StringComparer.OrdinalIgnoreCase)))
+                    .Where(fields => !missingIndexes.Any(mi =>
+                        IndexFieldResolver.ResolveIndexFieldNames(mi.Fields, targetTable)
+                            .SequenceEqual(fields, StringComparer.OrdinalIgnoreCase)))
+                    .ToList();
+
+                foreach (var fields in missingFkSupportIndexes)
+                {
+                    plan.Steps.Add(new MigrationStep
+                    {
+                        Action = MigrationAction.AddIndex,
+                        TableName = targetTable.Name,
+                        Index = new IndexModel
+                        {
+                            Fields = fields,
+                            IsUnique = false,
+                            Kind = IndexKind.NonClustered
+                        },
+                        Table = targetTable
+                    });
+                }
+
                 // Report extra indexes (indexes in actual but not in normalized target)
                 var extraIndexes = actualTable.Indexes
                     .Where(ai => !normalizedTargetIndexes.Any(nt =>
