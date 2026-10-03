@@ -86,7 +86,7 @@ public class MigrationPlannerForeignKeyTests
                 .WithField("OrderID", "int", f => f.PrimaryKey().Identity())
                 .WithField("UserID", "int")
                 .WithForeignKey("UserID", "User", "UserID", RelationshipType.OneToMany))
-                // Supporting index on UserID is missing in the actual database.
+            // Supporting index on UserID is missing in the actual database.
             .Build();
 
         var plan = _sut.GeneratePlan(target, actual);
