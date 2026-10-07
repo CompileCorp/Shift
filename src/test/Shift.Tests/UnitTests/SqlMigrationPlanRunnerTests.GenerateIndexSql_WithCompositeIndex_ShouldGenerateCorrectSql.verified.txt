@@ -2,3 +2,7 @@
 BEGIN
     CREATE NONCLUSTERED INDEX [IX_User_Email_Username] ON [dbo].[User]([Email], [Username])
 END
+ELSE
+BEGIN
+    CREATE NONCLUSTERED INDEX [IX_User_Email_Username] ON [dbo].[User]([Email], [Username]) WITH (DROP_EXISTING = ON)
+END

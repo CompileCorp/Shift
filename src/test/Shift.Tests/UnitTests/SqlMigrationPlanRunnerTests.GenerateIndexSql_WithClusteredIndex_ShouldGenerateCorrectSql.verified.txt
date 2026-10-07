@@ -2,3 +2,7 @@
 BEGIN
     CREATE CLUSTERED INDEX [IX_User_UserID] ON [dbo].[User]([UserID])
 END
+ELSE
+BEGIN
+    CREATE CLUSTERED INDEX [IX_User_UserID] ON [dbo].[User]([UserID]) WITH (DROP_EXISTING = ON)
+END

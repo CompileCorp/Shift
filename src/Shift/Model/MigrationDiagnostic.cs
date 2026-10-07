@@ -28,7 +28,13 @@ public enum MigrationDiagnosticKind
     /// The alter was planned, but another object depends on the column and SQL Server would reject
     /// the change. Reported by the runner.
     /// </summary>
-    BlockedByDependency
+    BlockedByDependency,
+
+    /// <summary>
+    /// The model makes the column NOT NULL, but it holds NULLs that SQL Server would reject.
+    /// Reported by the runner.
+    /// </summary>
+    NullsPresent
 }
 
 /// <summary>

@@ -640,7 +640,7 @@ model Document with Auditable {
                 IsUnique = false,
                 Kind = IndexKind.NonClustered
             };
-            sqlStatements.AddRange(runner.GenerateIndexSql(fkStep.TableName, indexModel, targetModel.Tables["Document"]));
+            sqlStatements.AddRange(runner.GenerateIndexSql(fkStep.TableName, indexModel, targetModel.Tables["Document"], replaceExisting: false));
         }
 
         // Verify SQL snapshot

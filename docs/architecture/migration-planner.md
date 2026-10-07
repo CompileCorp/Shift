@@ -44,6 +44,7 @@ The MigrationPlanner follows a systematic 4-step approach to generate migration 
   - **Base-type changes** are handled separately, against the narrow allow-list in `SqlTypeConversion`, which holds two conversions:
     - an **integer type** (`tinyint`, `smallint`, `int`, `bigint`) becoming a **variable-width string** (`varchar`, `nvarchar`), provided the target is wide enough (see below). This is what lets a dmd field change from `int` to `astring(n)`/`ustring(n)` and actually migrate.
     - **`varchar` → `nvarchar`**, which is what a dmd field changing from `astring(n)` to `ustring(n)` asks for. Every ASCII string is a valid unicode string, so only width is in question.
+  - **Nullability**: a field whose `IsNullable` differs from the column gets an `AlterColumn` step. An alter already planned for the field above carries its nullability, so a field never gets two. Making a column `NOT NULL` can still be skipped by the runner (`NullsPresent`, `BlockedByDependency`).
 
 **Base-type changes the planner refuses** produce no step — the column is left as it is — and are recorded on `plan.Diagnostics` as a `MigrationDiagnostic` as well as logged, so the refusal is visible to a caller and not only to whoever is reading the log. There are two reasons a change is refused:
 

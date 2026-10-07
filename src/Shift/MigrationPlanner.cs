@@ -210,6 +210,19 @@ public class MigrationPlanner
                             Fields = new List<FieldModel> { targetField }
                         });
                     }
+
+                    // Nullability is part of the column definition too. An alter planned above
+                    // already applies it, so only a nullability-only change needs its own step.
+                    if (targetField.IsNullable != actualField.IsNullable
+                        && !plan.Steps.Any(s => s.Action == MigrationAction.AlterColumn && s.Fields.Contains(targetField)))
+                    {
+                        plan.Steps.Add(new MigrationStep
+                        {
+                            Action = MigrationAction.AlterColumn,
+                            TableName = targetTable.Name,
+                            Fields = new List<FieldModel> { targetField }
+                        });
+                    }
                 }
             }
         }

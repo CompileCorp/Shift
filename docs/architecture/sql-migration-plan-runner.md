@@ -178,7 +178,11 @@ loudly, landing in `MigrationRunResult.Failures` rather than being named as a bl
 `decimal(19,0)` is permitted and is left alone to succeed; only a target that cannot carry an
 identity blocks (error 2749).
 
-The check applies only to base-type changes, not to plain resizes. Widening an indexed string
+Making a column `NOT NULL` is checked too, against a shorter list: indexes and user-created
+statistics block it, foreign keys and default constraints do not. A column that holds NULLs is
+skipped with a `NullsPresent` diagnostic. Making a column nullable is never blocked.
+
+The check applies only to base-type changes and `NOT NULL`, not to plain resizes. Widening an indexed string
 column succeeds on SQL Server even though a base-type change on the same column fails, so
 applying the check to every alter would refuse migrations that work today. Every entry in the
 table above was confirmed against SQL Server 2022 in
@@ -203,7 +207,7 @@ outcomes and not two:
 | | Meaning |
 |---|---|
 | `Applied` | Steps whose SQL executed without error. A step whose every field was skipped produced no SQL and is **not** counted here. |
-| `Skipped` | Steps the runner declined, each with a `MigrationDiagnostic` saying why (`DataLossRisk`, `BlockedByDependency`). |
+| `Skipped` | Steps the runner declined, each with a `MigrationDiagnostic` saying why (`DataLossRisk`, `BlockedByDependency`, `NullsPresent`). |
 | `Failures` | Steps whose SQL executed and threw. |
 
 `HasUnappliedWork` is true when anything the plan asked for did not happen, for either reason.
@@ -247,7 +251,17 @@ IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'IX_TableName_Field1_Field
 BEGIN
     CREATE [UNIQUE ][NONCLUSTERED|CLUSTERED] INDEX [IX_TableName_Field1_Field2...] ON [dbo].[TableName]([Field1], [Field2], ...)
 END
+ELSE
+BEGIN
+    CREATE ... WITH (DROP_EXISTING = ON)
+END
 ```
+
+The planner only asks for an index that does not match the database, so an index that already
+has the name holds a stale definition (for example, the model made it unique). It is rebuilt in
+place with `DROP_EXISTING`, which is atomic: if the rebuild fails (duplicate keys for a unique
+index) the step is a failure and the old index is kept. The supporting index created with an FK
+keeps any existing index of that name instead.
 
 Supports single- and multi-column, unique and non-unique indexes. The clustering keyword
 comes from `IndexModel.Kind` (`NonClustered` default, or `Clustered`); other kinds (columnstore,

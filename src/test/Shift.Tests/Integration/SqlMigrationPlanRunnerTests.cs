@@ -973,7 +973,7 @@ public class SqlMigrationPlanRunnerTests
             // Use reflection to test the private GenerateIndexSql method
             var method = typeof(SqlMigrationPlanRunner).GetMethod("GenerateIndexSql", BindingFlags.NonPublic | BindingFlags.Instance);
 
-            var sqls = (IEnumerable<string>)method!.Invoke(runner, [testStep.TableName, testStep.Index, testStep.Table])!;
+            var sqls = (IEnumerable<string>)method!.Invoke(runner, [testStep.TableName, testStep.Index, testStep.Table, true])!;
 
             var sqlList = sqls.ToList();
             sqlList.Should().HaveCount(1, "Should generate one SQL statement");
@@ -1024,7 +1024,7 @@ public class SqlMigrationPlanRunnerTests
         var method = typeof(SqlMigrationPlanRunner).GetMethod("GenerateIndexSql", BindingFlags.NonPublic | BindingFlags.Instance);
 
         // Act
-        var sqls = (IEnumerable<string>)method!.Invoke(runner, ["User", alternateKeyIndex, tableModel])!;
+        var sqls = (IEnumerable<string>)method!.Invoke(runner, ["User", alternateKeyIndex, tableModel, true])!;
         var sqlList = sqls.ToList();
 
         // Assert

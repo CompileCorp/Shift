@@ -58,16 +58,19 @@ public class SqlMigrationPlanRunner
 
                         var actualColumn = GetActualColumn(connection, step.TableName, field.Name);
                         var actualDataType = actualColumn?.DataType;
+                        var isBaseTypeChange = IsBaseTypeChange(actualDataType, field);
+                        var becomesNotNull = actualColumn is { IsNullable: true } && !field.IsNullable;
 
-                        // A change of base type is rejected outright by SQL Server when any other
-                        // object depends on the column, so it is checked before the data-loss probe.
-                        // Only base-type changes are checked: widening an indexed string succeeds,
-                        // and blocking it here would refuse alters that work today.
-                        if (IsBaseTypeChange(actualDataType, field))
+                        // A change of base type, or making a column NOT NULL, is rejected outright by
+                        // SQL Server when another object depends on the column, so it is checked
+                        // before the data-loss probe. Widening an indexed string succeeds, and
+                        // blocking it here would refuse alters that work today.
+                        if (isBaseTypeChange || becomesNotNull)
                         {
-                            var blockers = GetAlterColumnBlockers(connection, step.TableName, field);
+                            var blockers = GetAlterColumnBlockers(connection, step.TableName, field, nullabilityOnly: !isBaseTypeChange);
                             if (blockers.Count > 0)
                             {
+                                var change = isBaseTypeChange ? $"changing {actualDataType} to {field.Type}" : "making the column NOT NULL";
                                 Skip(result, new MigrationDiagnostic
                                 {
                                     Kind = MigrationDiagnosticKind.BlockedByDependency,
@@ -75,10 +78,24 @@ public class SqlMigrationPlanRunner
                                     ColumnName = field.Name,
                                     ActualType = actualDataType,
                                     TargetType = field.Type,
-                                    Reason = $"SQL Server rejects changing {actualDataType} to {field.Type} while {string.Join(", ", blockers)} depend(s) on it. Drop the dependent object(s) and re-apply."
+                                    Reason = $"SQL Server rejects {change} while {string.Join(", ", blockers)} depend(s) on it. Drop the dependent object(s) and re-apply."
                                 });
                                 continue;
                             }
+                        }
+
+                        if (becomesNotNull && HasNulls(connection, step.TableName, field.Name))
+                        {
+                            Skip(result, new MigrationDiagnostic
+                            {
+                                Kind = MigrationDiagnosticKind.NullsPresent,
+                                TableName = step.TableName,
+                                ColumnName = field.Name,
+                                ActualType = actualDataType,
+                                TargetType = field.Type,
+                                Reason = "the model makes the column NOT NULL but it holds NULLs. Fill them in and re-apply."
+                            });
+                            continue;
                         }
 
                         // Safety check: skip alters that would cause data loss
@@ -103,12 +120,14 @@ public class SqlMigrationPlanRunner
                 {
                     Logger.LogWarning($"{step.Action} {step.TableName} {step.ForeignKey.ColumnName}");
                     sqls.AddRange(CreateForeignKeySql(step.TableName, step.ForeignKey));
+                    // An existing index of the same name already supports the FK, whatever its
+                    // definition, so it is kept rather than replaced.
                     sqls.AddRange(GenerateIndexSql(step.TableName, new IndexModel()
                     {
                         Fields = [step.ForeignKey.ColumnName],
                         IsUnique = false,
                         Kind = IndexKind.NonClustered
-                    }, step.Table));
+                    }, step.Table, replaceExisting: false));
                 }
                 else if (step is { Action: MigrationAction.AddIndex, Index: not null })
                 {
@@ -411,7 +430,7 @@ END";
     /// type, to tell an existing string apart from a value that is only about to become one, and
     /// the width, to know how much the source could be carrying.
     /// </summary>
-    internal readonly record struct ActualColumn(string DataType, int? MaxLength);
+    internal readonly record struct ActualColumn(string DataType, int? MaxLength, bool IsNullable = false);
 
     /// <summary>
     /// Reads the column's current type and width. Returns null when the column does not exist, in
@@ -420,7 +439,7 @@ END";
     private ActualColumn? GetActualColumn(SqlConnection connection, string tableName, string columnName)
     {
         const string sql = @"
-SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
 
@@ -433,7 +452,14 @@ WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
         if (!reader.Read())
             return null;
 
-        return new ActualColumn(reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt32(1));
+        return new ActualColumn(reader.GetString(0), reader.IsDBNull(1) ? null : reader.GetInt32(1), reader.GetString(2) == "YES");
+    }
+
+    private bool HasNulls(SqlConnection connection, string tableName, string columnName)
+    {
+        var sql = $"SELECT TOP 1 1 FROM [{_schema}].[{tableName}] WITH (READPAST) WHERE [{columnName}] IS NULL";
+        using var cmd = new SqlCommand(sql, connection);
+        return cmd.ExecuteScalar() != null;
     }
 
     /// <summary>
@@ -450,8 +476,12 @@ WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table AND COLUMN_NAME = @column";
     /// The IDENTITY property is the one conditional entry: it blocks only when the target type
     /// cannot itself carry an identity, so a numeric(18,0) identity column converting to
     /// decimal(19,0) is left alone to succeed.
+    ///
+    /// Making a column NOT NULL without changing its type is blocked by fewer things: confirmed
+    /// against SQL Server 2022, indexes and user statistics block it, while foreign keys and
+    /// default constraints do not. <paramref name="nullabilityOnly"/> limits the check to those.
     /// </summary>
-    internal List<string> GetAlterColumnBlockers(SqlConnection connection, string tableName, FieldModel field)
+    internal List<string> GetAlterColumnBlockers(SqlConnection connection, string tableName, FieldModel field, bool nullabilityOnly = false)
     {
         const string sql = @"
 DECLARE @objectId int = OBJECT_ID(QUOTENAME(@schema) + '.' + QUOTENAME(@table));
@@ -461,7 +491,7 @@ SELECT DISTINCT Blocker FROM (
     SELECT 'the IDENTITY property' AS Blocker
     FROM sys.columns
     WHERE object_id = @objectId AND column_id = @columnId AND is_identity = 1
-      AND @identityBlocks = 1
+      AND @identityBlocks = 1 AND @nullabilityOnly = 0
 
     UNION ALL
     SELECT 'index [' + i.name + ']'
@@ -473,13 +503,15 @@ SELECT DISTINCT Blocker FROM (
     SELECT 'foreign key [' + fk.name + ']'
     FROM sys.foreign_key_columns fkc
     JOIN sys.foreign_keys fk ON fk.object_id = fkc.constraint_object_id
-    WHERE (fkc.parent_object_id = @objectId AND fkc.parent_column_id = @columnId)
-       OR (fkc.referenced_object_id = @objectId AND fkc.referenced_column_id = @columnId)
+    WHERE ((fkc.parent_object_id = @objectId AND fkc.parent_column_id = @columnId)
+       OR (fkc.referenced_object_id = @objectId AND fkc.referenced_column_id = @columnId))
+      AND @nullabilityOnly = 0
 
     UNION ALL
     SELECT 'default constraint [' + dc.name + ']'
     FROM sys.default_constraints dc
     WHERE dc.parent_object_id = @objectId AND dc.parent_column_id = @columnId
+      AND @nullabilityOnly = 0
 
     UNION ALL
     SELECT 'check constraint [' + cc.name + ']'
@@ -518,6 +550,7 @@ ORDER BY Blocker";
         // The IDENTITY property only blocks when the target cannot itself be an identity type: a
         // numeric(18,0) identity converts to decimal(19,0) quite happily.
         cmd.Parameters.AddWithValue("@identityBlocks", SqlTypeConversion.CanBeIdentity(field) ? 0 : 1);
+        cmd.Parameters.AddWithValue("@nullabilityOnly", nullabilityOnly ? 1 : 0);
 
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -528,7 +561,14 @@ ORDER BY Blocker";
         return blockers;
     }
 
-    internal IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index, TableModel? table = null)
+    /// <summary>
+    /// An index whose name is already taken is rebuilt to the model's definition with DROP_EXISTING
+    /// when <paramref name="replaceExisting"/> is set. The planner only asks for an index that does
+    /// not match what is there, so a same-named index is a stale definition (e.g. the model made it
+    /// unique) - skipping it left the change unapplied while reporting it as applied. DROP_EXISTING
+    /// is atomic: if the rebuild fails (duplicate keys for a unique index) the old index survives.
+    /// </summary>
+    internal IEnumerable<string> GenerateIndexSql(string tableName, IndexModel index, TableModel? table = null, bool replaceExisting = true)
     {
         // Resolve field names to actual column names
         var resolvedFields = IndexFieldResolver.ResolveIndexFieldNames(index.Fields, table);
@@ -548,11 +588,17 @@ ORDER BY Blocker";
             _ => throw new NotImplementedException($"Index kind '{index.Kind}' is not supported.")
         };
 
+        var createSql = $"CREATE {uniqueKeyword}{kindKeyword}INDEX [{indexName}] ON [{_schema}].[{tableName}]({columnList})";
+
         yield return
 $@"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = '{indexName}' AND object_id = OBJECT_ID('{_schema}.{tableName}'))
 BEGIN
-    CREATE {uniqueKeyword}{kindKeyword}INDEX [{indexName}] ON [{_schema}].[{tableName}]({columnList})
-END";
+    {createSql}
+END" + (replaceExisting ? $@"
+ELSE
+BEGIN
+    {createSql} WITH (DROP_EXISTING = ON)
+END" : "");
     }
 
 }

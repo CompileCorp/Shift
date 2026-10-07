@@ -209,20 +209,19 @@ public class SqlServerLoader
                 c.IS_NULLABLE
             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE fk
             INNER JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
-                ON fk.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                ON fk.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
+                AND fk.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
             INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE pk 
-                ON rc.UNIQUE_CONSTRAINT_NAME = pk.CONSTRAINT_NAME
+                ON rc.UNIQUE_CONSTRAINT_SCHEMA = pk.CONSTRAINT_SCHEMA
+                AND rc.UNIQUE_CONSTRAINT_NAME = pk.CONSTRAINT_NAME
+                AND fk.ORDINAL_POSITION = pk.ORDINAL_POSITION
             INNER JOIN INFORMATION_SCHEMA.COLUMNS c
-                ON fk.TABLE_NAME = c.TABLE_NAME 
+                ON fk.TABLE_SCHEMA = c.TABLE_SCHEMA
+                AND fk.TABLE_NAME = c.TABLE_NAME 
                 AND fk.COLUMN_NAME = c.COLUMN_NAME
-                AND fk.TABLE_CATALOG = c.TABLE_CATALOG";
-
-        if (!string.IsNullOrEmpty(schema))
-        {
-            query += " AND fk.TABLE_SCHEMA = c.TABLE_SCHEMA";
-        }
-
-        query += @"
+                AND fk.TABLE_CATALOG = c.TABLE_CATALOG
+            -- Constraint names are only unique within a schema, so every join carries the schema;
+            -- without it the same model in a second schema multiplied each FK row.
             WHERE fk.TABLE_CATALOG = @DatabaseName";
 
         if (!string.IsNullOrEmpty(schema))
@@ -283,7 +282,8 @@ public class SqlServerLoader
             INNER JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
             INNER JOIN sys.tables t ON i.object_id = t.object_id
             INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
-            WHERE i.is_primary_key = 0";
+            WHERE i.is_primary_key = 0
+            AND ic.is_included_column = 0";
 
         if (!string.IsNullOrEmpty(schema))
         {
