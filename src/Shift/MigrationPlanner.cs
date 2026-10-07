@@ -224,8 +224,7 @@ public class MigrationPlanner
             {
                 var missingForeignKeys = targetTable.ForeignKeys
                     .Where(tfk => targetModel.Tables.ContainsKey(tfk.TargetTable))
-                    .Where(tfk => !actualTable.ForeignKeys.Any(afk =>
-                        afk.TargetTable.Equals(tfk.TargetTable, StringComparison.OrdinalIgnoreCase)))
+                    .Where(tfk => !actualTable.ForeignKeys.Any(afk => IsSameForeignKey(afk, tfk)))
                     .ToList();
 
                 foreach (var foreignKey in missingForeignKeys)
@@ -291,8 +290,7 @@ public class MigrationPlanner
                 // declares an explicit index for that column.
                 var missingFkSupportIndexes = targetTable.ForeignKeys
                     .Where(fk => targetModel.Tables.ContainsKey(fk.TargetTable))
-                    .Where(fk => actualTable.ForeignKeys.Any(afk =>
-                        afk.TargetTable.Equals(fk.TargetTable, StringComparison.OrdinalIgnoreCase)))
+                    .Where(fk => actualTable.ForeignKeys.Any(afk => IsSameForeignKey(afk, fk)))
                     .Select(fk => new List<string> { fk.ColumnName })
                     .Where(fields => !actualTable.Indexes.Any(ai =>
                         ai.Fields.SequenceEqual(fields, StringComparer.OrdinalIgnoreCase)))
@@ -370,6 +368,15 @@ public class MigrationPlanner
 		*/
         return plan;
     }
+
+    /// <summary>
+    /// An FK is identified by its column and the table it references. The referenced table alone is
+    /// not enough: a table can hold several FKs to the same table (CreatedBy/LastModifiedBy), and
+    /// matching on it let any one of them stand in for all the others.
+    /// </summary>
+    private static bool IsSameForeignKey(ForeignKeyModel actual, ForeignKeyModel target) =>
+        actual.ColumnName.Equals(target.ColumnName, StringComparison.OrdinalIgnoreCase)
+        && actual.TargetTable.Equals(target.TargetTable, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Records a refusal on the plan and logs it. Both matter: the log is what an operator watching

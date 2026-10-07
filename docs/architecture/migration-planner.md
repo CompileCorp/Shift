@@ -97,7 +97,7 @@ The width is judged against the width the target field will actually be **create
 
 **Detection Logic**:
 - Only considers foreign keys whose `TargetTable` exists in the target model
-- A target FK is considered missing if the actual table has **no** foreign key referencing the same `TargetTable` (matched case-insensitively). Note: the match is on the referenced table only — the FK column name is not compared.
+- A target FK is considered missing if the actual table has no foreign key on the same column referencing the same `TargetTable` (both matched case-insensitively). A table can hold several FKs to one table (e.g. `CreatedBy` and `LastModifiedBy` to `User`); each is checked on its own.
 - Creates `AddForeignKey` migration steps for the missing foreign keys
 
 **Example**:
