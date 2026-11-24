@@ -6,10 +6,12 @@ on:
       - 'v*'  # Trigger on version tags like v1.0.0
   workflow_dispatch:  # Allow manual triggering
 
-# Least privilege: the job only reads the repository. Publishing is authorised by
-# NUGET_API_KEY, not by the GITHUB_TOKEN, so nothing here needs write access.
+# Least privilege: the job only reads the repository. id-token: write lets the job
+# request a GitHub OIDC token, which NuGet trusted publishing exchanges for a
+# short-lived API key. No long-lived NuGet key is stored in the repository.
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build-and-publish:
@@ -46,10 +48,17 @@ jobs:
         # Shift.Cli packs as a .NET tool, which runs publish and so cannot use --no-build.
         dotnet pack src/Shift.Cli/Shift.Cli.csproj --configuration Release --output ./nupkgs -p:Version=${{ steps.get_version.outputs.VERSION }}
 
+    # Trusted publishing: exchange the OIDC token for a temporary API key (valid ~1h).
+    # NUGET_USER is the nuget.org account (profile name, not email) that owns the
+    # trusted publishing policy for this repository and workflow file.
+    - name: NuGet login (trusted publishing)
+      id: nuget_login
+      uses: NuGet/login@v1
+      with:
+        user: ${{ secrets.NUGET_USER }}
+
     # --skip-duplicate so re-running the workflow after a partial failure (e.g. one package
     # pushed, the next rejected) succeeds instead of failing on the already-published package.
     - name: Push to NuGet.org
-      run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
 
